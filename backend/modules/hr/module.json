@@ -1,0 +1,17 @@
+{
+  "code": "hr",
+  "name": {"uz": "Xodimlar va oylik", "ru": "Сотрудники и зарплата", "en": "Staff & payroll"},
+  "version": "1.0.0", "phase": 1, "implemented": true, "order": 70,
+  "depends": [],
+  "permissions": ["hr.view", "hr.edit", "hr.payroll", "hr.*"],
+  "nav": [
+    {"route": "/hr", "label": {"uz": "Xodimlar", "ru": "Сотрудники", "en": "Staff"}, "icon": "users", "order": 70, "perm": "hr.view"}
+  ],
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "late_tolerance_minutes": {"type": "integer", "title": "Kechikish uchun ruxsat (daqiqa)", "default": 10},
+      "payroll_day": {"type": "integer", "title": "Oylik to'lash kuni", "default": 5}
+    }
+  }
+}

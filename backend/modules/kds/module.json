@@ -1,0 +1,19 @@
+{
+  "code": "kds",
+  "name": {"uz": "Oshxona ekrani (KDS)", "ru": "Экран кухни (KDS)", "en": "Kitchen display"},
+  "version": "1.0.0", "phase": 1, "implemented": true, "order": 40,
+  "depends": ["pos"],
+  "permissions": ["kds.view", "kds.cook", "kds.admin", "kds.*"],
+  "nav": [
+    {"route": "/kds", "label": {"uz": "Oshxona ekrani", "ru": "Экран кухни", "en": "Kitchen"}, "icon": "play", "order": 40, "perm": "kds.view"}
+  ],
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "warn_minutes": {"type": "integer", "title": "Sariq rang (daqiqa)", "default": 8},
+      "late_minutes": {"type": "integer", "title": "Qizil rang (daqiqa)", "default": 15},
+      "auto_refresh_seconds": {"type": "integer", "title": "Avtomatik yangilash (soniya)", "default": 5},
+      "create_on": {"type": "string", "title": "Chek qachon oshxonaga tushsin", "enum": ["created", "paid"], "default": "created"}
+    }
+  }
+}

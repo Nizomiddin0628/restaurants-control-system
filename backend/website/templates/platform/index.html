@@ -1,0 +1,40 @@
+{% load static site_tags %}<!doctype html>
+<html lang="uz"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ platform }} — restoran, kafe va fast-food uchun to'liq boshqaruv</title>
+<meta name="description" content="Kassa + fiskal, taomnoma, ombor, hodimlar, Telegram buyurtma — so'mda narxlangan, 15 kun bepul.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="{% static 'site.css' %}">
+<style>:root{--primary:#0F6E63;--accent:#D9482B;--bg:#F4F3EE;--ink:#17171A;--surface:#fff;--line:#E4E2DA;--tint:#E3F0EC;--muted:#6B6A63}</style>
+</head>
+<body>
+<header class="hdr"><div class="container"><a class="brand" href="/"><span class="logo">R</span>{{ platform }}</a>
+<nav class="nav"><a href="#features">Imkoniyatlar</a><a href="#pricing">Narxlar</a><a href="/signup/">Bepul boshlash</a></nav>
+<a class="btn" href="/signup/" style="margin-left:auto">15 kun bepul</a></div></header>
+<main>
+<section class="section container hero">
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <span class="chip" style="align-self:flex-start;color:var(--primary)">So'mda narxlangan · fiskal ichida · Telegram-first</span>
+    <h1 class="h1">Restoraningizni bitta paneldan boshqaring</h1>
+    <p class="muted" style="font-size:1.15em;margin:0;max-width:560px">Kassa va fiskal chek, taomnoma va tannarx, ombor, hodimlar va o'qitish, Telegram buyurtma, yetkazib berish — egasi o'zi sozlaydi, dasturchisiz. Har restoranga alohida baza.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn" href="/signup/">15 daqiqada ishga tushiring</a><a class="btn secondary" href="https://t.me/restopos_uz">Telegram orqali savol</a><a class="btn secondary" href="tel:+998712000000">+998 71 200 00 00</a></div>
+  </div>
+  <div class="card" style="padding:24px;display:grid;gap:12px">
+    {% for code, p in presets.items %}<div class="branch" style="padding:10px 0;border-bottom:1px solid var(--line)"><span class="n">{{ forloop.counter }}</span><div style="flex:1"><b>{{ p.name }}</b><div class="muted" style="font-size:.9em">{{ p.modules|length }} modul tayyor preset</div></div></div>{% endfor %}
+  </div>
+</section>
+<section class="section container" id="features"><h2 class="h2" style="margin-bottom:16px">Nima bor</h2>
+  <div class="grid">
+    {% for f in "Kassa (POS) va fiskal chek — offline ham ishlaydi|Taomnoma, tex-karta, tannarx va bozor narxi|Ombor: Didox kirim, avto-chiqim, inventarizatsiya|Hodimlar: smena, davomat, ish haqi qoidalari|O'qitish: o'z videolaringiz, testlar, SanQvaN jurnallari|Telegram bot + Mini App, bonus tizimi|Yetkazib berish: kuryerlar, zonalar, agregatorlar|Sayt va TV menyu-bord — telefon, planshet, kompyuter, TV"|split:"|" %}
+    <div class="card" style="padding:18px"><b>{{ f }}</b></div>
+    {% endfor %}
+  </div>
+</section>
+<section class="section container" id="pricing"><h2 class="h2" style="margin-bottom:16px">Narxlar — filial uchun oyiga</h2>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+    {% for p in plans %}<div class="card" style="padding:22px;display:flex;flex-direction:column;gap:8px"><b style="font-size:1.2em">{{ p.name }}</b><span style="font-size:2em;font-weight:800">{{ p.price_per_branch|money }} <span style="font-size:.5em;font-weight:600" class="muted">so'm/oy</span></span><span class="muted">{{ p.max_branches }} filialgacha · {% if '*' in p.allowed_modules %}barcha modullar{% else %}{{ p.allowed_modules|length }} modul{% endif %}</span><a class="btn" href="/signup/?plan={{ p.code }}" style="margin-top:auto">15 kun bepul</a></div>{% empty %}<p class="muted">Tariflar: `python manage.py bootstrap_dev`</p>{% endfor %}
+  </div>
+</section>
+</main>
+<footer class="container ftr"><span>© {{ platform }} · O'zbekiston</span><span>Ma'lumotlar O'zbekistonda saqlanadi · IT Park rezidenti</span></footer>
+</body></html>

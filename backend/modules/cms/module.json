@@ -1,0 +1,19 @@
+{
+  "code": "cms",
+  "name": {"uz": "Sayt va brend", "ru": "Сайт и бренд", "en": "Website & brand"},
+  "version": "1.0.0",
+  "phase": 1,
+  "implemented": true,
+  "order": 35,
+  "depends": ["catalog"],
+  "permissions": ["cms.view", "cms.edit", "cms.*"],
+  "nav": [
+    {"route": "/site", "label": {"uz": "Sayt va brend", "ru": "Сайт и бренд", "en": "Website & brand"}, "icon": "globe", "order": 35, "perm": "cms.view"}
+  ],
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "menu_board_rotate_seconds": {"type": "integer", "title": "TV menyu-bord: kategoriya almashish, soniya", "default": 12}
+    }
+  }
+}

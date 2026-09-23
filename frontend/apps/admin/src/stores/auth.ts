@@ -1,0 +1,22 @@
+import { defineStore } from 'pinia'
+import { api, auth as tokenStore, type Me } from '@restopos/api'
+
+export const useAuth = defineStore('auth', {
+  state: () => ({ me: null as Me | null, loading: false }),
+  getters: {
+    can: (s) => (code: string) => {
+      const p = s.me?.permissions ?? []
+      if (p.includes('*') || p.includes(code)) return true
+      const parts = code.split('.')
+      for (let i = 1; i < parts.length; i++) if (p.includes(parts.slice(0, i).join('.') + '.*')) return true
+      return false
+    },
+    hasModule: (s) => (code: string) => !!s.me?.tenant.enabled_modules.includes(code),
+  },
+  actions: {
+    async load() { if (!tokenStore.token) throw new Error('no token'); this.me = await api.get<Me>('/me') },
+    async requestOtp(phone: string) { return api.post<{ ok: boolean; dev_code?: string }>('/auth/otp', { phone }) },
+    async verify(phone: string, code: string) { const r = await api.post<{ token: string; user: Me }>('/auth/verify', { phone, code }); tokenStore.set(r.token); this.me = r.user },
+    logout() { tokenStore.set(null); this.me = null; location.href = '/admin/login' },
+  },
+})

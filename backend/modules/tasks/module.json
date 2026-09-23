@@ -1,0 +1,26 @@
+{
+  "code": "tasks",
+  "name": {"uz": "Vazifalar va muammolar", "ru": "Задачи и проблемы", "en": "Tasks & issues"},
+  "version": "1.0.0",
+  "phase": 1,
+  "implemented": true,
+  "order": 35,
+  "depends": [],
+  "permissions": [
+    "tasks.view", "tasks.view_all", "tasks.create", "tasks.edit", "tasks.assign",
+    "tasks.approve", "tasks.admin", "tasks.delete", "tasks.*"
+  ],
+  "nav": [
+    {"route": "/tasks", "label": {"uz": "Vazifalar va muammolar", "ru": "Задачи и проблемы", "en": "Tasks & issues"}, "icon": "check", "order": 35, "perm": "tasks.view"}
+  ],
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "require_proof_default": {"type": "boolean", "title": "Bajarildi deyish uchun foto-dalil majburiy", "default": true},
+      "require_approval_default": {"type": "boolean", "title": "Nazoratchi tasdig'i majburiy", "default": true},
+      "default_sla_hours": {"type": "integer", "title": "Standart muddat (soat)", "default": 24},
+      "escalate_after_hours": {"type": "integer", "title": "Kechikkanda nazoratchiga xabar (soat)", "default": 4},
+      "allow_anyone_to_report": {"type": "boolean", "title": "Har bir xodim muammo ochishi mumkin (Andon)", "default": true}
+    }
+  }
+}

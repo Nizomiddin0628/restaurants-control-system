@@ -1,0 +1,18 @@
+{
+  "code": "inventory",
+  "name": {"uz": "Ombor va tannarx", "ru": "Склад и себестоимость", "en": "Inventory & food cost"},
+  "version": "1.0.0", "phase": 1, "implemented": true, "order": 60,
+  "depends": ["catalog"],
+  "permissions": ["inventory.view", "inventory.edit", "inventory.purchase", "inventory.recipe", "inventory.*"],
+  "nav": [
+    {"route": "/inventory", "label": {"uz": "Ombor va tannarx", "ru": "Склад и себестоимость", "en": "Inventory"}, "icon": "box", "order": 60, "perm": "inventory.view"}
+  ],
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "price_method": {"type": "string", "title": "Tannarx narxi", "enum": ["last", "average"], "default": "average", "description": "last — oxirgi kirim narxi; average — o'rtacha tortilgan"},
+      "auto_update_product_cost": {"type": "boolean", "title": "Taom tannarxini avtomatik yangilash", "default": true},
+      "deduct_on_sale": {"type": "boolean", "title": "Kassa savdosida omborni avtomatik kamaytirish", "default": true}
+    }
+  }
+}

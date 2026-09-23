@@ -1,0 +1,18 @@
+{
+  "code": "finance",
+  "name": {"uz": "Moliya va hisobotlar", "ru": "Финансы и отчёты", "en": "Finance & reports"},
+  "version": "1.0.0", "phase": 1, "implemented": true, "order": 90,
+  "depends": ["pos"],
+  "permissions": ["finance.view", "finance.edit", "finance.*"],
+  "nav": [
+    {"route": "/reports", "label": {"uz": "Hisobotlar", "ru": "Отчёты", "en": "Reports"}, "icon": "chart", "order": 90, "perm": "finance.view"}
+  ],
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "target_food_cost_percent": {"type": "number", "title": "Maqsadli food cost, %", "default": 32},
+      "target_labor_percent": {"type": "number", "title": "Maqsadli mehnat xarajati, %", "default": 20},
+      "auto_expense_from_purchases": {"type": "boolean", "title": "Ombor kirimini chiqim sifatida ham yozish (kassa usuli)", "default": false}
+    }
+  }
+}

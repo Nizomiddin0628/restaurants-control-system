@@ -1,0 +1,26 @@
+{% load static %}<!doctype html>
+<html lang="uz"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Ro'yxatdan o'tish — {{ platform }}</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap"><link rel="stylesheet" href="{% static 'site.css' %}">
+<style>:root{--primary:#0F6E63;--accent:#D9482B;--bg:#F4F3EE;--ink:#17171A;--surface:#fff;--line:#E4E2DA;--tint:#E3F0EC;--muted:#6B6A63}
+label{display:flex;flex-direction:column;gap:6px;font-weight:600} input,select{min-height:44px;padding:0 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink)}</style></head>
+<body><main class="section container" style="max-width:560px">
+<a href="/" class="brand" style="margin-bottom:20px"><span class="logo">R</span>{{ platform }}</a>
+<h1 class="h2">Restoraningizni 15 daqiqada ishga tushiring</h1><p class="muted">Preset tanlang — modullar, sayt va tema tayyor o'rnatiladi. Keyin panelda hammasini o'zingiz o'zgartirasiz.</p>
+<form id="f" class="card" style="padding:22px;display:grid;gap:14px" onsubmit="return go(event)">
+  <label>Restoran nomi<input name="name" required placeholder="Lazzat Fast Food"></label>
+  <label>Manzil (subdomen)<div style="display:flex;align-items:center;gap:6px"><input name="slug" required pattern="[a-z0-9][a-z0-9-]{2,30}" placeholder="lazzat" style="flex:1"><span class="muted">.{{ domain }}</span></div></label>
+  <label>Egasining telefoni<input name="phone" required placeholder="+998 90 123 45 67"></label>
+  <label>Ism<input name="owner_name" placeholder="Akmal"></label>
+  <label>Turi<select name="preset">{% for code, p in presets.items %}<option value="{{ code }}">{{ p.name }}</option>{% endfor %}</select></label>
+  <input type="hidden" name="plan" value="{{ request.GET.plan|default:'start' }}">
+  <button class="btn" type="submit" id="btn">Yaratish (bepul, 15 kun)</button>
+  <div id="msg" class="muted"></div>
+</form>
+<script>
+async function go(e){e.preventDefault();const b=document.getElementById('btn'),m=document.getElementById('msg');b.disabled=true;m.textContent='Sxema va sayt yaratilmoqda (5–15 soniya)…';
+const data=Object.fromEntries(new FormData(e.target));
+try{const r=await fetch('/api/v1/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const j=await r.json();
+if(!r.ok){m.textContent=j.detail||'Xato';b.disabled=false;return false}
+m.innerHTML=`Tayyor! Sayt: <a href="${j.site_url}">${j.site_url}</a> · Boshqaruv: <a href="${j.admin_url}">${j.admin_url}</a> (telefon raqamingiz bilan kiring, kod SMS/Telegram orqali)`;}
+catch(err){m.textContent='Server bilan aloqa yo\'q';b.disabled=false}return false}
+</script></main></body></html>

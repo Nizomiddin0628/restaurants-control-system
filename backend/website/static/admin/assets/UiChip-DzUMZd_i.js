@@ -1,0 +1,1 @@
+import{d as o,c as a,n as t,K as n,o as r,_ as c}from"./index-Dqq_Ojk7.js";const p=o({__name:"UiChip",props:{tone:{}},setup(e){return(s,i)=>(r(),a("span",{class:t(["chip",e.tone??"neutral"])},[n(s.$slots,"default",{},void 0,!0)],2))}}),_=c(p,[["__scopeId","data-v-e5e72108"]]);export{_ as U};

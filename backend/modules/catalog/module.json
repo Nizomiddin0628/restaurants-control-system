@@ -1,0 +1,21 @@
+{
+  "code": "catalog",
+  "name": {"uz": "Taomnoma va narxlar", "ru": "Меню и цены", "en": "Menu & prices"},
+  "version": "1.0.0",
+  "phase": 1,
+  "implemented": true,
+  "order": 30,
+  "depends": [],
+  "permissions": ["catalog.view", "catalog.edit", "catalog.publish", "catalog.*"],
+  "nav": [
+    {"route": "/catalog", "label": {"uz": "Taomnoma va narxlar", "ru": "Меню и цены", "en": "Menu & prices"}, "icon": "book", "order": 30, "perm": "catalog.view"}
+  ],
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "show_kcal": {"type": "boolean", "title": "Saytda kaloriyani ko'rsatish", "default": true},
+      "round_to": {"type": "integer", "title": "Narxni yaxlitlash (so'm)", "default": 100},
+      "default_markup_percent": {"type": "number", "title": "Tannarxdan standart ustama, %", "default": 60}
+    }
+  }
+}

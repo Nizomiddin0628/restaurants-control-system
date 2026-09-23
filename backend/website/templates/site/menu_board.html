@@ -1,0 +1,39 @@
+{% load static site_tags %}<!doctype html>
+<html lang="{{ lang }}" data-density="tv">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ site.title|default:tenant.name }} — TV</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;800&display=swap">
+<link rel="stylesheet" href="{% static 'site.css' %}">
+<style>:root{--primary:{{ theme.primary|default:'#D9482B' }}}</style>
+</head>
+<body class="board">
+  <header class="board-hdr">
+    <div style="display:flex;align-items:center;gap:20px"><span style="width:56px;height:56px;border-radius:16px;background:var(--primary);display:grid;place-items:center;font-weight:800;font-size:28px">{{ site.title|default:tenant.name|slice:":1" }}</span><span style="font-weight:800;font-size:1.4em">{{ site.title|default:tenant.name }}</span></div>
+    <div class="board-cats" id="bcats">{% for c in menu.categories %}<span class="{% if forloop.first %}on{% endif %}">{{ c.name|t:lang }}</span>{% endfor %}</div>
+    <span id="clock" style="font-weight:800;font-size:1.3em"></span>
+  </header>
+  <main>
+    {% for c in menu.categories %}
+    <section class="board-page {% if forloop.first %}on{% endif %}">
+      <div class="board-grid">
+        {% for p in c.products %}
+        <div class="board-item"><div><div class="nm">{{ p.name|t:lang }}</div><div class="ds">{{ p.description|t:lang }}</div></div><div class="pr">{{ p.price|money }}</div></div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endfor %}
+    {% if not menu.categories %}<p style="padding:56px">Taomnoma hali e'lon qilinmagan.</p>{% endif %}
+  </main>
+  <script>
+    // Kategoriyalar avtomatik aylanadi; pult (← →) bilan ham o'tish mumkin; ekran o'chmaydi (Wake Lock)
+    const pages = [...document.querySelectorAll('.board-page')], tabs = [...document.querySelectorAll('#bcats span')];
+    let i = 0; const show = n => { i = (n + pages.length) % pages.length; pages.forEach((p, k) => p.classList.toggle('on', k === i)); tabs.forEach((t, k) => t.classList.toggle('on', k === i)); };
+    if (pages.length > 1) setInterval(() => show(i + 1), {{ rotate }} * 1000);
+    document.addEventListener('keydown', e => { if (e.key === 'ArrowRight') show(i + 1); if (e.key === 'ArrowLeft') show(i - 1); });
+    const clock = () => document.getElementById('clock').textContent = new Date().toLocaleTimeString('uz-UZ', {hour: '2-digit', minute: '2-digit'}); clock(); setInterval(clock, 15000);
+    if ('wakeLock' in navigator) navigator.wakeLock.request('screen').catch(() => {});
+    setTimeout(() => location.reload(), 10 * 60 * 1000); // 10 daqiqada yangi menyu versiyasini oladi
+  </script>
+</body>
+</html>

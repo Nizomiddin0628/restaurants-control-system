@@ -1,0 +1,9 @@
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+[tool.ruff.lint]
+select = ["E", "F", "I", "B"]
+ignore = ["E501", "B008", "E702", "B007"]  # B008: Django Ninja `File(...)`/`Query(...)` argument defaults — kutubxona uslubi
+[tool.ruff.lint.per-file-ignores]
+"config/settings/*.py" = ["F403", "F405"]
+"*/migrations/*.py" = ["I001"]

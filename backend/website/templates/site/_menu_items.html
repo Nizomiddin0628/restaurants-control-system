@@ -1,0 +1,15 @@
+{% load site_tags %}
+<div class="grid">
+{% for c in menu.categories %}{% if c.id == active_cat %}{% for p in c.products %}
+  <article class="card dish">
+    {% if p.image %}<img class="ph" src="{{ p.image }}" alt="{{ p.name|t:lang }}" loading="lazy">{% else %}<div class="ph">{{ c.name|t:lang }}</div>{% endif %}
+    <div class="body">
+      <div class="name"><span>{{ p.name|t:lang }}</span>{% if 'hit' in p.tags %}<span class="chip" style="color:var(--primary)">Xit</span>{% elif 'new' in p.tags %}<span class="chip">Yangi</span>{% endif %}</div>
+      <span class="muted" style="font-size:.9em">{{ p.description|t:lang }}{% if p.weight_g %} · {{ p.weight_g }} g{% endif %}{% if p.kcal %} · {{ p.kcal }} kkal{% endif %}</span>
+      {% if p.modifier_groups %}<span class="muted" style="font-size:.8em">{% for g in p.modifier_groups %}{{ g.name|t:lang }}{% if not forloop.last %} · {% endif %}{% endfor %}</span>{% endif %}
+      <div class="foot"><span class="price">{{ p.price|money }} so'm</span><button class="add" type="button" aria-label="Savatga" onclick="alert('Buyurtma — 6-bosqich (Telegram Mini App) bilan ulanadi')">+</button></div>
+    </div>
+  </article>
+{% endfor %}{% endif %}{% endfor %}
+{% if not menu.categories %}<p class="muted">Taomnoma hali e'lon qilinmagan.</p>{% endif %}
+</div>

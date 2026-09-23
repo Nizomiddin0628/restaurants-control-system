@@ -1,0 +1,1 @@
+{ "name": "@restopos/tokens", "version": "0.1.0", "private": true, "main": "tokens.css", "files": ["tokens.css"], "scripts": { "build": "echo tokens ok", "typecheck": "echo ok" } }

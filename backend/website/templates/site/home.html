@@ -1,0 +1,112 @@
+{% extends "site/base.html" %}{% load site_tags %}
+{% block content %}
+{% for s in sections %}
+  {% if s.type == 'hero' %}
+  <section class="section container hero" id="hero">
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <span class="chip" style="align-self:flex-start;color:var(--primary)">● {% if lang == 'ru' %}Открыто · доставка{% elif lang == 'en' %}Open · delivery{% else %}Hozir ochiq · yetkazish{% endif %} {{ site.delivery.eta_min|default:25 }}–{{ site.delivery.eta_max|default:35 }} {% if lang == 'ru' %}мин{% elif lang == 'en' %}min{% else %}daqiqa{% endif %}</span>
+      <h1 class="h1">{{ s.title|t:lang|default:s.props.title }}</h1>
+      <p class="muted" style="font-size:1.15em;margin:0;max-width:520px">{{ s.props.subtitle }}</p>
+      <form class="order-bar" action="/menu/" method="get">
+        <div class="toggle"><button type="button" class="on" onclick="this.classList.add('on');this.nextElementSibling.classList.remove('on')">{% if lang == 'ru' %}Доставка{% elif lang == 'en' %}Delivery{% else %}Yetkazib berish{% endif %}</button><button type="button" onclick="this.classList.add('on');this.previousElementSibling.classList.remove('on')">{% if lang == 'ru' %}Самовывоз{% elif lang == 'en' %}Pickup{% else %}Olib ketish{% endif %}</button></div>
+        <label class="addr" style="flex:1"><span class="muted">📍</span><input name="address" placeholder="{% if lang == 'ru' %}Адрес доставки{% elif lang == 'en' %}Delivery address{% else %}Manzil{% endif %}"></label>
+        <button class="btn" type="submit">{{ s.props.cta|default:"Buyurtma berish" }}</button>
+      </form>
+      <div class="muted" style="display:flex;gap:18px;flex-wrap:wrap;font-size:0.9em"><span>✓ Payme · Click · UzQR</span><span>✓ {% if lang == 'ru' %}Фискальный чек{% elif lang == 'en' %}Fiscal receipt{% else %}Fiskal chek{% endif %}</span></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      {% with menu.categories|first as first_cat %}{% with first_cat.products|first as fp %}
+      <div class="hero-card">
+        <div style="position:relative;display:flex;flex-direction:column;gap:6px">
+          <span style="font-size:0.8em;letter-spacing:.08em;text-transform:uppercase;opacity:.9">{% if lang == 'ru' %}Хит недели{% elif lang == 'en' %}Pick of the week{% else %}Haftaning taomi{% endif %}</span>
+          <span style="font-size:1.8em;font-weight:800;line-height:1.05">{{ fp.name|t:lang|default:"Taomnoma" }}</span>
+          {% if fp %}<span style="opacity:.95">{{ fp.description|t:lang }}</span><span style="font-size:1.4em;font-weight:800">{{ fp.price|money }} so'm</span>{% endif %}
+        </div>
+      </div>
+      {% endwith %}{% endwith %}
+      <div class="stats">
+        <div class="card stat"><b>{{ site.delivery.eta_min|default:25 }} {% if lang == 'ru' %}мин{% elif lang == 'en' %}min{% else %}daq{% endif %}</b><span class="muted">{% if lang == 'ru' %}средняя доставка{% elif lang == 'en' %}avg delivery{% else %}o'rtacha yetkazish{% endif %}</span></div>
+        {% for b in sections %}{% if b.type == 'bonus' %}<div class="card stat"><b>{{ b.props.percent|default:5 }}%</b><span class="muted">bonus</span></div>{% endif %}{% endfor %}
+        <div class="card stat"><b>{{ site.delivery.free_from|default:80000|money }}</b><span class="muted">{% if lang == 'ru' %}бесплатно от{% elif lang == 'en' %}free from{% else %}dan bepul yetkazish{% endif %}</span></div>
+      </div>
+    </div>
+  </section>
+
+  {% elif s.type == 'menu' %}
+  <section class="section container" id="menu">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:18px">
+      <div><h2 class="h2">{{ s.title|t:lang|default:s.props.title }}</h2><p class="muted" style="margin:6px 0 0">{% if lang == 'ru' %}Цены одинаковы во всех филиалах{% elif lang == 'en' %}Same prices in every branch{% else %}Narxlar barcha filiallarda bir xil{% endif %}</p></div>
+      <a class="btn secondary" href="/menu/">{% if lang == 'ru' %}Всё меню →{% elif lang == 'en' %}Full menu →{% else %}To'liq taomnoma →{% endif %}</a>
+    </div>
+    {% if s.props.show_categories %}<div class="cats" style="margin-bottom:16px">{% for c in menu.categories %}<a href="/menu/?cat={{ c.id }}">{{ c.name|t:lang }}</a>{% endfor %}</div>{% endif %}
+    <div class="grid">
+      {% for c in menu.categories|slice:":2" %}{% for p in c.products|slice:":4" %}
+      <article class="card dish">
+        {% if p.image %}<img class="ph" src="{{ p.image }}" alt="{{ p.name|t:lang }}" loading="lazy">{% else %}<div class="ph">{{ c.name|t:lang }}</div>{% endif %}
+        <div class="body">
+          <div class="name"><span>{{ p.name|t:lang }}</span>{% if 'hit' in p.tags %}<span class="chip" style="color:var(--primary)">Xit</span>{% elif 'new' in p.tags %}<span class="chip">Yangi</span>{% endif %}</div>
+          <span class="muted" style="font-size:.9em">{{ p.description|t:lang }}{% if p.kcal %} · {{ p.kcal }} kkal{% endif %}</span>
+          <div class="foot"><span class="price">{{ p.price|money }} so'm</span><a class="add" href="/menu/?cat={{ c.id }}" aria-label="Qo'shish" style="display:grid;place-items:center;text-decoration:none">+</a></div>
+        </div>
+      </article>
+      {% endfor %}{% endfor %}
+      {% if not menu.categories %}<p class="muted">Taomnoma hali e'lon qilinmagan.</p>{% endif %}
+    </div>
+  </section>
+
+  {% elif s.type == 'bonus' %}
+  <section class="section container" id="bonus">
+    <div class="bonus">
+      <span style="font-size:.8em;letter-spacing:.08em;text-transform:uppercase;color:var(--primary)">{{ s.title|t:lang|default:s.props.title }}</span>
+      <h2 class="h2">{% if lang == 'ru' %}Каждый заказ — скидка на следующий{% elif lang == 'en' %}Every order earns the next one{% else %}Har buyurtma — keyingisiga chegirma{% endif %}</h2>
+      <div class="tiles">
+        <div class="tile"><b>{{ s.props.percent|default:5 }}%</b>{% if lang == 'ru' %}с каждого чека на бонусный счёт{% elif lang == 'en' %}of every receipt back as bonus{% else %}har chekdan bonus hisobiga qaytadi{% endif %}</div>
+        <div class="tile"><b>{{ s.props.gift_visit|default:4 }}-{% if lang == 'ru' %}й{% elif lang == 'en' %}th{% else %}chi{% endif %}</b>{% if lang == 'ru' %}заказ — напиток в подарок{% elif lang == 'en' %}order — free drink{% else %}buyurtmada ichimlik bepul{% endif %}</div>
+        <div class="tile"><b>×2</b>{% if lang == 'ru' %}бонусы в неделю дня рождения{% elif lang == 'en' %}bonus in your birthday week{% else %}tug'ilgan kun haftasida bonus{% endif %}</div>
+      </div>
+      {% if site.telegram %}<a class="btn" style="align-self:flex-start;background:var(--bg);color:var(--ink)" href="https://t.me/{{ site.telegram|cut:'@'|cut:'https://t.me/' }}">Telegram-botda karta ochish</a>{% endif %}
+    </div>
+  </section>
+
+  {% elif s.type == 'branches' %}
+  <section class="section container" id="branches">
+    <h2 class="h2" style="margin-bottom:16px">{{ s.title|t:lang|default:s.props.title }}</h2>
+    <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr))">
+      {% for b in branches %}
+      <div class="card branch"><span class="n">{{ forloop.counter }}</span><div style="flex:1"><b>{{ b.name }}</b><div class="muted" style="font-size:.9em">{{ b.address }}{% if b.phone %} · {{ b.phone }}{% endif %}</div></div>{% if b.lat %}<a class="chip" href="https://yandex.uz/maps/?pt={{ b.lng }},{{ b.lat }}&z=16" target="_blank" rel="noopener">Xarita</a>{% endif %}</div>
+      {% empty %}<p class="muted">Filiallar hali kiritilmagan.</p>{% endfor %}
+    </div>
+  </section>
+
+  {% elif s.type == 'delivery' %}
+  <section class="section container" id="delivery">
+    <div class="card" style="padding:24px"><h2 class="h2" style="margin-bottom:16px">{{ s.title|t:lang|default:s.props.title }}</h2>
+      <div class="steps">
+        <div class="step"><span class="num">1</span><div><b>{% if lang == 'ru' %}Заказ — 30 секунд{% elif lang == 'en' %}Order — 30 seconds{% else %}Buyurtma — 30 soniya{% endif %}</b><div class="muted">{% if lang == 'ru' %}Сайт, Telegram-бот или касса{% elif lang == 'en' %}Website, Telegram bot or counter{% else %}Sayt, Telegram-bot yoki kassada{% endif %}</div></div></div>
+        <div class="step"><span class="num">2</span><div><b>{% if lang == 'ru' %}Кухня — в реальном времени{% elif lang == 'en' %}Kitchen — live{% else %}Oshxona — real vaqtda{% endif %}</b><div class="muted">{% if lang == 'ru' %}Заказ сразу на экране кухни{% elif lang == 'en' %}Straight to the kitchen screen{% else %}Buyurtma to'g'ridan-to'g'ri oshxona ekraniga tushadi{% endif %}</div></div></div>
+        <div class="step"><span class="num">3</span><div><b>{% if lang == 'ru' %}Курьер — на карте{% elif lang == 'en' %}Courier — on the map{% else %}Kuryer — xaritada{% endif %}</b><div class="muted">{{ site.delivery.eta_min|default:25 }}–{{ site.delivery.eta_max|default:35 }} {% if lang == 'ru' %}минут · бесплатно от{% elif lang == 'en' %}minutes · free from{% else %}daqiqa · {% endif %} {{ site.delivery.free_from|default:80000|money }} {% if lang == 'uz' %}so'mdan bepul{% endif %}</div></div></div>
+        <div class="step"><span class="num">4</span><div><b>{% if lang == 'ru' %}Оценка и бонус{% elif lang == 'en' %}Rating & bonus{% else %}Baho va bonus{% endif %}</b><div class="muted">{% if lang == 'ru' %}Фискальный чек — в Telegram{% elif lang == 'en' %}Fiscal receipt in Telegram{% else %}Fiskal chek Telegramga keladi{% endif %}</div></div></div>
+      </div>
+    </div>
+  </section>
+
+  {% elif s.type == 'text' %}
+  <section class="section container" id="text-{{ s.id }}"><div class="card" style="padding:24px"><h2 class="h2">{{ s.title|t:lang }}</h2><p>{{ s.props.body|linebreaksbr }}</p></div></section>
+
+  {% elif s.type == 'gallery' %}
+  <section class="section container" id="gallery"><h2 class="h2" style="margin-bottom:16px">{{ s.title|t:lang }}</h2><div class="grid">{% for img in s.props.images %}<img class="card" src="{{ img }}" alt="" loading="lazy" style="aspect-ratio:1;object-fit:cover">{% endfor %}</div></section>
+
+  {% elif s.type == 'contact' %}
+  <section class="section container" id="contact">
+    <div class="card" style="padding:24px" ><h2 class="h2" style="margin-bottom:12px">{{ s.title|t:lang|default:s.props.title }}</h2>
+      <div class="contact">
+        {% if site.phone %}<a class="btn secondary" href="tel:{{ site.phone }}" style="justify-content:flex-start">📞 {{ site.phone }}</a>{% endif %}
+        {% if site.telegram %}<a class="btn secondary" href="https://t.me/{{ site.telegram|cut:'@'|cut:'https://t.me/' }}" style="justify-content:flex-start">✈ Telegram</a>{% endif %}
+        {% if site.instagram %}<a class="btn secondary" href="https://instagram.com/{{ site.instagram|cut:'@' }}" style="justify-content:flex-start">◎ Instagram</a>{% endif %}
+        {% if site.address %}<span class="muted">{{ site.address }}</span>{% endif %}
+      </div>
+    </div>
+  </section>
+  {% endif %}
+{% endfor %}
+{% endblock %}

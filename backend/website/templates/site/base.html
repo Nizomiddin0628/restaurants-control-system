@@ -1,0 +1,58 @@
+{% load static site_tags %}<!doctype html>
+<html lang="{{ lang }}" data-theme="{% if theme.dark_default %}dark{% else %}light{% endif %}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{% block title %}{{ site.seo.title|default:site.title|default:tenant.name }}{% endblock %}</title>
+<meta name="description" content="{{ site.seo.description|default:'' }}">
+<meta name="theme-color" content="{{ theme.primary }}">
+<link rel="manifest" href="/manifest.webmanifest">
+{% if site.favicon %}<link rel="icon" href="{{ site.favicon.url }}">{% endif %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="{% static 'site.css' %}">
+<style>
+  :root { --primary: {{ theme.primary|default:'#D9482B' }}; --accent: {{ theme.accent|default:'#0F6E63' }}; --bg: {{ theme.bg|default:'#FFF6EA' }}; --ink: {{ theme.ink|default:'#1C1512' }}; --radius: {{ theme.radius|default:16 }}px; }
+  {{ site.custom_css|safe }}
+</style>
+<script src="https://unpkg.com/htmx.org@2.0.3" defer></script>
+{% block head %}{% endblock %}
+</head>
+<body>
+{% block body %}
+<header class="hdr">
+  <div class="container">
+    <a class="brand" href="/">
+      {% if site.logo %}<img src="{{ site.logo.url }}" alt="" style="width:36px;height:36px;border-radius:10px;object-fit:cover">{% else %}<span class="logo">{{ site.title|default:tenant.name|slice:":1" }}</span>{% endif %}
+      <span>{{ site.title|default:tenant.name }}</span>
+    </a>
+    <nav class="nav">
+      {% for s in sections %}{% if s.type != 'hero' and s.type != 'menu' %}<a href="/#{{ s.type }}">{{ s.title|t:lang|default:s.get_type_display }}</a>{% endif %}{% endfor %}
+      <a href="/menu/">{% if lang == 'ru' %}Меню{% elif lang == 'en' %}Menu{% else %}Taomnoma{% endif %}</a>
+    </nav>
+    {% if languages|length > 1 %}<div class="lang">{% for l in languages %}<a href="?lang={{ l }}" class="{% if l == lang %}on{% endif %}">{{ l|upper }}</a>{% endfor %}</div>{% endif %}
+    {% if site.telegram %}<a class="btn" href="https://t.me/{{ site.telegram|cut:'@'|cut:'https://t.me/' }}" style="display:none" id="tgBtn">Telegram</a>{% endif %}
+    <button class="burger" aria-label="Menyu" onclick="document.getElementById('mnav').classList.toggle('open')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+  </div>
+  <div class="container"><nav class="mnav" id="mnav">
+    {% for s in sections %}{% if s.type != 'hero' and s.type != 'menu' %}<a href="/#{{ s.type }}" onclick="document.getElementById('mnav').classList.remove('open')">{{ s.title|t:lang|default:s.get_type_display }}</a>{% endif %}{% endfor %}
+    <a href="/menu/">{% if lang == 'ru' %}Меню{% elif lang == 'en' %}Menu{% else %}Taomnoma{% endif %}</a>
+  </nav></div>
+</header>
+<main>{% block content %}{% endblock %}</main>
+<footer class="container ftr">
+  <span>© {{ site.title|default:tenant.name }}{% if site.address %} · {{ site.address }}{% endif %}</span>
+  <span>{% if site.phone %}<a href="tel:{{ site.phone }}">{{ site.phone }}</a>{% endif %}{% if site.instagram %} · <a href="https://instagram.com/{{ site.instagram|cut:'@' }}">Instagram</a>{% endif %} · <a href="/tv/menu-board/">TV</a> · <a href="/admin/">Boshqaruv</a></span>
+</footer>
+<script>
+  // Mavjud tema tanlovi (mijoz brauzeri) — localStorage bo'lmasa ham ishlaydi
+  try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  // TV / katta ekran aniqlash: pult bilan ishlaydigan brauzerlar uchun zichlik
+  if (window.matchMedia('(min-width: 1921px)').matches || /SmartTV|SMART-TV|Tizen|WebOS|BRAVIA|AFTT|Android TV/i.test(navigator.userAgent)) document.documentElement.dataset.density = 'tv';
+  const tg = document.getElementById('tgBtn'); if (tg && window.innerWidth > 1024) tg.style.display = 'inline-flex';
+</script>
+{% endblock %}
+</body>
+</html>

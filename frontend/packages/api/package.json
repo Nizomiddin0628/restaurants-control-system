@@ -1,0 +1,14 @@
+{
+  "name": "@restopos/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "echo api ok",
+    "typecheck": "echo ok",
+    "generate": "openapi-typescript http://lazzat.localhost:8000/api/v1/openapi.json -o src/schema.d.ts"
+  },
+  "devDependencies": { "openapi-typescript": "^7.4.0" }
+}

@@ -1,0 +1,26 @@
+# python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+# django
+backend/media/
+backend/staticfiles/
+backend/*.sqlite3
+# env
+.env
+# node
+node_modules/
+frontend/**/dist/
+.vite/
+# admin build — CI yig'adi; lokalda `pnpm build` (repo'ga qo'shmoqchi bo'lsangiz keyingi qatorni o'chiring)
+# backend/website/static/admin/
+# os / ide
+.DS_Store
+.idea/
+.vscode/
+pgdata/
+
+*.zip
+backend/_git_eski/

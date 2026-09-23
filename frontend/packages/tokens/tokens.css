@@ -1,0 +1,73 @@
+/* RestoPOS dizayn-tokenlar — maketlardan olingan (light/dark × 4 ekran sinfi).
+   Ranglar rol bo'yicha: --bg (sahifa), --surface (karta), --surface-2 (ichki panel), --line, --ink, --ink-2, --muted,
+   --accent (teal — boshqaruv), --brand (pomidor — brend), holatlar: --ok, --warn, --danger, --info. */
+
+:root {
+  /* light */
+  --bg: #F4F3EE; --surface: #FFFFFF; --surface-2: #FAFAF7; --surface-3: #F0EEE6; --line: #E4E2DA; --line-2: #F0EEE6;
+  --ink: #17171A; --ink-2: #3E3D38; --muted: #6B6A63; --ink-inv: #FFFFFF;
+  --accent: #0F6E63; --accent-ink: #FFFFFF; --accent-tint: #E3F0EC; --accent-hover: #0A4F47;
+  --brand: #D9482B; --brand-ink: #FFF6EA;
+  --ok: #1E7F4F; --ok-tint: #E3F0EC; --warn: #B7791F; --warn-tint: #FBF3E3; --warn-ink: #8A5A12;
+  --danger: #C2321F; --danger-tint: #FBEDEA; --info: #1F5FBF; --info-tint: #E6EEF9;
+  --series-1: #2A78D6; --series-2: #EB6834; --series-3: #1BAF7A; --series-4: #EDA100;
+  /* grafik ranglari — CVD (rang ko'rmaslik) tekshiruvidan o'tgan qadamlar; holat = rang + yozuv */
+  --chart-new: #6C5CA8; --chart-active: #B7791F; --chart-review: #1F5FBF; --chart-done: #1E7F4F; --chart-cancel: #6B6A63;
+  --chart-bar: #0F6E63; --chart-grid: #E4E2DA;
+
+  /* shakl va o'lchov */
+  --radius-s: 8px; --radius: 12px; --radius-l: 16px; --radius-xl: 24px;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px; --space-6: 24px; --space-8: 32px;
+  --fs-xs: 11px; --fs-s: 12px; --fs-m: 13px; --fs-b: 14px; --fs-l: 16px; --fs-xl: 20px; --fs-2xl: 26px; --fs-3xl: 34px;
+  --touch: 40px; --sidebar-w: 232px; --topbar-h: 64px; --gutter: 28px;
+  --font: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Bricolage Grotesque', var(--font);
+  --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
+  color-scheme: light;
+}
+
+/* dark — tanlangan qadamlar, avtomatik inversiya emas */
+:root[data-theme="dark"] {
+  --bg: #141416; --surface: #1E1E22; --surface-2: #232327; --surface-3: #2E2E34; --line: #2E2E34; --line-2: #2A2A2F;
+  --ink: #F2F1EC; --ink-2: #C9C8C0; --muted: #A19F96; --ink-inv: #0E0E10;
+  --accent: #3DBE8B; --accent-ink: #0B2B20; --accent-tint: #16322C; --accent-hover: #4FD1B0;
+  --brand: #E85A3C; --brand-ink: #1C1512;
+  --ok: #4CC38A; --ok-tint: #16322C; --warn: #E0A33A; --warn-tint: #3A2E14; --warn-ink: #E0A33A;
+  --danger: #F0705C; --danger-tint: #3B1F1B; --info: #7FB2F5; --info-tint: #1C2A40;
+  --series-1: #3987E5; --series-2: #D95926; --series-3: #199E70; --series-4: #C98500;
+  --chart-new: #8374D0; --chart-active: #C08528; --chart-review: #3D86E0; --chart-done: #279A66; --chart-cancel: #A19F96;
+  --chart-bar: #3DBE8B; --chart-grid: #2E2E34;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141416; --surface: #1E1E22; --surface-2: #232327; --surface-3: #2E2E34; --line: #2E2E34; --line-2: #2A2A2F;
+    --ink: #F2F1EC; --ink-2: #C9C8C0; --muted: #A19F96; --ink-inv: #0E0E10;
+    --accent: #3DBE8B; --accent-ink: #0B2B20; --accent-tint: #16322C; --accent-hover: #4FD1B0;
+    --brand: #E85A3C; --brand-ink: #1C1512;
+    --ok: #4CC38A; --ok-tint: #16322C; --warn: #E0A33A; --warn-tint: #3A2E14; --warn-ink: #E0A33A;
+    --danger: #F0705C; --danger-tint: #3B1F1B; --info: #7FB2F5; --info-tint: #1C2A40;
+    --series-1: #3987E5; --series-2: #D95926; --series-3: #199E70; --series-4: #C98500;
+  --chart-new: #8374D0; --chart-active: #C08528; --chart-review: #3D86E0; --chart-done: #279A66; --chart-cancel: #A19F96;
+  --chart-bar: #3DBE8B; --chart-grid: #2E2E34;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+    color-scheme: dark;
+  }
+}
+
+/* ekran sinflari: telefon ≤600 · planshet 601–1024 · kompyuter 1025–1920 · TV ≥1921 yoki [data-density=tv] */
+@media (max-width: 600px) { :root { --gutter: 16px; --touch: 44px; --fs-b: 15px; --fs-m: 14px; --fs-2xl: 24px; --topbar-h: 56px; } }
+@media (min-width: 601px) and (max-width: 1024px) { :root { --gutter: 20px; --touch: 44px; --sidebar-w: 72px; } }
+@media (min-width: 1921px) { :root { --gutter: 48px; --fs-b: 18px; --fs-m: 16px; --fs-s: 15px; --fs-2xl: 34px; --fs-3xl: 44px; --touch: 56px; --sidebar-w: 300px; --topbar-h: 84px; } }
+[data-density="tv"] { --gutter: 56px; --fs-b: 22px; --fs-m: 20px; --fs-s: 18px; --fs-xs: 16px; --fs-l: 26px; --fs-xl: 30px; --fs-2xl: 40px; --fs-3xl: 56px; --touch: 72px; --sidebar-w: 340px; --topbar-h: 96px; --radius: 18px; --radius-l: 24px; }
+[data-density="compact"] { --fs-b: 13px; --fs-m: 12px; --touch: 34px; --space-4: 12px; }
+
+/* bazaviy */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { font-family: var(--font); font-size: var(--fs-b); line-height: 1.45; color: var(--ink); background: var(--bg); -webkit-font-smoothing: antialiased; }
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: var(--accent); }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-s); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

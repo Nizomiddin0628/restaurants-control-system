@@ -1,0 +1,18 @@
+{
+  "code": "pos",
+  "name": {"uz": "Kassa (POS)", "ru": "Касса (POS)", "en": "POS"},
+  "version": "1.0.0", "phase": 1, "implemented": true, "order": 20,
+  "depends": ["catalog"],
+  "permissions": ["pos.sell", "pos.shift", "pos.refund", "pos.view_all", "pos.*"],
+  "nav": [
+    {"route": "/pos", "label": {"uz": "Kassa", "ru": "Касса", "en": "POS"}, "icon": "receipt", "order": 20, "perm": "pos.sell"}
+  ],
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "require_shift": {"type": "boolean", "title": "Savdo faqat ochiq smenada", "default": false},
+      "default_order_type": {"type": "string", "title": "Standart buyurtma turi", "enum": ["dine_in", "takeaway", "delivery"], "default": "takeaway"},
+      "receipt_footer": {"type": "string", "title": "Chek pastidagi yozuv", "default": "Rahmat! Yana kutamiz."}
+    }
+  }
+}

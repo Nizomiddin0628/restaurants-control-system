@@ -1,0 +1,22 @@
+{
+  "code": "reservations",
+  "name": {"uz": "Bron va navbat", "ru": "Бронирование и очередь", "en": "Reservations & waitlist"},
+  "version": "1.0.0", "phase": 1, "implemented": true, "order": 46,
+  "depends": ["tables"],
+  "permissions": ["reservations.view", "reservations.manage", "reservations.*"],
+  "nav": [
+    {"route": "/reservations", "label": {"uz": "Bron va navbat", "ru": "Бронь и очередь", "en": "Reservations"}, "icon": "calendar", "order": 46, "perm": "reservations.view"}
+  ],
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "default_duration_minutes": {"type": "integer", "title": "Bron davomiyligi (daqiqa)", "default": 90},
+      "buffer_minutes": {"type": "integer", "title": "Stollar orasidagi tanaffus (daqiqa)", "default": 15},
+      "open_hour": {"type": "integer", "title": "Ish boshlanishi (soat)", "default": 10},
+      "close_hour": {"type": "integer", "title": "Ish tugashi (soat)", "default": 23},
+      "max_days_ahead": {"type": "integer", "title": "Necha kun oldin bron qilinadi", "default": 30},
+      "remind_minutes": {"type": "integer", "title": "Eslatma (bron oldidan, daqiqa)", "default": 60},
+      "no_show_minutes": {"type": "integer", "title": "Kelmadi deb belgilash (daqiqa)", "default": 20}
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "restopos-frontend",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "dev": "pnpm --filter @restopos/admin dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "api:generate": "pnpm --filter @restopos/api generate"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

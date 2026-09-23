@@ -1,0 +1,9 @@
+{
+  "code": "payments",
+  "name": {"uz": "To'lovlar (Payme, Click)", "ru": "Платежи (Payme, Click)", "en": "Payments (Payme, Click)"},
+  "version": "1.0.0", "phase": 1, "implemented": true, "order": 22,
+  "depends": ["pos"],
+  "permissions": ["payments.view", "payments.*"],
+  "nav": [],
+  "settings_schema": {"type": "object", "properties": {}}
+}

@@ -1,0 +1,19 @@
+{
+  "code": "tables",
+  "name": {"uz": "Stollar va zal", "ru": "Столы и зал", "en": "Tables & floor"},
+  "version": "1.0.0", "phase": 1, "implemented": true, "order": 45,
+  "depends": ["pos"],
+  "permissions": ["tables.view", "tables.serve", "tables.admin", "tables.*"],
+  "nav": [
+    {"route": "/tables", "label": {"uz": "Zal va stollar", "ru": "Зал и столы", "en": "Floor"}, "icon": "sofa", "order": 45, "perm": "tables.view"}
+  ],
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "long_sit_minutes": {"type": "integer", "title": "Uzoq o'tirish ogohlantirishi (daqiqa)", "default": 90},
+      "require_cleaning": {"type": "boolean", "title": "Yopilgach «tozalash kerak» holati qo'yilsin", "default": true},
+      "auto_open_on_order": {"type": "boolean", "title": "Kassada zal buyurtmasi ochilsa stol o'zi band bo'lsin", "default": true},
+      "default_guests": {"type": "integer", "title": "Sukut bo'yicha mehmon soni", "default": 2}
+    }
+  }
+}
