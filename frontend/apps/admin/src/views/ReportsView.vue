@@ -219,7 +219,7 @@ async function savePay() { try { await api.put('/payments/settings', pay.value);
 .two { display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; align-items: start; } .col { display: flex; flex-direction: column; gap: 14px; }
 .pl { width: 100%; border-collapse: collapse; font-size: var(--fs-s); } .pl td { padding: 8px 6px; border-bottom: 1px solid var(--line-2); } .pl td:nth-child(2), .pl td:nth-child(3) { text-align: right; white-space: nowrap; }
 .pl .h td { font-weight: 800; background: var(--surface-2); } .pl .in { padding-left: 22px; } .pl .net td { font-family: var(--font-display); font-size: var(--fs-l); } .pl .net.good td { color: var(--ok); } .pl .net.bad td { color: var(--danger); }
-.hint { display: flex; gap: 6px; align-items: flex-start; font-size: var(--fs-xs); color: var(--muted); margin: 10px 0 0; line-height: 1.5; } .hint code { background: var(--surface-3); padding: 1px 5px; border-radius: 4px; }
+.hint { display: block; font-size: var(--fs-xs); color: var(--muted); margin: 10px 0 0; line-height: 1.5; } .hint > svg { vertical-align: -2px; margin-right: 4px; } .hint code { background: var(--surface-3); padding: 1px 5px; border-radius: 4px; }
 .bars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
 .bars li { display: grid; grid-template-columns: 70px 1fr 64px 36px; align-items: center; gap: 8px; font-size: var(--fs-s); }
 .bars .nm { color: var(--ink-2); } .track { height: 8px; background: var(--surface-3); border-radius: 4px; overflow: hidden; } .fill { display: block; height: 100%; background: var(--chart-bar); border-radius: 4px; }

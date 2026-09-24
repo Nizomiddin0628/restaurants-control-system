@@ -310,5 +310,15 @@ button.l-r { cursor: pointer; } button.l-r:hover, .l-r.sel { background: var(--a
 .chip-btn.on { background: var(--danger-tint); color: var(--danger); border-color: var(--danger); }
 .tip { display: flex; gap: 6px; font-size: var(--fs-xs); color: var(--muted); background: var(--surface-2); border-radius: var(--radius); padding: 8px 10px; margin: 0; }
 @media (max-width: 1100px) { .split { grid-template-columns: 1fr; } .kpis { grid-template-columns: repeat(3, 1fr); } .cost-row { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 600px) { .kpis { grid-template-columns: 1fr 1fr; } .l-h { display: none; } .l-r { grid-template-columns: 1fr 1fr !important; } .grid2 { grid-template-columns: 1fr; } }
+@media (max-width: 600px) {
+  .kpis { grid-template-columns: 1fr 1fr; } .grid2 { grid-template-columns: 1fr; }
+  /* telefon: har qator — nomi (to'liq kenglik) + qolgan qiymatlar ixcham qatorda, sarlavha yashirin */
+  .l-h { display: none; }
+  .l-r { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 4px 8px; padding: 10px 14px; }
+  .l-r > .nm { grid-column: 1 / -1; }
+  .l-r > span:not(.nm):not(.acts) { font-size: var(--fs-xs); color: var(--ink-2); }
+  .l-r > .acts { grid-column: 1 / -1; justify-content: flex-start; }
+  .l-r.pur { grid-template-columns: 1fr auto !important; }
+  .cost-row { grid-template-columns: 1fr 1fr; }
+}
 </style>

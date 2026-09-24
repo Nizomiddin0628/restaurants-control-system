@@ -51,7 +51,7 @@ const courseOpts = computed(() => [{ value: '', label: '— kursga bog\'lanmagan
     <div class="rows">
       <button v-for="a in list" :key="a.id" type="button" class="row" :class="{ off: !a.is_active }" @click="openView(a)">
         <span class="ic"><UiIcon :name="['video', 'youtube', 'drive', 'vimeo'].includes(a.media_view?.kind) ? 'play' : a.media_view ? 'image' : 'camera'" :size="18" /></span>
-        <span class="info"><b>{{ a.title }}</b><small>{{ a.due_at ? 'Muddat: ' + fmtDate(a.due_at) : 'Muddatsiz' }}<template v-if="a.responsible"> · Mas'ul: {{ a.responsible.full_name }}</template></small></span>
+        <span class="minfo"><b>{{ a.title }}</b><small>{{ a.due_at ? 'Muddat: ' + fmtDate(a.due_at) : 'Muddatsiz' }}<template v-if="a.responsible"> · Mas'ul: {{ a.responsible.full_name }}</template></small></span>
         <span class="cnt">
           <UiChip v-if="a.counts.submitted" tone="info">{{ a.counts.submitted }} tekshiruvda</UiChip>
           <span class="done"><b>{{ a.counts.approved }}</b>/{{ a.total }} qabul</span>
@@ -111,7 +111,7 @@ const courseOpts = computed(() => [{ value: '', label: '— kursga bog\'lanmagan
 .row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; cursor: pointer; font: inherit; color: inherit; text-align: left; }
 .row.off { opacity: .5; }
 .ic { width: 40px; height: 40px; border-radius: 10px; background: var(--tr-gold-tint, #F6F0E4); color: var(--tr-gold, #A8894F); display: grid; place-items: center; flex-shrink: 0; }
-.info { flex: 1; min-width: 0; display: flex; flex-direction: column; } .info small { color: var(--muted); font-size: 12px; }
+.minfo { flex: 1; min-width: 0; display: flex; flex-direction: column; } .minfo small { color: var(--muted); font-size: 12px; }
 .cnt { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .done { font-size: 13px; color: var(--muted); white-space: nowrap; } .done b { color: var(--ink); font-size: 16px; }
 .fld { display: flex; flex-direction: column; gap: 6px; } .fld span, .lbl { font-size: 13px; font-weight: 700; color: var(--ink-2); }

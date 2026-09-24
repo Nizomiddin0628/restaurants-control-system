@@ -363,15 +363,24 @@ def dashboard_summary(request):
     if t.module_enabled("pos"):
         from datetime import timedelta as _td
 
+        from django.db.models import Count as _C
+        from django.db.models import Sum as _S
+
         from modules.finance.reports import pnl as _pnl
+        from modules.pos.models import Order as _O
+        from modules.pos.models import OrderStatus as _OS
         today = timezone.localdate()
         d = _pnl(today, today)
-        y = _pnl(today - _td(days=1), today - _td(days=1))
         m = _pnl(today.replace(day=1), today)
+        # adolatli taqqoslash: bugun hozirgacha ↔ kecha xuddi shu soatgacha (ertalab doim "qizil" chiqmasin)
+        now = timezone.now()
+        ya = _O.objects.filter(status=_OS.PAID, paid_at__date=today - _td(days=1), paid_at__lte=now - _td(days=1)).aggregate(r=_S("total"), n=_C("id"))
+        y_rev, y_n = int(ya["r"] or 0), ya["n"] or 0
+        y_avg = int(y_rev / y_n) if y_n else 0
         kpis += [
-            {"key": "revenue", "label": "Bugungi savdo", "value": d["revenue"], "money": True, "delta": _delta(d["revenue"], y["revenue"]), "hint": f"Kecha: {y['revenue']:,}".replace(",", " ")},
-            {"key": "orders", "label": "Buyurtmalar", "value": d["orders"], "delta": _delta(d["orders"], y["orders"]), "hint": f"Kecha: {y['orders']}"},
-            {"key": "avg_check", "label": "O'rtacha chek", "value": d["avg_check"], "money": True, "delta": _delta(d["avg_check"], y["avg_check"])},
+            {"key": "revenue", "label": "Bugungi savdo", "value": d["revenue"], "money": True, "delta": _delta(d["revenue"], y_rev), "hint": f"kecha shu vaqtgacha {y_rev:,}".replace(",", " ")},
+            {"key": "orders", "label": "Buyurtmalar", "value": d["orders"], "delta": _delta(d["orders"], y_n), "hint": f"kecha shu vaqtgacha {y_n}"},
+            {"key": "avg_check", "label": "O'rtacha chek", "value": d["avg_check"], "money": True, "delta": _delta(d["avg_check"], y_avg)},
             {"key": "food_cost", "label": "Food cost (oy)", "value": f"{m['food_cost_percent']}%", "hint": "Me'yor: 28–35%", "warn": m["food_cost_percent"] > 35},
             {"key": "labor", "label": "Mehnat xarajati (oy)", "value": f"{m['labor_percent']}%", "hint": "Me'yor: ≤ 25%", "warn": m["labor_percent"] > 25},
             {"key": "net", "label": "Sof foyda (oy)", "value": m["net_profit"], "money": True, "hint": f"Marja: {m['net_margin_percent']}%"},
@@ -401,7 +410,7 @@ def dashboard_summary(request):
             {"key": "publish", "label": "Taomnoma e'lon qilingan", "done": published is not None, "route": "/catalog"},
             {"key": "site", "label": "Sayt sozlangan (nom, telefon)", "done": bool(site.title and site.phone), "route": "/site"},
             {"key": "branch", "label": "Filial manzili kiritilgan", "done": Branch.objects.exclude(address="").exists(), "route": "/branches"},
-            {"key": "users", "label": "Hodimlar qo'shilgan", "done": User.objects.count() > 1, "route": "/users"},
+            {"key": "users", "label": "Xodimlar qo'shilgan", "done": User.objects.count() > 1, "route": "/users"},
             {"key": "recipes", "label": "Tex-kartalar kiritilgan (tannarx)", "done": _has_recipes(), "route": "/inventory"},
             {"key": "shift", "label": "Kassa smenasi ochilgan", "done": _has_shift(), "route": "/pos"},
         ],

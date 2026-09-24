@@ -61,11 +61,15 @@ const cell = (row: T, c: Col<T>) => c.format ? c.format((row as any)[c.key], row
 .empty { padding: 32px; text-align: center; color: var(--muted); }
 @media (max-width: 600px) {
   .head { display: none; }
-  .row { flex-wrap: wrap; padding: 12px 14px; gap: 4px 12px; }
-  .c { flex: 1 1 45% !important; white-space: normal; font-size: var(--fs-s); }
+  /* telefon: har qator — karta. Birinchi ustun (nomi) to'liq kenglikda, qolganlari 2 ustunda, belgilash katagi burchakda */
+  .row { position: relative; flex-wrap: wrap; padding: 12px 14px; gap: 6px 12px; }
+  .row:has(.chk) { padding-right: 48px; }
+  .c { flex: 1 1 40% !important; white-space: normal; font-size: var(--fs-s); }
   .c::before { content: attr(data-label); display: block; font-size: var(--fs-xs); color: var(--muted); font-weight: 700; }
+  .row > .chk + .c, .row > .c:first-child { flex: 1 1 100% !important; font-size: var(--fs-b); }
+  .row > .chk + .c::before, .row > .c:first-child::before { content: none; }
   .c.hp { display: none; }
-  .chk { flex: 0 0 100% !important; }
+  .chk { position: absolute; top: 12px; right: 14px; flex: none !important; }
   .chk::before { content: none; }
 }
 </style>

@@ -9,9 +9,9 @@ const emit = defineEmits<{ (e: 'update:modelValue', v: string): void }>()
   </label>
 </template>
 <style scoped>
-.ui-field { display: flex; flex-direction: column; gap: 6px; }
+.ui-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .lbl { font-size: var(--fs-s); font-weight: 700; color: var(--muted); }
 .box { display: flex; min-height: var(--touch); padding: 0 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
 .box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-tint); }
-select { flex: 1; border: 0; outline: 0; background: transparent; }
+select { flex: 1; min-width: 0; width: 100%; border: 0; outline: 0; background: transparent; font: inherit; color: var(--ink); text-overflow: ellipsis; }
 </style>

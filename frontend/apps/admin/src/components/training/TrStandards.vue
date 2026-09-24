@@ -44,7 +44,7 @@ const userOpts = computed(() => [{ value: '', label: '— tanlanmagan —' }, ..
     <div class="rows">
       <article v-for="s in list.filter(x => x.is_active)" :key="s.id" class="row">
         <span class="ic"><UiIcon name="shield" :size="18" /></span>
-        <button type="button" class="info" @click="openForm(s)"><b>{{ s.title }}</b><small>{{ s.category || 'Bo\'limsiz' }} · v{{ s.version }} · yangilangan {{ fmtDate(s.updated_at) }}</small></button>
+        <button type="button" class="minfo" @click="openForm(s)"><b>{{ s.title }}</b><small>{{ s.category || 'Bo\'limsiz' }} · v{{ s.version }} · yangilangan {{ fmtDate(s.updated_at) }}</small></button>
         <button type="button" class="st" @click="openAcks(s)">
           <b>{{ s.acked }}<small>/{{ s.audience }}</small></b><span>tanishgan</span>
           <div class="tr-bar"><i :style="{ width: (s.audience ? (100 * s.acked) / s.audience : 0) + '%' }"></i></div>
@@ -87,7 +87,7 @@ const userOpts = computed(() => [{ value: '', label: '— tanlanmagan —' }, ..
 .rows { display: flex; flex-direction: column; gap: 8px; }
 .row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
 .ic { width: 40px; height: 40px; border-radius: 10px; background: var(--tr-green-tint, #E6F5EC); color: var(--tr-green, #1E9E5A); display: grid; place-items: center; flex-shrink: 0; }
-.info { flex: 1; min-width: 0; border: 0; background: none; cursor: pointer; font: inherit; color: inherit; text-align: left; display: flex; flex-direction: column; } .info small { color: var(--muted); font-size: 12px; }
+.minfo { flex: 1; min-width: 0; border: 0; background: none; cursor: pointer; font: inherit; color: inherit; text-align: left; display: flex; flex-direction: column; } .minfo small { color: var(--muted); font-size: 12px; }
 .st { width: 130px; border: 0; background: var(--surface-2); border-radius: 10px; padding: 8px 10px; cursor: pointer; font: inherit; color: inherit; display: flex; flex-direction: column; gap: 3px; text-align: left; }
 .st b { font-size: 17px; } .st b small { font-size: 12px; color: var(--muted); } .st span { font-size: 11px; color: var(--muted); }
 .fld { display: flex; flex-direction: column; gap: 6px; } .fld span, .lbl { font-size: 13px; font-weight: 700; color: var(--ink-2); }

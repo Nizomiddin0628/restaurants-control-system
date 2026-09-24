@@ -8,7 +8,7 @@ from .services import create_purchase, recompute_all
 
 ING = [
     # (nom, kategoriya, birlik, narx so'm/birlik, min qoldiq)
-    ("Mol go'shti (qiyma)", "Go'sht", "kg", 95_000, 5),
+    ("Mol go'shti (qiyma)", "Go'sht", "kg", 88_000, 5),
     ("Tovuq filesi", "Go'sht", "kg", 42_000, 5),
     ("Burger noni", "Non", "dona", 2_500, 50),
     ("Lavash xamiri", "Non", "dona", 1_800, 50),
@@ -27,9 +27,9 @@ ING = [
 
 RECIPES = {
     # taom nomi (uz) → [(xomashyo, mayda birlik miqdori, chiqindi %)]
-    "Lazzat Burger": [("Burger noni", 1, 0), ("Mol go'shti (qiyma)", 110, 5), ("Pishloq (cheddar)", 20, 0),
-                      ("Pomidor", 30, 10), ("Salat bargi", 10, 15), ("Piyoz", 15, 10), ("Sous (burger)", 25, 0)],
-    "Double Burger": [("Burger noni", 1, 0), ("Mol go'shti (qiyma)", 200, 5), ("Pishloq (cheddar)", 40, 0),
+    "Lazzat Burger": [("Burger noni", 1, 0), ("Mol go'shti (qiyma)", 90, 5), ("Pishloq (cheddar)", 12, 0),
+                      ("Pomidor", 30, 10), ("Salat bargi", 10, 15), ("Piyoz", 15, 10), ("Sous (burger)", 20, 0)],
+    "Double Burger": [("Burger noni", 1, 0), ("Mol go'shti (qiyma)", 140, 5), ("Pishloq (cheddar)", 25, 0),
                       ("Pomidor", 30, 10), ("Salat bargi", 10, 15), ("Sous (burger)", 30, 0)],
     "Tovuqli burger": [("Burger noni", 1, 0), ("Tovuq filesi", 130, 8), ("Salat bargi", 10, 15), ("Bodring", 25, 10),
                        ("Sous (burger)", 25, 0), ("O'simlik moyi", 20, 0)],

@@ -38,7 +38,7 @@ void props
     <div class="rows">
       <article v-for="c in list" :key="c.id" class="row">
         <button type="button" class="cov" :style="c.cover ? { backgroundImage: `url(${c.cover})` } : {}" @click="openEdit(c.id)"><UiIcon v-if="!c.cover" name="book" :size="22" /></button>
-        <button type="button" class="info" @click="openEdit(c.id)">
+        <button type="button" class="cinfo" @click="openEdit(c.id)">
           <b>{{ c.title }}</b>
           <small>{{ c.category || 'Bo\'limsiz' }} · {{ c.lessons_count }} dars · {{ c.quizzes_count }} test<template v-if="c.responsible"> · Mas'ul: {{ c.responsible.full_name }}</template></small>
           <span class="chips">
@@ -91,8 +91,8 @@ void props
 .rows { display: flex; flex-direction: column; gap: 10px; }
 .row { display: grid; grid-template-columns: 120px 1fr 160px auto; gap: 14px; align-items: center; padding: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
 .cov { aspect-ratio: 16/9; border-radius: 10px; border: 0; cursor: pointer; background: linear-gradient(135deg, #3a2f22, #8a6d3b) center / cover; color: #fff; display: grid; place-items: center; }
-.info { text-align: left; border: 0; background: none; cursor: pointer; font: inherit; color: inherit; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.info b { font-size: 16px; } .info small { color: var(--muted); }
+.cinfo { text-align: left; border: 0; background: none; cursor: pointer; font: inherit; color: inherit; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cinfo b { font-size: 16px; } .cinfo small { color: var(--muted); }
 .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
 .stat { border: 0; background: var(--surface-2); border-radius: 12px; padding: 10px; cursor: pointer; font: inherit; color: inherit; display: flex; flex-direction: column; gap: 4px; text-align: left; }
 .stat .big { font-size: 20px; font-weight: 800; } .stat .big small { font-size: 13px; color: var(--muted); } .stat > span { font-size: 12px; color: var(--muted); }
@@ -101,6 +101,11 @@ void props
 .kp div { background: var(--surface-2); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; } .kp b { font-size: 20px; } .kp span { font-size: 12px; color: var(--muted); } .kp .warn b { color: var(--danger); }
 .rr { display: grid; grid-template-columns: 1fr 120px auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line-2); }
 .nm { display: flex; flex-direction: column; } .nm small { color: var(--muted); font-size: 12px; }
-@media (max-width: 800px) { .row { grid-template-columns: 90px 1fr; } .stat { grid-column: 1 / -1; } .acts { position: absolute; } .row { position: relative; } .acts { top: 8px; right: 8px; } }
+@media (max-width: 800px) {
+  .row { grid-template-columns: 76px minmax(0, 1fr) auto; gap: 10px; align-items: start; }
+  .stat { grid-column: 1 / -1; flex-direction: row; align-items: center; flex-wrap: wrap; gap: 4px 10px; }
+  .stat .tr-bar { flex: 1 1 100%; }
+  .cinfo b { font-size: 15px; }
+}
 @media (max-width: 600px) { .kp { grid-template-columns: repeat(2, 1fr); } .rr { grid-template-columns: 1fr auto; } .pb { grid-column: 1 / -1; grid-row: 2; } }
 </style>

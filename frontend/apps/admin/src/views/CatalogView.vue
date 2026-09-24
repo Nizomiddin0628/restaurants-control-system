@@ -129,7 +129,7 @@ function selectCat(id: number) { activeCat.value = id; loadProducts() }
         </div>
         <div class="i18n"><UiInput v-model="editing.weight_g" type="number" label="Og'irlik" suffix="g" /><UiInput v-model="editing.kcal" type="number" label="Kaloriya" suffix="kkal" /><UiInput v-model="editing.sku" label="SKU" /></div>
         <UiInput :model-value="(editing.tags ?? []).join(', ')" label="Teglar" hint="hit, new, spicy, value — vergul bilan" @update:model-value="editing!.tags = String($event).split(',').map(s => s.trim()).filter(Boolean)" />
-        <UiInput v-model="editing.ikpu_code" label="IKPU kodi" hint="Fiskal chek uchun (4-bosqich)" />
+        <UiInput v-model="editing.ikpu_code" label="IKPU kodi" hint="Fiskal chek uchun — Soliq qo'mitasi katalogidagi kod" />
         <div class="i18n"><UiToggle v-model="editing.is_active" label="Faol" /><UiToggle v-model="editing.in_stop_list" label="Stop-list" /></div>
       </template>
       <template #footer>

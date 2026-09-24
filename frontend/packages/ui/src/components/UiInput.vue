@@ -18,13 +18,13 @@ const onInput = (e: Event) => {
   </label>
 </template>
 <style scoped>
-.ui-field { display: flex; flex-direction: column; gap: 6px; }
+.ui-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .lbl { font-size: var(--fs-s); font-weight: 700; color: var(--muted); }
 .box { display: flex; align-items: center; min-height: var(--touch); padding: 0 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
 .box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-tint); }
 .box.err { border-color: var(--danger); }
 .box.dis { opacity: .6; }
-input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; }
+input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; color: var(--ink); }
 .sfx { color: var(--muted); font-size: var(--fs-s); padding-left: 8px; }
 .msg { font-size: var(--fs-xs); color: var(--muted); }
 .msg.err { color: var(--danger); }

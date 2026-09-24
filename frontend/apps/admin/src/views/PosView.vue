@@ -211,7 +211,7 @@ function printReceipt(o: any) {
 .stopl { position: absolute; top: 8px; right: 8px; background: var(--danger); color: #fff; border-radius: 999px; padding: 2px 8px; font-size: 10px; font-weight: 800; }
 .cart { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-l); padding: 12px; display: flex; flex-direction: column; gap: 10px; position: sticky; top: calc(var(--topbar-h) + var(--gutter)); max-height: calc(100vh - var(--topbar-h) - 2 * var(--gutter)); }
 .types { display: flex; gap: 4px; background: var(--surface-2); border-radius: var(--radius); padding: 3px; }
-.types button { flex: 1; min-height: 36px; border: 0; border-radius: var(--radius-s); background: transparent; font-weight: 700; font-size: var(--fs-xs); cursor: pointer; }
+.types button { flex: 1; min-height: 44px; padding: 4px 6px; border: 0; border-radius: var(--radius-s); background: transparent; font-weight: 700; font-size: var(--fs-s); line-height: 1.15; color: var(--ink-2); cursor: pointer; }
 .types button.on { background: var(--surface); box-shadow: var(--shadow); }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .items { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; min-height: 120px; }

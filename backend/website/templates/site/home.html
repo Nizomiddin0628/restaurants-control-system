@@ -42,7 +42,7 @@
     <div class="grid">
       {% for c in menu.categories|slice:":2" %}{% for p in c.products|slice:":4" %}
       <article class="card dish">
-        {% if p.image %}<img class="ph" src="{{ p.image }}" alt="{{ p.name|t:lang }}" loading="lazy">{% else %}<div class="ph">{{ c.name|t:lang }}</div>{% endif %}
+        {% if p.image %}<img class="ph" src="{{ p.image }}" alt="{{ p.name|t:lang }}" loading="lazy">{% else %}<div class="ph ph-empty" aria-hidden="true"><span>{{ p.name|t:lang|slice:":1" }}</span></div>{% endif %}
         <div class="body">
           <div class="name"><span>{{ p.name|t:lang }}</span>{% if 'hit' in p.tags %}<span class="chip" style="color:var(--primary)">Xit</span>{% elif 'new' in p.tags %}<span class="chip">Yangi</span>{% endif %}</div>
           <span class="muted" style="font-size:.9em">{{ p.description|t:lang }}{% if p.kcal %} · {{ p.kcal }} kkal{% endif %}</span>
@@ -96,7 +96,7 @@
   {% elif s.type == 'gallery' %}
   <section class="section container" id="gallery"><h2 class="h2" style="margin-bottom:16px">{{ s.title|t:lang }}</h2><div class="grid">{% for img in s.props.images %}<img class="card" src="{{ img }}" alt="" loading="lazy" style="aspect-ratio:1;object-fit:cover">{% endfor %}</div></section>
 
-  {% elif s.type == 'contact' %}
+  {% elif s.type == 'contact' %}{% if site.phone or site.telegram or site.instagram or site.address %}
   <section class="section container" id="contact">
     <div class="card" style="padding:24px" ><h2 class="h2" style="margin-bottom:12px">{{ s.title|t:lang|default:s.props.title }}</h2>
       <div class="contact">
@@ -107,6 +107,6 @@
       </div>
     </div>
   </section>
-  {% endif %}
+  {% endif %}{% endif %}
 {% endfor %}
 {% endblock %}

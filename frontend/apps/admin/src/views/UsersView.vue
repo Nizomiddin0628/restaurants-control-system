@@ -11,7 +11,7 @@ const open = ref(false), u = ref({ phone: '+998 ', full_name: '', role_code: 'ca
 const load = async () => { [users.value, roles.value, perms.value] = await Promise.all([api.get('/users'), api.get('/roles'), api.get('/permissions')]) }
 onMounted(load)
 const columns = [{ key: 'full_name', label: 'Ism' }, { key: 'phone', label: 'Telefon' }, { key: 'roles', label: 'Rol', format: (v: string[]) => v.join(', ') }, { key: 'last_seen_at', label: 'Oxirgi kirish', hideOnPhone: true, format: (v: string | null) => (v ? new Date(v).toLocaleString('uz-UZ') : '—') }] as any
-async function save() { try { await api.post('/users', u.value); open.value = false; await load(); toast('Hodim qo\'shildi — telefon raqami bilan kiradi') } catch (e: any) { toast(e.detail ?? 'Xato', 'danger') } }
+async function save() { try { await api.post('/users', u.value); open.value = false; await load(); toast('Xodim qo\'shildi — telefon raqami bilan kiradi') } catch (e: any) { toast(e.detail ?? 'Xato', 'danger') } }
 async function deactivate(x: U) { if (!confirm(`${x.full_name || x.phone} ni o'chirasizmi?`)) return; try { await api.del(`/users/${x.id}`); await load() } catch (e: any) { toast(e.detail ?? 'Xato', 'danger') } }
 function togglePerm(p: string) { if (!r.value) return; r.value.permissions = r.value.permissions.includes(p) ? r.value.permissions.filter(x => x !== p) : [...r.value.permissions, p] }
 async function saveRole() { if (!r.value) return; try { r.value.id ? await api.put(`/roles/${r.value.id}`, r.value) : await api.post('/roles', r.value); roleOpen.value = false; await load(); toast('Rol saqlandi') } catch (e: any) { toast(e.detail ?? 'Xato', 'danger') } }
@@ -19,7 +19,7 @@ async function saveRole() { if (!r.value) return; try { r.value.id ? await api.p
 <template>
   <div class="wrap">
     <UiCard title="Foydalanuvchilar" subtitle="Telefon raqam = login. Kod SMS/Telegram orqali keladi, parol kerak emas.">
-      <template #actions><UiButton size="s" @click="open = true"><UiIcon name="plus" /> Hodim</UiButton></template>
+      <template #actions><UiButton size="s" @click="open = true"><UiIcon name="plus" /> Xodim</UiButton></template>
       <UiTable :rows="users" :columns="columns" @row="deactivate($event as U)" />
       <p class="hint">Qatorni bosib hodimni o'chirish (nofaol qilish) mumkin.</p>
     </UiCard>

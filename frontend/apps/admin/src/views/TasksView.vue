@@ -173,7 +173,6 @@ const initials = (n?: string) => (n || '?').split(' ').map(x => x[0]).slice(0, 2
   <div class="tasks">
     <header class="page-h">
       <div>
-        <h2>Vazifalar va muammolar</h2>
         <p>Restoranning barcha operatsion ishlari bitta joyda: ko'ring, nazorat qiling, bajaring.</p>
       </div>
       <div class="page-a">

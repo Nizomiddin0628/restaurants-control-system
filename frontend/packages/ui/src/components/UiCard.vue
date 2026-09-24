@@ -1,8 +1,9 @@
 <script setup lang="ts">
-defineProps<{ title?: string; subtitle?: string; padded?: boolean; inverted?: boolean }>()
+// padded: Vue boolean prop'ni yo'q bo'lsa `false` qiladi — shuning uchun standartni aniq `true` qilamiz
+withDefaults(defineProps<{ title?: string; subtitle?: string; padded?: boolean; inverted?: boolean }>(), { padded: true })
 </script>
 <template>
-  <section class="ui-card" :class="{ inv: inverted, pad: padded !== false }">
+  <section class="ui-card" :class="{ inv: inverted, pad: padded }">
     <header v-if="title || $slots.actions" class="hd">
       <div><h3 v-if="title" class="t">{{ title }}</h3><p v-if="subtitle" class="s">{{ subtitle }}</p></div>
       <div class="act"><slot name="actions" /></div>
@@ -13,10 +14,13 @@ defineProps<{ title?: string; subtitle?: string; padded?: boolean; inverted?: bo
 <style scoped>
 .ui-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-l); display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .ui-card.pad { padding: var(--space-5) var(--space-5); }
+.ui-card:not(.pad) > .hd { padding: var(--space-4) var(--space-5) 0; }
+@media (max-width: 600px) { .ui-card.pad { padding: var(--space-4); } .ui-card:not(.pad) > .hd { padding: var(--space-4) var(--space-4) 0; } }
 .ui-card.inv { background: var(--ink); color: var(--ink-inv); border-color: transparent; }
 .hd { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .t { margin: 0; font-size: var(--fs-l); font-weight: 800; }
 .s { margin: 4px 0 0; font-size: var(--fs-s); color: var(--muted); }
-.inv .s { color: var(--surface-3); }
+/* .ui-card.inv — sahifa ildizidagi boshqa .inv klassi bilan to'qnashmasin */
+.ui-card.inv .s { color: var(--surface-3); }
 .act { display: flex; gap: 8px; flex-wrap: wrap; }
 </style>

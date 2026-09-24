@@ -28,7 +28,7 @@ const phoneNav = computed(() => {
 })
 /** Ichki sahifalar ham (masalan /training/lesson/5) o'z bo'limini belgilaydi */
 const isOn = (r: string) => (r === '/' ? route.path === '/' : route.path === r || route.path.startsWith(r + '/'))
-const title = computed(() => t(nav.value.find(n => isOn(n.route))?.label ?? { uz: '' }, ui.lang))
+const title = computed(() => t(nav.value.find(n => isOn(n.route))?.label ?? { uz: (route.meta.title as string) ?? '' }, ui.lang))
 const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d) return null; return Math.max(0, Math.ceil((new Date(d).getTime() - Date.now()) / 86400000)) })
 </script>
 <template>
@@ -40,10 +40,12 @@ const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d)
       </div>
       <nav class="nav">
         <RouterLink v-for="n in nav" :key="n.route" :to="n.route" class="item" :class="{ on: isOn(n.route) }" @click="ui.sidebarOpen = false">
-          <UiIcon :name="n.icon" /><span class="lbl">{{ t(n.label, ui.lang) }}</span>
+          <UiIcon :name="n.icon" /><span class="lbl" :title="t(n.label, ui.lang)">{{ t(n.label, ui.lang) }}</span>
         </RouterLink>
       </nav>
       <div class="foot">
+        <a class="item ponly" href="/" target="_blank" rel="noopener"><UiIcon name="globe" /><span class="lbl">Saytni ochish</span></a>
+        <a class="item ponly" href="/tv/menu-board/" target="_blank" rel="noopener"><UiIcon name="tv" /><span class="lbl">TV menyu</span></a>
         <div v-if="trialDays !== null" class="trial">Sinov: <b>{{ trialDays }} kun</b></div>
         <button class="item" type="button" @click="ui.cycleTheme()"><UiIcon :name="ui.theme === 'dark' ? 'moon' : 'sun'" /><span class="lbl">{{ ui.theme === 'auto' ? 'Tema: avto' : ui.theme === 'dark' ? 'Tema: dark' : 'Tema: light' }}</span></button>
         <button class="item" type="button" @click="a.logout()"><UiIcon name="logout" /><span class="lbl">Chiqish</span></button>
@@ -75,7 +77,9 @@ const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d)
 .logo { width: 34px; height: 34px; border-radius: 10px; background: var(--brand); color: var(--brand-ink); display: grid; place-items: center; font-family: var(--font-display); font-weight: 800; flex-shrink: 0; }
 .bt { display: flex; flex-direction: column; min-width: 0; } .bt b { font-size: var(--fs-b); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .bt span { font-size: var(--fs-xs); color: var(--muted); }
 .nav { display: flex; flex-direction: column; gap: 4px; }
-.item { display: flex; align-items: center; gap: 10px; min-height: var(--touch); padding: 0 12px; border-radius: var(--radius); color: var(--ink-2); text-decoration: none; font-weight: 600; font-size: var(--fs-b); border: 0; background: transparent; cursor: pointer; text-align: left; }
+.item { display: flex; align-items: center; gap: 10px; min-height: var(--touch); padding: 0 12px; border-radius: var(--radius); color: var(--ink-2); text-decoration: none; font-weight: 600; font-size: var(--fs-b); border: 0; background: transparent; cursor: pointer; text-align: left; flex-shrink: 0; }
+.item .lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.ponly { display: none; }
 .item:hover { background: var(--surface-3); }
 .item.on { background: var(--accent-tint); color: var(--accent); font-weight: 700; }
 .foot { margin-top: auto; display: flex; flex-direction: column; gap: 4px; }
@@ -99,7 +103,9 @@ const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d)
   .scrim { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 30; }
   .burger { display: grid; place-items: center; }
   .content { padding-bottom: calc(var(--gutter) + 64px); }
-  .hp { display: none; }
+  .hp, .top .link { display: none; }
+  .ponly { display: flex; }
+  .top h1 { font-size: var(--fs-l); }
   .tabbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--surface); border-top: 1px solid var(--line); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
   .tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; font-size: 10px; font-weight: 700; color: var(--muted); text-decoration: none; border: 0; background: transparent; }
   .tab.on { color: var(--accent); }

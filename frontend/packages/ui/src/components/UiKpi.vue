@@ -12,9 +12,10 @@ defineProps<{ label: string; value: string | number; note?: string; tone?: 'ok' 
 .kpi { display: flex; flex-direction: column; gap: 4px; padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-l); min-width: 0; }
 .kpi.inv { background: var(--ink); color: var(--ink-inv); border-color: transparent; }
 .l { font-size: var(--fs-s); color: var(--muted); font-weight: 600; }
-.inv .l { color: var(--surface-3); }
-.v { font-family: var(--font-display); font-size: var(--fs-2xl); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+.kpi.inv .l { color: var(--surface-3); }
+.v { font-family: var(--font-display); font-size: var(--fs-2xl); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 600px) { .kpi { padding: 12px; } .v { font-size: var(--fs-xl); } }
 .n { font-size: var(--fs-s); font-weight: 700; }
 .n.ok { color: var(--ok); } .n.warn { color: var(--warn); } .n.danger { color: var(--danger); } .n.muted { color: var(--muted); font-weight: 600; }
-.inv .n.muted { color: var(--surface-3); }
+.kpi.inv .n.muted { color: var(--surface-3); }
 </style>

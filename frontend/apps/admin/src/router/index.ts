@@ -28,7 +28,7 @@ export const router = createRouter({
         { path: 'users', name: 'users', component: () => import('@/views/UsersView.vue') },
         { path: 'modules', name: 'modules', component: () => import('@/views/ModulesView.vue') },
         { path: 'settings', name: 'settings', component: () => import('@/views/SettingsView.vue') },
-        { path: 'audit', name: 'audit', component: () => import('@/views/AuditView.vue') },
+        { path: 'audit', name: 'audit', component: () => import('@/views/AuditView.vue'), meta: { title: "O'zgarishlar tarixi" } },
         { path: ':pathMatch(.*)*', redirect: '/' },
       ],
     },

@@ -20,17 +20,17 @@ def seed_demo_menu():
         Modifier.objects.create(group=spicy, name={"uz": n, "ru": n, "en": n}, price=0, is_default=(j == 0), sort_order=j)
 
     items = [
-        ("Burgerlar", "Lazzat Burger", "Mol go'shti kotleti, cheddar, pomidor, maxsus sous", 36000, 15400, 220, 520, ["hit"], [sauce]),
-        ("Burgerlar", "Double Burger", "Ikki kotlet, cheddar, karamel piyoz", 42000, 21900, 320, 780, ["new"], [sauce]),
-        ("Burgerlar", "Tovuqli burger", "Grill tovuq, salat, sous", 30000, 11800, 210, 480, [], [sauce]),
-        ("Lavash", "Tovuqli lavash", "Grill tovuq, yangi sabzavot, yogurt sousi", 28000, 10100, 350, 610, ["hit"], [spicy]),
-        ("Lavash", "Mol go'shtli lavash", "Mol go'shti, sabzavot, sous", 32000, 13200, 360, 650, [], [spicy]),
-        ("Donar", "Donar katta", "Mol go'shti, kartoshka fri, 2 sous", 32000, 14400, 400, 780, ["hit"], [sauce]),
-        ("Donar", "Donar kichik", "Mol go'shti, kartoshka fri, sous", 24000, 10800, 280, 560, [], [sauce]),
-        ("Kombolar", "Kombo №1", "Burger + fri + 0,4 l ichimlik", 49000, 24000, 520, 1040, ["value"], []),
-        ("Kombolar", "Kombo №2", "Lavash + fri + 0,4 l ichimlik", 44000, 21000, 560, 1050, [], []),
+        ("Burgerlar", "Lazzat Burger", "Mol go'shti kotleti, cheddar, pomidor, maxsus sous", 36000, 12600, 220, 520, ["hit"], [sauce]),
+        ("Burgerlar", "Double Burger", "Ikki kotlet, cheddar, karamel piyoz", 49000, 19800, 320, 780, ["new"], [sauce]),
+        ("Burgerlar", "Tovuqli burger", "Grill tovuq, salat, sous", 30000, 10300, 210, 480, [], [sauce]),
+        ("Lavash", "Tovuqli lavash", "Grill tovuq, yangi sabzavot, yogurt sousi", 28000, 8400, 350, 610, ["hit"], [spicy]),
+        ("Lavash", "Mol go'shtli lavash", "Mol go'shti, sabzavot, sous", 32000, 10200, 360, 650, [], [spicy]),
+        ("Donar", "Donar katta", "Mol go'shti, kartoshka fri, 2 sous", 32000, 10200, 400, 780, ["hit"], [sauce]),
+        ("Donar", "Donar kichik", "Mol go'shti, kartoshka fri, sous", 24000, 7700, 280, 560, [], [sauce]),
+        ("Kombolar", "Kombo №1", "Burger + fri + 0,4 l ichimlik", 49000, 16200, 520, 1040, ["value"], []),
+        ("Kombolar", "Kombo №2", "Lavash + fri + 0,4 l ichimlik", 44000, 14500, 560, 1050, [], []),
         ("Garnir", "Kartoshka fri", "Katta porsiya", 15000, 3300, 150, 420, [], [sauce]),
-        ("Ichimliklar", "Cola 0,4 l", "", 10000, 4300, 400, 170, [], []),
+        ("Ichimliklar", "Cola 0,4 l", "", 10000, 3500, 400, 170, [], []),
         ("Ichimliklar", "Ayron 0,3 l", "", 8000, 2100, 300, 90, [], []),
     ]
     for i, (cat, name, desc, price, cost, w, kcal, tags, groups) in enumerate(items):
