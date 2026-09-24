@@ -21,8 +21,14 @@ const tail = [
   { route: '/settings', label: { uz: 'Sozlamalar', ru: 'Настройки', en: 'Settings' }, icon: 'bars', order: 96, perm: 'core.settings.view' },
 ]
 const nav = computed(() => [...core, ...(a.me?.nav ?? []), ...tail.filter(i => !i.perm || a.can(i.perm))].sort((x, y) => x.order - y.order))
-const phoneNav = computed(() => nav.value.slice(0, 4))
-const title = computed(() => t(nav.value.find(n => n.route === route.path)?.label ?? { uz: '' }, ui.lang))
+// telefon pastki paneli: 4 ta band; «O'qitish» bo'lsa — doim ko'rinadi (xodim eng ko'p shu yerga kiradi)
+const phoneNav = computed(() => {
+  const pin = nav.value.filter(n => n.route === '/training')
+  return [...nav.value.filter(n => n.route !== '/training').slice(0, 4 - pin.length), ...pin]
+})
+/** Ichki sahifalar ham (masalan /training/lesson/5) o'z bo'limini belgilaydi */
+const isOn = (r: string) => (r === '/' ? route.path === '/' : route.path === r || route.path.startsWith(r + '/'))
+const title = computed(() => t(nav.value.find(n => isOn(n.route))?.label ?? { uz: '' }, ui.lang))
 const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d) return null; return Math.max(0, Math.ceil((new Date(d).getTime() - Date.now()) / 86400000)) })
 </script>
 <template>
@@ -33,7 +39,7 @@ const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d)
         <div class="bt"><b>{{ a.me?.tenant.name }}</b><span>{{ a.me?.roles.includes('owner') ? 'Egasi · superadmin' : a.me?.roles.join(', ') }}</span></div>
       </div>
       <nav class="nav">
-        <RouterLink v-for="n in nav" :key="n.route" :to="n.route" class="item" :class="{ on: route.path === n.route }" @click="ui.sidebarOpen = false">
+        <RouterLink v-for="n in nav" :key="n.route" :to="n.route" class="item" :class="{ on: isOn(n.route) }" @click="ui.sidebarOpen = false">
           <UiIcon :name="n.icon" /><span class="lbl">{{ t(n.label, ui.lang) }}</span>
         </RouterLink>
       </nav>
@@ -56,7 +62,7 @@ const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d)
       </header>
       <main class="content"><RouterView /></main>
       <nav class="tabbar">
-        <RouterLink v-for="n in phoneNav" :key="n.route" :to="n.route" class="tab" :class="{ on: route.path === n.route }"><UiIcon :name="n.icon" :size="22" /><span>{{ t(n.label, ui.lang).split(' ')[0] }}</span></RouterLink>
+        <RouterLink v-for="n in phoneNav" :key="n.route" :to="n.route" class="tab" :class="{ on: isOn(n.route) }"><UiIcon :name="n.icon" :size="22" /><span>{{ t(n.label, ui.lang).split(' ')[0] }}</span></RouterLink>
         <button class="tab" type="button" @click="ui.sidebarOpen = true"><UiIcon name="menu" :size="22" /><span>Yana</span></button>
       </nav>
     </div>

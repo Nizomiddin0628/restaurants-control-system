@@ -1,0 +1,21 @@
+{
+  "code": "training",
+  "name": {"uz": "O'qitish va komplayens", "ru": "Обучение и стандарты", "en": "Training & compliance"},
+  "version": "1.0.0", "phase": 8, "implemented": true, "order": 75,
+  "depends": [],
+  "permissions": ["training.view", "training.manage", "training.review", "training.*"],
+  "nav": [
+    {"route": "/training", "label": {"uz": "O'qitish", "ru": "Обучение", "en": "Training"}, "icon": "book", "order": 75, "perm": "training.view"}
+  ],
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "min_watch_percent": {"type": "integer", "title": "Dars hisoblanishi uchun videoning necha foizi ko'rilishi kerak", "default": 90},
+      "block_seek": {"type": "boolean", "title": "Videoni oldinga o'tkazib yuborishni taqiqlash", "default": true},
+      "pass_score": {"type": "integer", "title": "Testdan o'tish bali (%)", "default": 80},
+      "default_due_days": {"type": "integer", "title": "Kursni tugatish muddati (kun)", "default": 7},
+      "notify_telegram": {"type": "boolean", "title": "Yangi kurs va topshiriq haqida Telegramda xabar berish", "default": true},
+      "certificate_title": {"type": "string", "title": "Sertifikat sarlavhasi", "default": "Sertifikat"}
+    }
+  }
+}

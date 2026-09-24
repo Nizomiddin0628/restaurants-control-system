@@ -48,5 +48,9 @@ class Command(BaseCommand):
                 seed_demo_expenses()        # ijara, kommunal, marketing
                 seed_demo_tables()          # zal xaritasi: 2 zal, 14 stol
                 seed_demo_reservations()    # bugungi/ertangi bronlar + navbat
+                from modules.training.demo import seed_demo_training
+                seed_demo_training()        # kurslar, testlar, standartlar, topshiriqlar
+            from public.services import set_modules
+            set_modules(t, [*t.enabled_modules, "training"])
             self.stdout.write(self.style.SUCCESS("Demo tenant: http://lazzat.localhost:8000  (egasi: +998901234567, OTP dev rejimida javobda qaytadi)"))
         self.stdout.write(self.style.SUCCESS("Tayyor."))

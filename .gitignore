@@ -24,3 +24,7 @@ pgdata/
 
 *.zip
 backend/_git_eski/
+
+_zaxira/
+training-ornatish.ps1
+backend/website/static/admin/

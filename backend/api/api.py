@@ -422,6 +422,7 @@ from modules.pos.api import router as pos_router  # noqa: E402
 from modules.reservations.api import router as reservations_router  # noqa: E402
 from modules.tables.api import router as tables_router  # noqa: E402
 from modules.tasks.api import router as tasks_router  # noqa: E402
+from modules.training.api import router as training_router  # noqa: E402
 
 api.add_router("/catalog", catalog_router)
 api.add_router("/cms", cms_router)
@@ -435,6 +436,7 @@ api.add_router("/kds", kds_router)
 api.add_router("/tables", tables_router)
 api.add_router("/reservations", reservations_router)
 api.add_router("/telegram", telegram_router)
+api.add_router("/training", training_router)
 
 
 @api.get("/health", tags=["system"])

@@ -26,7 +26,6 @@ MODULES_DIR = Path(__file__).resolve().parent.parent / "modules"
 PLANNED_MODULES = [
     {"code": "fiscal", "name": {"uz": "Fiskal (onlayn-kassa)", "ru": "Фискализация", "en": "Fiscal"}, "phase": 4, "order": 21},
     {"code": "telegram", "name": {"uz": "Telegram bot va Mini App", "ru": "Telegram-бот", "en": "Telegram"}, "phase": 6, "order": 50},
-    {"code": "training", "name": {"uz": "O'qitish va komplayens", "ru": "Обучение", "en": "Training"}, "phase": 8, "order": 75},
     {"code": "crm", "name": {"uz": "Marketing va bonuslar", "ru": "Маркетинг и бонусы", "en": "Marketing & loyalty"}, "phase": 8, "order": 80},
     {"code": "delivery", "name": {"uz": "Yetkazib berish", "ru": "Доставка", "en": "Delivery"}, "phase": 8, "order": 85},
     {"code": "market", "name": {"uz": "Bozor tahlili", "ru": "Анализ рынка", "en": "Market insights"}, "phase": 10, "order": 95},

@@ -27,16 +27,16 @@ from .models import (
 from .services import ensure_setup, log
 
 STAFF = [
-    ("998901110001", "Rustam Karimov", "manager"),
-    ("998901110002", "Malika Yusupova", "manager"),
-    ("998901110003", "Dilshod Ergashev", "cook"),
-    ("998901110004", "Jasur Toshmatov", "cashier"),
-    ("998901110005", "Nodira Ahmedova", "cashier"),
-    ("998901110006", "Kamron Saidov", "manager"),
-    ("998901110007", "Aziza Rahimova", "accountant"),
-    ("998901110008", "Gulnoza Nazarova", "marketer"),
-    ("998901110009", "Sardor Aliyev", "marketer"),
-    ("998901110010", "Umar Bekzodov", "manager"),
+    ("+998901110001", "Rustam Karimov", "manager"),
+    ("+998901110002", "Malika Yusupova", "manager"),
+    ("+998901110003", "Dilshod Ergashev", "cook"),
+    ("+998901110004", "Jasur Toshmatov", "cashier"),
+    ("+998901110005", "Nodira Ahmedova", "cashier"),
+    ("+998901110006", "Kamron Saidov", "manager"),
+    ("+998901110007", "Aziza Rahimova", "accountant"),
+    ("+998901110008", "Gulnoza Nazarova", "marketer"),
+    ("+998901110009", "Sardor Aliyev", "marketer"),
+    ("+998901110010", "Umar Bekzodov", "manager"),
 ]
 
 
