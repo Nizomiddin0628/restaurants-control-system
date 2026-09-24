@@ -23,7 +23,7 @@ from core.audit import record
 from core.auth import auth, require_module, require_perm
 from core.models import Role, User
 
-from . import services
+from . import media, services
 from .models import (
     Assignment,
     Course,
@@ -101,6 +101,7 @@ class CourseIn(AudienceIn):
     is_published: bool = False
     certificate: bool = True
     is_archived: bool = False
+    cover_url: str = ""
 
 
 class LessonIn(Schema):
@@ -108,6 +109,13 @@ class LessonIn(Schema):
     body: str = ""
     checklist: list[str] = []
     video_url: str = ""
+    image_url: str = ""
+    duration_seconds: int = 0
+
+
+class LinkIn(Schema):
+    url: str
+    title: str = ""
 
 
 class OrderIn(Schema):
@@ -158,6 +166,7 @@ class AssignmentIn(AudienceIn):
     requires_proof: bool = True
     responsible_id: Optional[str] = None
     is_active: bool = True
+    media_url: str = ""
 
 
 class SubmitIn(Schema):
@@ -175,6 +184,7 @@ class StandardIn(AudienceIn):
     body: str = ""
     responsible_id: Optional[str] = None
     is_active: bool = True
+    file_url: str = ""
 
 
 def _user_or_none(uid: Optional[str]) -> Optional[User]:
@@ -204,12 +214,15 @@ def _lesson_out(lesson: Lesson, with_files: bool = True) -> dict:
     out = {
         "id": lesson.pk, "course_id": lesson.course_id, "title": lesson.title, "body": lesson.body,
         "checklist": lesson.checklist, "video": _url(lesson.video), "video_url": lesson.video_url,
-        "image": _url(lesson.image), "duration_seconds": lesson.duration_seconds, "sort_order": lesson.sort_order,
+        "video_media": media.of(lesson.video, lesson.video_url), "video_mode": lesson.video_mode,
+        "image": media.image_src(lesson.image, lesson.image_url), "image_url": lesson.image_url,
+        "duration_seconds": lesson.duration_seconds, "sort_order": lesson.sort_order,
         "has_video": lesson.has_video,
     }
     if with_files:
-        out["files"] = [{"id": f.pk, "url": f.file.url, "title": f.title or f.file.name.rsplit("/", 1)[-1],
-                         "size_bytes": f.size_bytes, "is_image": f.is_image} for f in lesson.files.all()]
+        out["files"] = [{"id": f.pk, "url": f.file.url if f.file else f.url,
+                         "title": f.title or (f.file.name.rsplit("/", 1)[-1] if f.file else f.url),
+                         "size_bytes": f.size_bytes, "is_image": f.is_image, "is_link": not f.file} for f in lesson.files.all()]
     return out
 
 
@@ -225,7 +238,8 @@ def _quiz_out(q: Quiz, with_questions: bool = False, admin: bool = False) -> dic
 
 def _course_out(c: Course, stats: bool = False) -> dict:
     out = {
-        "id": c.pk, "title": c.title, "description": c.description, "category": c.category, "cover": _url(c.cover),
+        "id": c.pk, "title": c.title, "description": c.description, "category": c.category,
+        "cover": media.image_src(c.cover, c.cover_url), "cover_url": c.cover_url,
         "is_mandatory": c.is_mandatory, "due_days": c.due_days, "pass_score": c.pass_score,
         "responsible": _umini(c.responsible), "responsible_id": str(c.responsible_id) if c.responsible_id else None,
         "is_published": c.is_published, "certificate": c.certificate, "is_archived": c.is_archived,
@@ -408,6 +422,7 @@ def _submission_out(s: Submission, admin: bool = False) -> dict:
         "user": _umini(s.user) if admin else None,
         "assignment": {"id": a.pk, "title": a.title, "description": a.description, "media": _url(a.media),
                        "media_is_video": bool(a.media) and a.media.name.lower().rsplit(".", 1)[-1] in VIDEO_EXT,
+                       "media_view": media.of(a.media, a.media_url),
                        "due_at": _dt(a.due_at), "requires_proof": a.requires_proof, "responsible": _umini(a.responsible),
                        "is_overdue": bool(a.due_at and a.due_at < timezone.now() and s.status in (SubmissionStatus.TODO, SubmissionStatus.REJECTED))},
     }
@@ -456,6 +471,7 @@ def my_assignment_file_delete(request, fid: int):
 def _standard_out(s: Standard, user: Optional[User] = None) -> dict:
     ext = s.file.name.lower().rsplit(".", 1)[-1] if s.file else ""
     out = {"id": s.pk, "title": s.title, "category": s.category, "body": s.body, "file": _url(s.file),
+           "file_url": s.file_url, "file_view": media.of(s.file, s.file_url),
            "file_kind": "image" if ext in IMAGE_EXT else "video" if ext in VIDEO_EXT else ("file" if ext else None),
            "version": s.version, "responsible": _umini(s.responsible),
            "responsible_id": str(s.responsible_id) if s.responsible_id else None,
@@ -669,6 +685,18 @@ def upload_lesson_file(request, lid: int, title: str = "", file: UploadedFile = 
     return _lesson_out(les)
 
 
+@router.post("/lessons/{int:lid}/links", auth=auth)
+def add_lesson_link(request, lid: int, data: LinkIn):
+    """Faylni yuklamasdan havola qo'shish (Google Drive, Dropbox, sayt…)."""
+    _guard(request, "training.manage")
+    les = get_object_or_404(Lesson, pk=lid)
+    url = data.url.strip()
+    if not url.startswith(("http://", "https://")):
+        raise HttpError(400, "Havola http:// yoki https:// bilan boshlanishi kerak.")
+    LessonFile.objects.create(lesson=les, url=url, title=data.title.strip() or url)
+    return _lesson_out(les)
+
+
 @router.delete("/files/{int:fid}", auth=auth)
 def delete_lesson_file(request, fid: int):
     _guard(request, "training.manage")
@@ -739,7 +767,7 @@ def _assignment_out(a: Assignment) -> dict:
     counts = {s: 0 for s in SubmissionStatus.values}
     for row in subs.values("status").annotate(n=Count("id")):
         counts[row["status"]] = row["n"]
-    return {"id": a.pk, "title": a.title, "description": a.description, "media": _url(a.media),
+    return {"id": a.pk, "title": a.title, "description": a.description, "media": _url(a.media), "media_url": a.media_url, "media_view": media.of(a.media, a.media_url),
             "media_is_video": bool(a.media) and a.media.name.lower().rsplit(".", 1)[-1] in VIDEO_EXT,
             "course_id": a.course_id, "due_at": _dt(a.due_at), "requires_proof": a.requires_proof,
             "responsible": _umini(a.responsible), "responsible_id": str(a.responsible_id) if a.responsible_id else None,

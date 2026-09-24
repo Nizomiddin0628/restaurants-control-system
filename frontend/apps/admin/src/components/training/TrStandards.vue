@@ -4,7 +4,8 @@ import { computed, onMounted, ref } from 'vue'
 import { api } from '@restopos/api'
 import { UiButton, UiChip, UiDrawer, UiDropzone, UiEmpty, UiIcon, UiInput, UiSelect, toast } from '@restopos/ui'
 import AudiencePicker from './AudiencePicker.vue'
-import { fmtDate, uploadWithProgress } from './upload'
+import MediaView from './MediaView.vue'
+import { fmtDate, isUrl, uploadWithProgress } from './upload'
 
 const props = defineProps<{ meta: any }>()
 const list = ref<any[]>([])
@@ -15,12 +16,13 @@ const acks = ref<any>(null)
 
 async function load() { list.value = await api.get('/training/standards') }
 onMounted(load)
-function openForm(s?: any) { pending.value = null; form.value = s ? { ...s } : { title: '', category: '', body: '', responsible_id: null, is_active: true, roles: [], positions: [], user_ids: [], everyone: true } }
+function openForm(s?: any) { pending.value = null; form.value = s ? { ...s } : { title: '', category: '', body: '', file_url: '', responsible_id: null, is_active: true, roles: [], positions: [], user_ids: [], everyone: true } }
 const aud = computed({ get: () => form.value, set: (v) => Object.assign(form.value, v) })
 async function save() {
   const f = form.value
   if (!f.title.trim()) { toast('Nomini yozing', 'danger'); return }
-  const body = { title: f.title, category: f.category, body: f.body, responsible_id: f.responsible_id || null, is_active: f.is_active, roles: f.roles, positions: f.positions, user_ids: f.user_ids, everyone: f.everyone }
+  if (f.file_url && !isUrl(f.file_url)) { toast('Havola https:// bilan boshlanishi kerak', 'danger'); return }
+  const body = { title: f.title, category: f.category, body: f.body, file_url: (f.file_url || '').trim(), responsible_id: f.responsible_id || null, is_active: f.is_active, roles: f.roles, positions: f.positions, user_ids: f.user_ids, everyone: f.everyone }
   try {
     const r = f.id ? await api.put(`/training/standards/${f.id}`, body) : await api.post('/training/standards', body)
     if (pending.value) { pct.value = 0; await uploadWithProgress(`/training/standards/${r.id}/file`, pending.value, p => (pct.value = p)) }
@@ -61,8 +63,9 @@ const userOpts = computed(() => [{ value: '', label: '— tanlanmagan —' }, ..
         </div>
         <label class="fld"><span>Qoida matni</span><textarea v-model="form.body" rows="6" placeholder="Nima, qachon, qanday qilinadi"></textarea></label>
         <b class="lbl">Rasm, video yoki PDF</b>
-        <a v-if="form.file && !pending" :href="form.file" target="_blank" class="cur">Joriy fayl</a>
-        <UiDropzone accept="image/*,video/*,application/pdf" :label="pending ? '✓ ' + pending.name : 'Fayl tanlang'" @files="(f) => (pending = f[0])" />
+        <MediaView v-if="form.file_view && !pending" :media="form.file_view" label="Joriy materialni ochish" />
+        <UiDropzone accept="image/*,video/*,application/pdf" :label="pending ? '✓ ' + pending.name : 'Fayl yuklash'" @files="(f) => (pending = f[0])" />
+        <UiInput v-model="form.file_url" placeholder="yoki havola: Google Drive, YouTube, PDF manzili" />
         <div v-if="pct !== null" class="tr-bar"><i :style="{ width: pct + '%' }"></i></div>
         <b class="lbl">Kim tanishishi kerak</b>
         <AudiencePicker v-model="aud" :meta="meta" />

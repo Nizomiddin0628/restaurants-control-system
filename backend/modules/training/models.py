@@ -34,6 +34,7 @@ class Course(TimeStamped, Audience):
     description = models.TextField(blank=True)
     category = models.CharField(max_length=60, blank=True, help_text="Oshxona, Zal, Gigiyena…")
     cover = models.ImageField(upload_to="training/covers/", blank=True)
+    cover_url = models.URLField(max_length=500, blank=True, help_text="yoki internetdagi rasm havolasi")
     is_mandatory = models.BooleanField(default=True)
     due_days = models.PositiveIntegerField(default=7, help_text="biriktirilgandan keyin necha kunda tugatish kerak (0 — muddatsiz)")
     pass_score = models.PositiveSmallIntegerField(default=80)
@@ -59,7 +60,8 @@ class Lesson(TimeStamped):
     video = models.FileField(upload_to="training/videos/", blank=True)
     video_url = models.URLField(blank=True, help_text="YouTube yoki boshqa havola")
     image = models.ImageField(upload_to="training/images/", blank=True)
-    duration_seconds = models.PositiveIntegerField(default=0, help_text="video davomiyligi (brauzer aniqlaydi)")
+    image_url = models.URLField(max_length=500, blank=True, help_text="yoki internetdagi rasm havolasi")
+    duration_seconds = models.PositiveIntegerField(default=0, help_text="video davomiyligi (fayl/YouTube — brauzer aniqlaydi; Drive/Vimeo — admin yozadi)")
     sort_order = models.PositiveIntegerField(default=0)
 
     class Meta:
@@ -72,10 +74,20 @@ class Lesson(TimeStamped):
     def has_video(self) -> bool:
         return bool(self.video) or bool(self.video_url)
 
+    @property
+    def video_mode(self) -> str:
+        """exact — ko'rilgan soniyalar aniq o'lchanadi (fayl, .mp4 havola, YouTube);
+        time — faqat sahifada o'tkazilgan vaqt o'lchanadi (Google Drive, Vimeo, boshqa havola)."""
+        from .media import info
+        if self.video or not self.video_url:
+            return "exact"
+        return "exact" if info(self.video_url)["kind"] in ("video", "youtube") else "time"
+
 
 class LessonFile(TimeStamped):
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name="files")
-    file = models.FileField(upload_to="training/files/")
+    file = models.FileField(upload_to="training/files/", blank=True)
+    url = models.URLField(max_length=500, blank=True, help_text="fayl o'rniga internetdagi havola (Google Drive va h.k.)")
     title = models.CharField(max_length=160, blank=True)
     size_bytes = models.BigIntegerField(default=0)
 
@@ -84,7 +96,8 @@ class LessonFile(TimeStamped):
 
     @property
     def is_image(self) -> bool:
-        return self.file.name.lower().rsplit(".", 1)[-1] in {"jpg", "jpeg", "png", "webp", "gif"}
+        name = self.file.name if self.file else self.url.split("?")[0]
+        return name.lower().rsplit(".", 1)[-1] in {"jpg", "jpeg", "png", "webp", "gif"}
 
 
 # ------------------------------------------------------------------ testlar
@@ -194,6 +207,7 @@ class Assignment(TimeStamped, Audience):
     title = models.CharField(max_length=160)
     description = models.TextField(blank=True)
     media = models.FileField(upload_to="training/assignments/", blank=True, help_text="namuna video yoki rasm")
+    media_url = models.URLField(max_length=500, blank=True, help_text="yoki internetdagi video/rasm havolasi")
     course = models.ForeignKey(Course, null=True, blank=True, on_delete=models.SET_NULL, related_name="assignments")
     due_at = models.DateTimeField(null=True, blank=True)
     requires_proof = models.BooleanField(default=True)
@@ -243,6 +257,7 @@ class Standard(TimeStamped, Audience):
     category = models.CharField(max_length=60, blank=True)
     body = models.TextField(blank=True)
     file = models.FileField(upload_to="training/standards/", blank=True, help_text="rasm, video yoki PDF")
+    file_url = models.URLField(max_length=500, blank=True, help_text="yoki internetdagi havola")
     version = models.PositiveIntegerField(default=1)
     responsible = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="training_standards")
     is_active = models.BooleanField(default=True)

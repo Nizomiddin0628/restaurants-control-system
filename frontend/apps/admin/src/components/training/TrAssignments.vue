@@ -4,7 +4,8 @@ import { computed, onMounted, ref } from 'vue'
 import { api } from '@restopos/api'
 import { UiButton, UiChip, UiDrawer, UiDropzone, UiEmpty, UiIcon, UiInput, UiSelect, UiToggle, toast } from '@restopos/ui'
 import AudiencePicker from './AudiencePicker.vue'
-import { fmtDate, fmtDateTime, SUB_STATUS, uploadWithProgress } from './upload'
+import MediaView from './MediaView.vue'
+import { fmtDate, fmtDateTime, isUrl, SUB_STATUS, uploadWithProgress } from './upload'
 
 const props = defineProps<{ meta: any; courses: any[] }>()
 const list = ref<any[]>([])
@@ -19,13 +20,14 @@ async function load() { list.value = await api.get('/training/assignments') }
 onMounted(load)
 function openForm(a?: any) {
   pending.value = null
-  form.value = a ? { ...a, due: a.due_at ? a.due_at.slice(0, 16) : '' } : { title: '', description: '', course_id: null, due: '', requires_proof: true, responsible_id: null, is_active: true, roles: [], positions: [], user_ids: [], everyone: false }
+  form.value = a ? { ...a, due: a.due_at ? a.due_at.slice(0, 16) : '' } : { title: '', description: '', media_url: '', course_id: null, due: '', requires_proof: true, responsible_id: null, is_active: true, roles: [], positions: [], user_ids: [], everyone: false }
 }
 const aud = computed({ get: () => form.value, set: (v) => Object.assign(form.value, v) })
 async function save() {
   const f = form.value
   if (!f.title.trim()) { toast('Topshiriq nomini yozing', 'danger'); return }
-  const body = { title: f.title, description: f.description, course_id: f.course_id || null, due_at: f.due ? new Date(f.due).toISOString() : null, requires_proof: f.requires_proof,
+  if (f.media_url && !isUrl(f.media_url)) { toast('Havola https:// bilan boshlanishi kerak', 'danger'); return }
+  const body = { title: f.title, description: f.description, media_url: (f.media_url || '').trim(), course_id: f.course_id || null, due_at: f.due ? new Date(f.due).toISOString() : null, requires_proof: f.requires_proof,
     responsible_id: f.responsible_id || null, is_active: f.is_active, roles: f.roles, positions: f.positions, user_ids: f.user_ids, everyone: f.everyone }
   try {
     const r = f.id ? await api.put(`/training/assignments/${f.id}`, body) : await api.post('/training/assignments', body)
@@ -48,7 +50,7 @@ const courseOpts = computed(() => [{ value: '', label: '— kursga bog\'lanmagan
     <div class="bar"><UiButton v-if="meta.can.manage" variant="brand" @click="openForm()"><UiIcon name="plus" :size="15" /> Topshiriq</UiButton></div>
     <div class="rows">
       <button v-for="a in list" :key="a.id" type="button" class="row" :class="{ off: !a.is_active }" @click="openView(a)">
-        <span class="ic"><UiIcon :name="a.media_is_video ? 'play' : a.media ? 'image' : 'camera'" :size="18" /></span>
+        <span class="ic"><UiIcon :name="['video', 'youtube', 'drive', 'vimeo'].includes(a.media_view?.kind) ? 'play' : a.media_view ? 'image' : 'camera'" :size="18" /></span>
         <span class="info"><b>{{ a.title }}</b><small>{{ a.due_at ? 'Muddat: ' + fmtDate(a.due_at) : 'Muddatsiz' }}<template v-if="a.responsible"> · Mas'ul: {{ a.responsible.full_name }}</template></small></span>
         <span class="cnt">
           <UiChip v-if="a.counts.submitted" tone="info">{{ a.counts.submitted }} tekshiruvda</UiChip>
@@ -63,9 +65,9 @@ const courseOpts = computed(() => [{ value: '', label: '— kursga bog\'lanmagan
         <UiInput v-model="form.title" label="Nomi" placeholder="Nima qilish kerak" />
         <label class="fld"><span>Batafsil</span><textarea v-model="form.description" rows="3" placeholder="Qanday bajariladi, qanday dalil kerak"></textarea></label>
         <b class="lbl">Namuna (video yoki rasm)</b>
-        <img v-if="form.media && !form.media_is_video && !pending" :src="form.media" class="pv" alt="" />
-        <video v-if="form.media && form.media_is_video && !pending" :src="form.media" class="pv" controls playsinline></video>
-        <UiDropzone accept="image/*,video/*" :label="pending ? '✓ ' + pending.name : 'Video yoki rasm tanlang'" @files="(f) => (pending = f[0])" />
+        <MediaView v-if="form.media_view && !pending" :media="form.media_view" />
+        <UiDropzone accept="image/*,video/*" :label="pending ? '✓ ' + pending.name : 'Video yoki rasm yuklash'" @files="(f) => (pending = f[0])" />
+        <UiInput v-model="form.media_url" placeholder="yoki havola: YouTube, Google Drive, rasm/video manzili" />
         <div v-if="pct !== null" class="tr-bar"><i :style="{ width: pct + '%' }"></i></div>
         <div class="g2">
           <label class="fld"><span>Muddat</span><input v-model="form.due" type="datetime-local" /></label>

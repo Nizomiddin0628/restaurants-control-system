@@ -7,6 +7,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { api } from '@restopos/api'
 import { UiChip, UiDropzone, UiEmpty, UiIcon, toast } from '@restopos/ui'
+import MediaView from './MediaView.vue'
 import { daysLeft, fmtDate, SUB_STATUS, uploadWithProgress } from './upload'
 import './tr.css'
 
@@ -114,8 +115,7 @@ const dueText = (d?: string | null) => { const n = daysLeft(d); if (n === null) 
             </button>
             <div v-if="openSub === s.id" class="ab">
               <p v-if="s.assignment.description">{{ s.assignment.description }}</p>
-              <video v-if="s.assignment.media && s.assignment.media_is_video" :src="s.assignment.media" controls playsinline class="media"></video>
-              <img v-else-if="s.assignment.media" :src="s.assignment.media" class="media" alt="Namuna" />
+              <MediaView :media="s.assignment.media_view" label="Namunani ochish" />
               <div v-if="s.status === 'rejected'" class="note bad"><b>Qaytarildi:</b> {{ s.review_note }}</div>
               <div v-if="s.status === 'approved' && s.review_note" class="note good"><b>Izoh:</b> {{ s.review_note }}</div>
               <div class="proofs">
@@ -141,9 +141,7 @@ const dueText = (d?: string | null) => { const n = daysLeft(d); if (n === null) 
           <article v-for="s in stds" :key="s.id" class="std" :class="{ ok: s.acked_at }">
             <header><span class="si"><UiIcon name="shield" :size="18" /></span><div><b>{{ s.title }}</b><small>{{ s.category }} · v{{ s.version }}</small></div></header>
             <p class="sb">{{ s.body }}</p>
-            <img v-if="s.file_kind === 'image'" :src="s.file" class="media" alt="" />
-            <video v-else-if="s.file_kind === 'video'" :src="s.file" controls playsinline class="media"></video>
-            <a v-else-if="s.file" :href="s.file" target="_blank" class="file"><UiIcon name="paperclip" :size="14" /> Hujjatni ochish</a>
+            <MediaView :media="s.file_view" label="Hujjatni ochish" />
             <div v-if="s.acked_at" class="acked">✓ Tanishgansiz · {{ fmtDate(s.acked_at) }}</div>
             <button v-else class="tr-btn block" type="button" @click="ack(s)">O'qidim, tanishdim</button>
           </article>

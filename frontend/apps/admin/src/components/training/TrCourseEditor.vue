@@ -7,13 +7,13 @@ import { computed, ref, watch } from 'vue'
 import { api } from '@restopos/api'
 import { UiButton, UiChip, UiDropzone, UiIcon, UiInput, UiSelect, UiToggle, toast } from '@restopos/ui'
 import AudiencePicker from './AudiencePicker.vue'
-import { fmtDur, uploadWithProgress, youtubeId } from './upload'
+import { fmtDur, isUrl, LINK_LABEL, linkKind, uploadWithProgress } from './upload'
 
 const props = defineProps<{ courseId: number | null; meta: any }>()
 const emit = defineEmits<{ (e: 'saved'): void; (e: 'close'): void }>()
 
 const blank = () => ({ title: '', description: '', category: '', is_mandatory: true, due_days: props.meta.settings.default_due_days ?? 7,
-  pass_score: props.meta.settings.pass_score ?? 80, responsible_id: null as string | null, is_published: false, certificate: true, is_archived: false,
+  pass_score: props.meta.settings.pass_score ?? 80, responsible_id: null as string | null, is_published: false, certificate: true, is_archived: false, cover_url: '',
   roles: [] as string[], positions: [] as number[], user_ids: [] as string[], everyone: false })
 const form = ref<any>(blank())
 const course = ref<any>(null)
@@ -31,10 +31,13 @@ async function load(id: number | null) {
   const c = await api.get(`/training/courses/${id}`)
   course.value = c
   form.value = { ...blank(), ...Object.fromEntries(Object.keys(blank()).map(k => [k, c[k]])) }
-  lessons.value = c.lessons.map((l: any) => ({ ...l, checklistText: l.checklist.join('\n') }))
+  lessons.value = c.lessons.map(prep)
   quizzes.value = c.quizzes
 }
 watch(() => props.courseId, load, { immediate: true })
+/** Dars tahrir holati: mazmun matni, davomiylik (daqiqa), yangi havola maydonlari */
+const prep = (l: any) => ({ ...l, checklistText: l.checklist.join('\n'), durMin: l.duration_seconds ? Math.round(l.duration_seconds / 60) : '', linkTitle: '', linkUrl: '' })
+const timeMode = (l: any) => !l.video && ['drive', 'vimeo', 'link'].includes(linkKind(l.video_url))
 
 async function save() {
   if (!form.value.title.trim()) { toast('Kurs nomini yozing', 'danger'); return }
@@ -55,12 +58,15 @@ async function upCover(files: File[]) {
 // ---------- darslar
 async function addLesson() {
   const l = await api.post(`/training/courses/${course.value.id}/lessons`, { title: `${lessons.value.length + 1}-dars`, body: '', checklist: [], video_url: '' })
-  lessons.value.push({ ...l, checklistText: '' }); openLesson.value = l.id; emit('saved')
+  lessons.value.push(prep(l)); openLesson.value = l.id; emit('saved')
 }
 async function saveLesson(l: any) {
   try {
-    const r = await api.put(`/training/lessons/${l.id}`, { title: l.title, body: l.body, video_url: l.video_url || '', checklist: l.checklistText.split('\n').map((x: string) => x.trim()).filter(Boolean) })
-    Object.assign(l, r, { checklistText: r.checklist.join('\n') }); toast('Dars saqlandi')
+    for (const [u, what] of [[l.video_url, 'Video'], [l.image_url, 'Rasm']]) if (u && !isUrl(u)) { toast(`${what} havolasi https:// bilan boshlanishi kerak`, 'danger'); return }
+    if (timeMode(l) && !Number(l.durMin)) { toast('Video davomiyligini daqiqada yozing — shunga qarab «ko\'rdi» hisoblanadi', 'danger'); return }
+    const r = await api.put(`/training/lessons/${l.id}`, { title: l.title, body: l.body, video_url: (l.video_url || '').trim(), image_url: (l.image_url || '').trim(),
+      duration_seconds: timeMode(l) ? Number(l.durMin) * 60 : l.duration_seconds, checklist: l.checklistText.split('\n').map((x: string) => x.trim()).filter(Boolean) })
+    Object.assign(l, prep(r)); toast('Dars saqlandi')
   } catch (e: any) { toast(e.detail ?? 'Xato', 'danger') }
 }
 async function delLesson(l: any) {
@@ -81,6 +87,11 @@ async function upLesson(l: any, kind: 'video' | 'image' | 'files', files: File[]
   }
 }
 async function delVideo(l: any) { Object.assign(l, await api.del(`/training/lessons/${l.id}/video`), { checklistText: l.checklistText }) }
+async function addLink(l: any) {
+  if (!isUrl(l.linkUrl)) { toast('Havolani to\'liq yozing: https://…', 'danger'); return }
+  try { const r = await api.post(`/training/lessons/${l.id}/links`, { url: l.linkUrl.trim(), title: l.linkTitle }); l.files = r.files; l.linkUrl = ''; l.linkTitle = ''; toast('Havola qo\'shildi') }
+  catch (e: any) { toast(e.detail ?? 'Xato', 'danger') }
+}
 async function delFile(l: any, f: any) { await api.del(`/training/files/${f.id}`); l.files = l.files.filter((x: any) => x.id !== f.id) }
 
 // ---------- testlar
@@ -125,6 +136,7 @@ const lessonOpts = computed(() => [{ value: '', label: 'Kurs yakuniy testi' }, .
       </div>
       <div v-if="pct.cover !== undefined" class="tr-bar"><i :style="{ width: pct.cover + '%' }"></i></div>
       <UiInput v-model="form.title" label="Kurs nomi" placeholder="Masalan: Burger tayyorlash standarti" />
+      <UiInput v-model="form.cover_url" label="Muqova rasmi havolasi (ixtiyoriy)" placeholder="https://… yoki Google Drive havolasi" hint="Faylni yuklash shart emas — internetdagi rasm havolasini qo'ysangiz bo'ladi" />
       <label class="fld"><span>Qisqa tavsif</span><textarea v-model="form.description" rows="2" placeholder="Kurs nima haqida"></textarea></label>
       <div class="g3">
         <label class="fld"><span>Bo'lim</span><input v-model="form.category" list="tr-cats" placeholder="Oshxona, Zal…" /><datalist id="tr-cats"><option v-for="c in meta.categories" :key="c" :value="c" /></datalist></label>
@@ -140,7 +152,10 @@ const lessonOpts = computed(() => [{ value: '', label: 'Kurs yakuniy testi' }, .
         <UiToggle v-model="form.is_published" label="E'lon qilish (xodimlarga ko'rinadi)" />
       </div>
       <UiButton variant="brand" :loading="saving" @click="save">{{ course ? 'Saqlash' : 'Kursni yaratish' }}</UiButton>
-      <p v-if="!course" class="tr-muted small">Kurs yaratilgach darslar va testlarni qo'shasiz.</p>
+      <div v-if="!course" class="next">
+        <b>Keyingi qadam</b>
+        <span>«Kursni yaratish»ni bosgach, shu oynada pastda <b>Darslar</b> (video, rasm, fayl, havola) va <b>Testlar</b> bo'limlari ochiladi.</span>
+      </div>
     </section>
 
     <template v-if="course">
@@ -151,7 +166,7 @@ const lessonOpts = computed(() => [{ value: '', label: 'Kurs yakuniy testi' }, .
           <div class="lh">
             <span class="n">{{ i + 1 }}</span>
             <button class="lt" type="button" @click="openLesson = openLesson === l.id ? null : l.id"><b>{{ l.title }}</b>
-              <small>{{ l.video ? '🎬 video fayl' : youtubeId(l.video_url) ? '▶ YouTube' : l.video_url ? '🔗 havola' : '📄 matn' }}<template v-if="l.duration_seconds"> · {{ fmtDur(l.duration_seconds) }}</template><template v-if="l.files.length"> · {{ l.files.length }} fayl</template></small></button>
+              <small>{{ l.video ? '🎬 video fayl' : { youtube: '▶ YouTube', drive: '📁 Drive video', vimeo: '▶ Vimeo', video: '🎬 video havola', image: '🔗 havola', pdf: '🔗 havola', link: '🔗 havola', none: '📄 matn' }[linkKind(l.video_url)] }}<template v-if="l.duration_seconds"> · {{ fmtDur(l.duration_seconds) }}</template><template v-if="l.files.length"> · {{ l.files.length }} fayl</template></small></button>
             <button class="ib" type="button" aria-label="Yuqoriga" :disabled="i === 0" @click="move(l, -1)">↑</button>
             <button class="ib" type="button" aria-label="Pastga" :disabled="i === lessons.length - 1" @click="move(l, 1)">↓</button>
           </div>
@@ -164,17 +179,25 @@ const lessonOpts = computed(() => [{ value: '', label: 'Kurs yakuniy testi' }, .
               <template v-if="!l.video">
                 <UiDropzone accept="video/mp4,video/webm,video/quicktime,video/*" label="Video fayl yuklash (MP4)" hint="500 MB gacha. Telefondan ham bo'ladi" @files="(f) => upLesson(l, 'video', f)" />
                 <div v-if="pct[`${l.id}-video`] !== undefined" class="up"><div class="tr-bar"><i :style="{ width: pct[`${l.id}-video`] + '%' }"></i></div><small>Video yuklanmoqda… {{ pct[`${l.id}-video`] }}% — sahifani yopmang</small></div>
-                <UiInput v-model="l.video_url" label="yoki YouTube havolasi" placeholder="https://youtu.be/…" />
+                <UiInput v-model="l.video_url" label="yoki video havolasi" placeholder="YouTube, Google Drive, Vimeo yoki .mp4 havola" />
+                <small v-if="l.video_url" class="kind">{{ LINK_LABEL[linkKind(l.video_url)] }}</small>
+                <UiInput v-if="timeMode(l)" v-model="l.durMin" type="number" label="Video davomiyligi (daqiqa)" hint="Xodim sahifada shuncha vaqt tursa — dars ko'rilgan hisoblanadi" />
               </template>
             </div>
             <label class="fld"><span>Tavsif / dars matni</span><textarea v-model="l.body" rows="4" placeholder="Bu darsda nimani o'rganadi"></textarea></label>
             <label class="fld"><span>Dars mazmuni (har qatorda bitta band)</span><textarea v-model="l.checklistText" rows="4" placeholder="Kerakli mahsulotlar&#10;Tayyorlash bosqichlari&#10;Sifat standartlari"></textarea></label>
             <div class="g2">
-              <div><b class="lbl">Rasm</b><img v-if="l.image" :src="l.image" class="thumb" alt="" /><UiDropzone accept="image/*" label="Rasm" @files="(f) => upLesson(l, 'image', f)" /></div>
+              <div><b class="lbl">Rasm</b><img v-if="l.image" :src="l.image" class="thumb" alt="" /><UiDropzone accept="image/*" label="Rasm yuklash" @files="(f) => upLesson(l, 'image', f)" />
+                <UiInput v-model="l.image_url" placeholder="yoki rasm havolasi: https://…" /></div>
               <div><b class="lbl">Fayllar (PDF, rasm, hujjat)</b>
-                <div v-for="f in l.files" :key="f.id" class="fr"><a :href="f.url" target="_blank">{{ f.title }}</a><button type="button" class="ib" aria-label="O'chirish" @click="delFile(l, f)">✕</button></div>
+                <div v-for="f in l.files" :key="f.id" class="fr"><a :href="f.url" target="_blank">{{ f.is_link ? '🔗' : '📎' }} {{ f.title }}</a><button type="button" class="ib" aria-label="O'chirish" @click="delFile(l, f)">✕</button></div>
                 <UiDropzone multiple label="Fayl qo'shish" @files="(f) => upLesson(l, 'files', f)" />
                 <div v-if="pct[`${l.id}-files`] !== undefined" class="tr-bar"><i :style="{ width: pct[`${l.id}-files`] + '%' }"></i></div>
+                <div class="linkadd">
+                  <input v-model="l.linkTitle" placeholder="Nomi (masalan: Qo'llanma PDF)" />
+                  <input v-model="l.linkUrl" placeholder="https://… havola" @keydown.enter="addLink(l)" />
+                  <UiButton size="s" variant="secondary" @click="addLink(l)">🔗 Havola qo'shish</UiButton>
+                </div>
               </div>
             </div>
             <div class="row"><UiButton @click="saveLesson(l)">Darsni saqlash</UiButton><span class="sp"></span><UiButton variant="danger" size="s" @click="delLesson(l)"><UiIcon name="trash" :size="14" /></UiButton></div>
@@ -243,6 +266,11 @@ const lessonOpts = computed(() => [{ value: '', label: 'Kurs yakuniy testi' }, .
 .pv { width: 100%; max-height: 240px; border-radius: 10px; background: #000; }
 .vrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .up { display: flex; flex-direction: column; gap: 4px; } .up small { color: var(--muted); }
+.next { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 12px; background: var(--info-tint); color: var(--ink-2); font-size: 13px; }
+.next > b { color: var(--info); }
+.kind { color: var(--muted); font-size: 12px; margin-top: -4px; }
+.linkadd { display: flex; flex-direction: column; gap: 6px; padding-top: 6px; border-top: 1px dashed var(--line); }
+.linkadd input { min-height: 38px; border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; font: inherit; background: var(--surface); color: var(--ink); }
 .thumb { width: 100%; max-height: 120px; object-fit: cover; border-radius: 10px; }
 .fr { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; } .fr a { color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; } .sp { flex: 1; }

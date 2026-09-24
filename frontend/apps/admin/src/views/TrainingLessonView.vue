@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /**
- * Dars: video (yuklangan fayl yoki YouTube) + tavsif + dars mazmuni + fayllar.
+ * Dars: video (yuklangan fayl, .mp4 havola, YouTube, Google Drive, Vimeo) + tavsif + dars mazmuni + fayllar/havolalar.
+ * Drive/Vimeo videoni brauzer kuzata olmaydi — u yerda sahifada (ekran ochiq holda) o'tkazilgan vaqt hisoblanadi.
  * Nazorat: har 5 soniyada serverga "beat" (qayerda turibdi, qancha ko'rdi). Oldinga surish taqiqlangan bo'lsa —
  * video ko'rilgan eng uzoq nuqtaga qaytariladi. Foizni server hisoblaydi (brauzerga ishonmaydi).
  */
@@ -8,7 +9,6 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { api, auth } from '@restopos/api'
 import { UiIcon, toast } from '@restopos/ui'
-import { youtubeId } from '@/components/training/upload'
 import '@/components/training/tr.css'
 
 const route = useRoute(), router = useRouter()
@@ -19,9 +19,16 @@ const done = ref(false)
 const videoEl = ref<HTMLVideoElement | null>(null)
 const ytBox = ref<HTMLDivElement | null>(null)
 let maxPos = 0, lastWall = 0, played = 0, playing = false, timer: number | undefined, ytPoll: number | undefined, yt: any = null, duration = 0
+let elapsed = 0, clock: number | undefined
 
-const ytId = computed(() => (L.value && !L.value.video ? youtubeId(L.value.video_url) : null))
-const otherUrl = computed(() => (L.value && !L.value.video && L.value.video_url && !ytId.value ? L.value.video_url : null))
+const vm = computed(() => L.value?.video_media ?? null)
+/** to'g'ridan o'ynaladigan video: yuklangan fayl yoki .mp4 havola */
+const directSrc = computed(() => (L.value?.video ? L.value.video : vm.value?.kind === 'video' ? vm.value.src : null))
+const ytId = computed(() => (!directSrc.value && vm.value?.kind === 'youtube' ? vm.value.id : null))
+const embed = computed(() => (!directSrc.value && !ytId.value && vm.value?.embed ? vm.value.embed : null))
+const otherUrl = computed(() => (!directSrc.value && !ytId.value && !embed.value && vm.value ? vm.value.src : null))
+const timeMode = computed(() => L.value?.video_mode === 'time')
+const minutes = computed(() => Math.max(1, Math.round((L.value?.duration_seconds || 60) / 60)))
 const need = computed(() => L.value?.rules.min_watch_percent ?? 90)
 
 async function load() {
@@ -31,6 +38,16 @@ async function load() {
   percent.value = L.value.progress.percent; done.value = L.value.progress.done
   maxPos = L.value.progress.max_position || 0; played = 0; duration = L.value.duration_seconds || 0
   if (ytId.value) setTimeout(initYoutube, 0)
+  if (timeMode.value && !done.value) startClock()
+}
+/** Drive/Vimeo/havola: ekran ochiq turgan vaqtni sanaymiz (boshqa oynaga o'tsa — to'xtaydi) */
+function startClock() {
+  elapsed = maxPos
+  const visible = () => document.visibilityState === 'visible'
+  if (visible()) start()
+  clock = window.setInterval(() => {
+    if (visible()) { if (!playing) start(); elapsed += 1 } else if (playing) pause()
+  }, 1000)
 }
 onMounted(load)
 watch(() => route.params.id, () => { if (route.name === 'training-lesson') load() })
@@ -59,12 +76,12 @@ async function send(keepalive = false) {
 }
 function start() { playing = true; lastWall = performance.now(); if (!timer) timer = window.setInterval(() => send(), 5000) }
 function pause() { tick(); playing = false; send() }
-function stop() { if (timer) clearInterval(timer); timer = undefined; if (ytPoll) clearInterval(ytPoll); ytPoll = undefined; if (playing || played) send(true); playing = false }
+function stop() { if (clock) clearInterval(clock); clock = undefined; if (timer) clearInterval(timer); timer = undefined; if (ytPoll) clearInterval(ytPoll); ytPoll = undefined; if (playing || played) send(true); playing = false }
 const onHide = () => stop()
 onMounted(() => window.addEventListener('pagehide', onHide))
 onBeforeUnmount(() => { window.removeEventListener('pagehide', onHide); stop(); yt?.destroy?.() })
 
-function currentTime() { return videoEl.value ? videoEl.value.currentTime : yt?.getCurrentTime ? yt.getCurrentTime() : 0 }
+function currentTime() { return timeMode.value ? elapsed : videoEl.value ? videoEl.value.currentTime : yt?.getCurrentTime ? yt.getCurrentTime() : 0 }
 
 // ---------- HTML5 video
 function onMeta() {
@@ -135,9 +152,10 @@ const nextLabel = computed(() => {
     </div>
 
     <div class="player" :class="{ novideo: !L.has_video && !L.image }">
-      <video v-if="L.video" ref="videoEl" :src="L.video" controls playsinline controlslist="nodownload noplaybackrate" disablepictureinpicture
+      <video v-if="directSrc" ref="videoEl" :src="directSrc" controls playsinline controlslist="nodownload noplaybackrate" disablepictureinpicture
              @loadedmetadata="onMeta" @timeupdate="onTime" @seeking="onSeeking" @play="start" @pause="pause" @ended="pause"></video>
       <div v-else-if="ytId" class="yt"><div ref="ytBox"></div></div>
+      <div v-else-if="embed" class="yt"><iframe :src="embed" allow="autoplay; encrypted-media; fullscreen" allowfullscreen title="Video"></iframe></div>
       <a v-else-if="otherUrl" :href="otherUrl" target="_blank" rel="noopener" class="ext">▶ Videoni ochish</a>
       <img v-else-if="L.image" :src="L.image" alt="" />
       <div v-else class="ph"><UiIcon name="book" :size="40" /></div>
@@ -150,7 +168,8 @@ const nextLabel = computed(() => {
       </div>
       <div v-if="L.has_video" class="watch">
         <div class="tr-bar"><i :style="{ width: percent + '%' }"></i></div>
-        <small>{{ percent }}% ko'rildi · dars hisoblanishi uchun {{ need }}%<template v-if="L.rules.block_seek"> · oldinga o'tkazib bo'lmaydi</template></small>
+        <small v-if="timeMode">{{ percent }}% · videoni oxirigacha ko'ring (~{{ minutes }} daqiqa). Boshqa oynaga o'tsangiz, vaqt to'xtaydi.</small>
+        <small v-else>{{ percent }}% ko'rildi · dars hisoblanishi uchun {{ need }}%<template v-if="L.rules.block_seek"> · oldinga o'tkazib bo'lmaydi</template></small>
       </div>
 
       <nav class="tabs">
@@ -169,7 +188,7 @@ const nextLabel = computed(() => {
       <div v-else class="files">
         <a v-for="f in L.files" :key="f.id" :href="f.url" target="_blank" rel="noopener" class="file">
           <img v-if="f.is_image" :src="f.url" alt="" /><span v-else class="fi"><UiIcon name="paperclip" :size="18" /></span>
-          <span class="fn">{{ f.title }}<small>{{ (f.size_bytes / 1024 / 1024).toFixed(1) }} MB</small></span>
+          <span class="fn">{{ f.title }}<small>{{ f.is_link ? '🔗 havola' : (f.size_bytes / 1024 / 1024).toFixed(1) + ' MB' }}</small></span>
         </a>
         <p v-if="!L.files.length" class="tr-muted">Bu darsda qo'shimcha fayl yo'q.</p>
       </div>
@@ -188,7 +207,7 @@ const nextLabel = computed(() => {
 .player { border-radius: 16px; overflow: hidden; background: #000; aspect-ratio: 16 / 9; display: grid; place-items: center; }
 .player.novideo { background: var(--tr-gold-tint); aspect-ratio: 16 / 5; }
 .player video, .player img { width: 100%; height: 100%; object-fit: contain; display: block; }
-.yt { width: 100%; height: 100%; } .yt :deep(iframe), .yt > div { width: 100%; height: 100%; }
+.yt { width: 100%; height: 100%; } .yt iframe { width: 100%; height: 100%; border: 0; display: block; } .yt :deep(iframe), .yt > div { width: 100%; height: 100%; }
 .ext { color: #fff; font-weight: 800; font-size: 18px; text-decoration: none; }
 .ph { color: var(--tr-gold); }
 .body { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 14px; }

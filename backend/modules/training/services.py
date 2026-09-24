@@ -217,7 +217,10 @@ def beat(user: User, lesson: Lesson, *, position: float, duration: float, played
         p, _ = LessonProgress.objects.select_for_update().get_or_create(user=user, lesson=lesson)
         elapsed = (now - p.last_beat_at).total_seconds() if p.last_beat_at else 15.0
         allowed = max(0.0, min(float(played), elapsed + 3.0, 60.0))
-        if duration and duration > 0:
+        if lesson.video_mode == "time":
+            # Drive/Vimeo: brauzer videoni "ko'rmaydi" — sahifada o'tkazilgan vaqt, davomiylikni admin yozadi
+            p.duration = float(lesson.duration_seconds or 60)
+        elif duration and duration > 0:
             p.duration = float(duration)
             if not lesson.duration_seconds:
                 Lesson.objects.filter(pk=lesson.pk).update(duration_seconds=int(duration))

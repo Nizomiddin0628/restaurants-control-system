@@ -41,3 +41,24 @@ export const SUB_STATUS: Record<string, { label: string; tone: 'ok' | 'warn' | '
   approved: { label: 'Qabul qilindi', tone: 'ok' },
   rejected: { label: 'Qaytarildi', tone: 'danger' },
 }
+
+/** Havola turini aniqlash (backend media.py bilan bir xil) — muharrirda darhol ko'rsatish uchun */
+export function linkKind(url?: string | null): 'none' | 'youtube' | 'drive' | 'vimeo' | 'video' | 'image' | 'pdf' | 'link' {
+  const u = (url || '').trim()
+  if (!u) return 'none'
+  if (youtubeId(u)) return 'youtube'
+  if (/drive\.google\.com\/(file\/d\/|open\?id=|uc\?)/.test(u)) return 'drive'
+  if (/vimeo\.com\/(video\/)?\d{6,}/.test(u)) return 'vimeo'
+  const path = u.split(/[?#]/)[0].toLowerCase()
+  const ext = path.includes('.') ? path.split('.').pop()! : ''
+  if (['mp4', 'webm', 'mov', 'm4v', 'ogg'].includes(ext)) return 'video'
+  if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) return 'image'
+  if (ext === 'pdf') return 'pdf'
+  return 'link'
+}
+export const LINK_LABEL: Record<string, string> = {
+  youtube: '▶ YouTube — ko\'rilgan foiz aniq o\'lchanadi', video: '🎬 Video fayl havolasi — aniq o\'lchanadi',
+  drive: '📁 Google Drive — sahifada o\'tkazilgan vaqt o\'lchanadi', vimeo: '▶ Vimeo — sahifada o\'tkazilgan vaqt o\'lchanadi',
+  image: '🖼 Rasm havolasi', pdf: '📄 PDF havolasi', link: '🔗 Oddiy havola — sahifada o\'tkazilgan vaqt o\'lchanadi',
+}
+export const isUrl = (s: string) => /^https?:\/\/\S+$/i.test((s || '').trim())

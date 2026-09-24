@@ -35,7 +35,7 @@ def tr(tenant):
 
         Course.objects.filter(title__startswith="T:").delete()
         c = Course.objects.create(title="T: Burger", roles=["cook"], is_published=True, due_days=3, pass_score=80)
-        l1 = Lesson.objects.create(course=c, title="Video dars", video_url="https://youtu.be/x", sort_order=0)
+        l1 = Lesson.objects.create(course=c, title="Video dars", video_url="https://youtu.be/dQw4w9WgXcQ", sort_order=0)
         l2 = Lesson.objects.create(course=c, title="Matn dars", body="...", sort_order=1)
         q = Quiz.objects.create(course=c, title="Yakuniy", shuffle=False)
         q1 = Question.objects.create(quiz=q, text="Harorat?", options=[{"id": "a", "text": "55"}, {"id": "b", "text": "72"}], correct=["b"])
@@ -176,3 +176,37 @@ def test_module_disabled_returns_404(api, tenant, tr):
     assert api.get("/api/v1/training/my").status_code == 404
     with schema_context("public"):
         set_modules(tenant, [*tenant.enabled_modules, "training"])
+
+
+def test_media_link_detection():
+    from modules.training.media import info
+    assert info("https://youtu.be/dQw4w9WgXcQ")["kind"] == "youtube"
+    assert info("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=5")["id"] == "dQw4w9WgXcQ"
+    d = info("https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrStUvWxYz012345/view?usp=sharing")
+    assert d["kind"] == "drive" and d["embed"].endswith("/preview")
+    assert info("https://vimeo.com/123456789")["kind"] == "vimeo"
+    assert info("https://cdn.site.uz/burger.MP4?x=1")["kind"] == "video"
+    assert info("https://site.uz/a.jpg")["kind"] == "image"
+    assert info("https://site.uz/page")["kind"] == "link"
+
+
+@pytest.mark.django_db
+def test_links_instead_of_uploads(client, api, tr):
+    """Material havola bilan: dars rasmi, fayl-havola, Drive video (vaqt bo'yicha nazorat), kurs muqovasi."""
+    r = api.put(f"/api/v1/training/lessons/{tr['l2'].pk}", {"title": "Matn dars", "image_url": "https://site.uz/burger.png",
+                                                              "video_url": "https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrStUvWxYz012345/view",
+                                                              "duration_seconds": 120})
+    assert r.status_code == 200 and r.json()["video_mode"] == "time" and r.json()["image"] == "https://site.uz/burger.png"
+    assert api.post(f"/api/v1/training/lessons/{tr['l2'].pk}/links", {"url": "ftp://x"}).status_code == 400
+    r = api.post(f"/api/v1/training/lessons/{tr['l2'].pk}/links", {"url": "https://site.uz/qollanma.pdf", "title": "Qo'llanma"})
+    assert r.status_code == 200 and r.json()["files"][-1]["is_link"] and r.json()["files"][-1]["title"] == "Qo'llanma"
+    c = api.put(f"/api/v1/training/courses/{tr['course'].pk}", {"title": "T: Burger", "roles": ["cook"], "is_published": True,
+                                                                 "cover_url": "https://site.uz/c.jpg"})
+    assert c.json()["cover"] == "https://site.uz/c.jpg"
+    # Drive videoda: brauzer yuborgan davomiylik emas, admin yozgan 120 s ishlatiladi
+    with schema_context("lazzat"):
+        from modules.training.models import Lesson
+        from modules.training.services import beat
+        les = Lesson.objects.get(pk=tr["l2"].pk)
+        p = beat(tr["cook"], les, position=10, duration=5, played=10)
+        assert p.duration == 120 and not p.completed_at
