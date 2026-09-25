@@ -95,13 +95,17 @@ STANDARDS = [
 DEMO_VIDEOS = {"Qo'lni to'g'ri yuvish": "https://www.youtube.com/watch?v=3PmVJQUCm4E"}
 
 
-def seed_demo_training(owner: User | None = None) -> int:
+def seed_demo_training(owner: User | None = None, courses: list | None = None,
+                       cook_task: tuple[str, str] = ("Burgerni standart bo'yicha tayyorlang",
+                                                     "Bitta burgerni darsdagi tartibda tayyorlab, kesimi ko'rinadigan rasmini yuboring.")) -> int:
+    """courses — boshqa restoran turi uchun o'z kurslari (namuna restoran: osh standarti va h.k.)."""
     if Course.objects.exists():
         return 0
+    courses = courses or COURSES
     random.seed(7)
     owner = owner or User.objects.filter(memberships__role__code="owner").first()
     manager = User.objects.filter(memberships__role__code="manager").first() or owner
-    for ci, c in enumerate(COURSES):
+    for ci, c in enumerate(courses):
         course = Course.objects.create(
             title=c["title"], description=c["description"], category=c["category"], roles=c.get("roles", []),
             everyone=c.get("everyone", False), due_days=c["due_days"], responsible=manager, is_published=True,
@@ -120,9 +124,9 @@ def seed_demo_training(owner: User | None = None) -> int:
     for si, (title, cat, body, everyone, roles) in enumerate(STANDARDS):
         Standard.objects.create(title=title, category=cat, body=body, everyone=everyone, roles=roles, responsible=manager, sort_order=si)
 
-    burger = Course.objects.get(title="Burger tayyorlash standarti")
-    a1 = Assignment.objects.create(title="Burgerni standart bo'yicha tayyorlang", course=burger, roles=["cook"], responsible=manager, created_by=owner,
-                                   description="Bitta burgerni darsdagi tartibda tayyorlab, kesimi ko'rinadigan rasmini yuboring.",
+    first = Course.objects.get(title=courses[0]["title"])
+    a1 = Assignment.objects.create(title=cook_task[0], course=first, roles=["cook"], responsible=manager, created_by=owner,
+                                   description=cook_task[1],
                                    due_at=timezone.now() + timedelta(days=2))
     a2 = Assignment.objects.create(title="Smena oxirida ish joyini tozalash", everyone=True, responsible=manager, created_by=owner,
                                    description="Ish joyingizni tozalab, oldin/keyin rasmini yuboring.", due_at=timezone.now() + timedelta(days=1))

@@ -10,7 +10,7 @@ from modules.catalog.models import Product
 from .models import CashShift, Order, OrderItem, OrderStatus, PayMethod
 
 
-def seed_demo_orders(days: int = 30) -> int:
+def seed_demo_orders(days: int = 30, per_day: tuple[int, int] = (55, 80)) -> int:
     if Order.objects.exists():
         return 0
     random.seed(7)
@@ -26,7 +26,7 @@ def seed_demo_orders(days: int = 30) -> int:
         shift = CashShift.objects.create(branch=branch, opened_by=cashier, opened_at=day.replace(hour=9, minute=0),
                                          closed_at=None if d == 0 else day.replace(hour=23, minute=0), cash_start=200_000)
         weekend = day.weekday() >= 5
-        for k in range(random.randint(55, 80) + (20 if weekend else 0)):
+        for k in range(random.randint(*per_day) + (per_day[0] // 3 if weekend else 0)):
             hour = random.choices(range(10, 23), weights=[2, 3, 6, 8, 6, 4, 4, 5, 7, 9, 8, 5, 2])[0]
             at = day.replace(hour=hour, minute=random.randint(0, 59))
             if at > now:
