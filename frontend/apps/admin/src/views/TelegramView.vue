@@ -94,7 +94,7 @@ const when = (v?: string | null) => (v ? new Date(v).toLocaleString('uz-UZ', { d
             <span v-if="info?.ok" class="good">✓ Bot topildi: @{{ info.username }}</span>
             <span v-else-if="info && !info.ok" class="bad">{{ info.detail }}</span></li>
           <li :class="{ ok: s.webhook_set }"><b>Webhook o'rnatish</b> — Telegram xabarlarni shu saytga yuboradi.
-            <span v-if="!s.https" class="warn">Sayt https bilan ochilganda ishlaydi (serverga joylaganda). Hozir sinov rejimi.</span></li>
+            <span v-if="!s.https" class="warn">Serverga joylaganda (https) ishlaydi. <b>Hozir kompyuterda sinash:</b> ikkinchi terminalda <code>python manage.py telegram_polling</code> — bot shu zahoti javob bera boshlaydi.</span></li>
           <li><b>Sinov xabari</b> yuboring — xodimlar guruhiga yoki o'zingizga.</li>
         </ol>
         <template v-if="canManage">

@@ -43,20 +43,26 @@ def webhook(request):
     if given not in allowed:
         return JsonResponse({"ok": False}, status=403)
     upd = json.loads(request.body or b"{}")
+    process_update(tenant, upd, request.build_absolute_uri("/").rstrip("/"))
+    return JsonResponse({"ok": True})
+
+
+def process_update(tenant, upd: dict, base_url: str | None = None) -> None:
+    """Bitta Telegram xabarini qayta ishlaydi — webhook ham, polling (telegram_polling) ham shuni chaqiradi."""
 
     if tenant.module_enabled("telegram"):
         try:
             from modules.telegram.services import handle_update
-            if handle_update(tenant, upd, request.build_absolute_uri("/").rstrip("/")):
-                return JsonResponse({"ok": True})
+            if handle_update(tenant, upd, base_url):
+                return
         except Exception:  # bot xatosi Telegram'ga 500 qaytarmasin (aks holda qayta-qayta yuboradi)
             log.exception("telegram bot handle_update xato")
-            return JsonResponse({"ok": True})
+            return
 
     msg = upd.get("message") or {}
     chat_id = (msg.get("chat") or {}).get("id")
     if not chat_id:
-        return JsonResponse({"ok": True})
+        return
     text = (msg.get("text") or "").strip()
     contact = msg.get("contact")
 
@@ -70,13 +76,13 @@ def webhook(request):
                                   "Endi vazifalar, muddatlar va tasdiqlar shu yerga keladi.\n/vazifalar — ochiq vazifalarim")
         else:
             send_message(chat_id, "Bu raqam xodimlar ro'yxatida yo'q. Menejerga murojaat qiling.")
-        return JsonResponse({"ok": True})
+        return
 
     user = User.objects.filter(telegram_id=chat_id).first()
     if text.startswith("/start") or not user:
         send_message(chat_id, f"Salom! Bu <b>{tenant.name}</b> xodimlari uchun bot.\nTelefon raqamingizni ulashing:",
                      reply_markup=CONTACT_KEYBOARD)
-        return JsonResponse({"ok": True})
+        return
 
     if text.startswith("/vazifalar"):
         try:
@@ -90,7 +96,7 @@ def webhook(request):
                 send_message(chat_id, "<b>Ochiq vazifalarim</b>\n" + "\n".join(lines))
         except Exception:
             send_message(chat_id, "Vazifalar moduli yoqilmagan.")
-        return JsonResponse({"ok": True})
+        return
 
     if text.startswith("/keldim") or text.startswith("/ketdim"):
         try:
@@ -113,7 +119,7 @@ def webhook(request):
                     send_message(chat_id, "Ochiq smena yo'q.")
         except Exception:
             send_message(chat_id, "Davomat moduli yoqilmagan yoki siz xodim sifatida ro'yxatda yo'qsiz.")
-        return JsonResponse({"ok": True})
+        return
 
     send_message(chat_id, "Buyruqlar: /vazifalar · /keldim · /ketdim")
-    return JsonResponse({"ok": True})
+    return

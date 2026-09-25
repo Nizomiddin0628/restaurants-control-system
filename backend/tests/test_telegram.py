@@ -153,3 +153,38 @@ def test_module_disabled_404(api, tenant, bot):
     assert api.get("/api/v1/bot/stats").status_code == 404
     with schema_context("public"):
         set_modules(tenant, [*tenant.enabled_modules, "telegram"])
+
+
+@pytest.mark.django_db
+def test_polling_command_handles_start(bot, tenant, monkeypatch):
+    """Lokal rejim: telegram_polling getUpdates'dan /start oladi → mijoz yaratiladi va javob yuboriladi."""
+    import requests as rq
+    from django.core.management import call_command
+    with schema_context("public"):
+        tenant.settings["modules"]["telegram"]["bot_token"] = TOKEN
+        tenant.save()
+    sent, calls = [], {"n": 0}
+
+    class R:
+        def __init__(self, d): self.d = d
+        def json(self): return self.d
+
+    def fake_get(url, params=None, timeout=None):
+        if url.endswith("getMe"):
+            return R({"ok": True, "result": {"username": "lazzat_bot"}})
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return R({"ok": True, "result": [{"update_id": 10, **{k: v for k, v in _msg(9001, "/start").items() if k != "update_id"}}]})
+        raise KeyboardInterrupt
+
+    def fake_post(url, json=None, timeout=None):
+        if url.endswith("sendMessage"):
+            sent.append(json)
+        return R({"ok": True})
+    monkeypatch.setattr(rq, "get", fake_get)
+    monkeypatch.setattr(rq, "post", fake_post)
+    call_command("telegram_polling", "--slug", "lazzat")
+    with schema_context("lazzat"):
+        from modules.telegram.models import BotUser
+        assert BotUser.objects.filter(chat_id=9001).exists()
+    assert sent and sent[0]["chat_id"] == 9001
