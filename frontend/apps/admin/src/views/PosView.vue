@@ -3,7 +3,7 @@
  * Kassa — planshet/telefon uchun: katta tugmalar, 3 bosqich: taom → savat → to'lov.
  * IT tushunmaydigan kassir uchun: minimal matn, katta raqamlar, xato bo'lsa oddiy tilda.
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { api } from '@restopos/api'
 import { UiButton, UiChip, UiDrawer, UiEmpty, UiIcon, UiInput, money, t, toast } from '@restopos/ui'
 import { useAuth } from '@/stores/auth'
@@ -36,7 +36,21 @@ const products = computed(() => {
   return qq ? menu.value.categories.flatMap((c: any) => c.products).filter((p: any) => t(p.name, ui.lang).toLowerCase().includes(qq)) : all
 })
 const subtotal = computed(() => cart.value.reduce((s, i) => s + i.product.price * i.qty, 0))
-const total = computed(() => Math.max(0, subtotal.value - Number(discount.value || 0)))
+// CRM: telefon/promokod kiritilsa — server hisoblaydi (mijoz kartasi, aksiya, bonus)
+const crmOn = computed(() => a.hasModule('crm'))
+const promoCode = ref('')
+const useBonus = ref(false)
+const quote = ref<any>(null)
+let qTimer: any = null
+async function reQuote() {
+  if (!crmOn.value || !cart.value.length || (phone.value.replace(/\D/g, '').length < 9 && !promoCode.value.trim())) { quote.value = null; return }
+  try {
+    quote.value = await api.post('/crm/quote', { phone: phone.value, promo_code: promoCode.value, manual_discount: Number(discount.value || 0),
+      use_bonus: useBonus.value ? null : 0, items: cart.value.map(i => ({ product_id: i.product.id, qty: i.qty })) })
+  } catch { quote.value = null }
+}
+watch([phone, promoCode, useBonus, discount, () => cart.value.map(i => i.qty + ':' + i.product.id).join()], () => { clearTimeout(qTimer); qTimer = setTimeout(reQuote, 300) })
+const total = computed(() => quote.value ? quote.value.total : Math.max(0, subtotal.value - Number(discount.value || 0)))
 const count = computed(() => cart.value.reduce((s, i) => s + i.qty, 0))
 const METHOD_ICON: Record<string, string> = { cash: 'receipt', card: 'box', click: 'globe', payme: 'globe', uzum: 'globe', transfer: 'chart' }
 
@@ -61,6 +75,10 @@ async function pay(method: string) {
   try {
     const o = await api.post('/pos/orders', { items: cart.value.map(i => ({ product_id: i.product.id, qty: i.qty })), type: orderType.value,
       table_no: tableNo.value, customer_phone: phone.value, discount: Number(discount.value || 0) })
+    if (quote.value) {
+      await api.post(`/crm/orders/${o.id}/attach`, { phone: phone.value, promo_code: promoCode.value, manual_discount: Number(discount.value || 0),
+        use_bonus: useBonus.value ? quote.value.bonus : 0 })
+    }
     if (method === 'click' || method === 'payme') {
       const link = await api.post('/payments/link', { order_id: o.id, provider: method }).catch(() => null)
       if (link?.ok) { payLink.value = link.url; window.open(link.url, '_blank') }
@@ -68,7 +86,7 @@ async function pay(method: string) {
     }
     const paid = await api.post(`/pos/orders/${o.id}/pay`, { payment_method: method })
     lastPaid.value = paid
-    cart.value = []; discount.value = 0; tableNo.value = ''; phone.value = ''; payDrawer.value = false
+    cart.value = []; discount.value = 0; tableNo.value = ''; phone.value = ''; promoCode.value = ''; useBonus.value = false; quote.value = null; payDrawer.value = false
     summary.value = await api.get('/pos/summary')
     toast(`Buyurtma #${paid.number} — ${money(paid.total)} ✓`)
   } catch (e: any) { toast(e.detail ?? 'To\'lov o\'tmadi', 'danger') } finally { paying.value = false }
@@ -140,6 +158,12 @@ function printReceipt(o: any) {
         </div>
         <div v-if="orderType === 'dine_in'" class="row2"><UiInput v-model="tableNo" placeholder="Stol №" /><UiInput v-model="phone" placeholder="Mijoz tel (bonus)" /></div>
         <UiInput v-else v-model="phone" placeholder="Mijoz telefoni (bonus uchun, ixtiyoriy)" />
+        <div v-if="quote?.customer" class="cust">
+          <b>{{ quote.customer.name || quote.customer.phone }}<span v-if="quote.customer.birthday_soon"> 🎂</span></b>
+          <UiChip :tone="quote.customer.level.code === 'gold' ? 'warn' : quote.customer.level.code === 'silver' ? 'info' : 'neutral'">{{ quote.customer.level.name }}</UiChip>
+          <span class="bal">bonus <b>{{ money(quote.customer.balance) }}</b></span>
+        </div>
+        <div v-else-if="quote?.is_new" class="cust new">Yangi mijoz — karta ochiladi va sovg'a bonus beriladi 🎁</div>
         <div class="items">
           <div v-for="i in cart" :key="i.product.id" class="it">
             <div class="n"><b>{{ t(i.product.name, ui.lang) }}</b><small>{{ money(i.product.price) }}</small></div>
@@ -150,6 +174,13 @@ function printReceipt(o: any) {
         </div>
         <div class="tot">
           <div class="disc"><span>Chegirma</span><input v-model="discount" type="number" min="0" step="1000" /><span>so'm</span></div>
+          <template v-if="crmOn">
+            <div class="disc"><span>Promokod</span><input v-model="promoCode" class="code" placeholder="—" /></div>
+            <div v-if="quote?.promo" class="crmline ok"><span>🏷 {{ quote.promo.name }}</span><b>−{{ money(quote.promo.discount) }}</b></div>
+            <div v-else-if="quote?.promo_error" class="crmline bad">{{ quote.promo_error }}</div>
+            <label v-if="quote?.customer && quote.customer.balance > 0" class="crmline usebonus"><input v-model="useBonus" type="checkbox" /><span>Bonus bilan to'lash</span><b v-if="useBonus">−{{ money(quote.bonus) }}</b><small v-else>{{ money(quote.max_bonus) }} gacha</small></label>
+            <div v-if="quote?.will_earn" class="crmline earn">Mijozga qaytadi: +{{ money(quote.will_earn) }} bonus</div>
+          </template>
           <div class="line"><span>{{ count }} ta</span><b>{{ money(total) }}</b></div>
           <UiButton variant="brand" size="l" block :disabled="!cart.length" @click="payDrawer = true"><UiIcon name="check" :size="18" /> To'lash · {{ money(total) }}</UiButton>
           <div class="row2 mini"><UiButton variant="ghost" size="s" block :disabled="!cart.length" @click="cart = []">Tozalash</UiButton><UiButton v-if="lastPaid" variant="ghost" size="s" block @click="printReceipt(lastPaid)">Chek #{{ lastPaid.number }}</UiButton></div>
@@ -224,6 +255,13 @@ function printReceipt(o: any) {
 .disc { display: flex; align-items: center; gap: 6px; font-size: var(--fs-xs); color: var(--muted); } .disc input { flex: 1; border: 1px solid var(--line); border-radius: var(--radius-s); padding: 6px 8px; }
 .line { display: flex; justify-content: space-between; align-items: baseline; } .line b { font-family: var(--font-display); font-size: var(--fs-2xl); }
 .mini { margin-top: 2px; }
+.cust { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--accent-tint); border-radius: var(--radius); font-size: var(--fs-s); flex-wrap: wrap; }
+.cust.new { color: var(--accent); font-weight: 700; } .cust .bal { margin-left: auto; } .cust .bal b { color: var(--accent); }
+.crmline { display: flex; align-items: center; gap: 8px; font-size: var(--fs-s); padding: 2px 0; } .crmline b { margin-left: auto; }
+.crmline.ok { color: var(--ok); font-weight: 700; } .crmline.bad { color: var(--danger); font-size: var(--fs-xs); }
+.crmline.earn { color: var(--muted); font-size: var(--fs-xs); } .usebonus { cursor: pointer; font-weight: 700; } .usebonus small { margin-left: auto; color: var(--muted); }
+.usebonus input { width: 18px; height: 18px; accent-color: var(--accent); }
+.code { text-transform: uppercase; }
 .pay-total { display: flex; flex-direction: column; align-items: center; padding: 14px; background: var(--surface-2); border-radius: var(--radius-l); margin-bottom: 12px; }
 .pay-total span { color: var(--muted); font-size: var(--fs-s); } .pay-total b { font-family: var(--font-display); font-size: var(--fs-3xl); }
 .pay-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

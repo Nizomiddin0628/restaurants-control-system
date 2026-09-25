@@ -34,6 +34,7 @@ _DEFAULTS = {k: v.get("default") for k, v in json.loads(
 STAFF_COMMANDS = ("/vazifalar", "/keldim", "/ketdim")
 BTN_MENU, BTN_BOOK, BTN_ORDERS, BTN_CONTACT, BTN_PHONE, BTN_CANCEL = (
     "🍔 Menyu va buyurtma", "📅 Stol bron qilish", "🧾 Buyurtmalarim", "☎️ Aloqa", "📱 Telefonni ulashish", "✖️ Bekor qilish")
+BTN_BONUS, BTN_SKIP = "🎁 Bonuslarim", "⏭ O'tkazib yuborish"
 
 
 # ------------------------------------------------------------------ sozlamalar
@@ -66,6 +67,8 @@ def main_keyboard(tenant, bu: BotUser, base_url: str | None) -> dict:
         second.append({"text": BTN_BOOK})
     second.append({"text": BTN_ORDERS})
     rows.append(second)
+    if tenant.module_enabled("crm"):
+        rows.append([{"text": BTN_BONUS}])
     rows.append([{"text": BTN_PHONE, "request_contact": True}] if not bu.phone else [{"text": BTN_CONTACT}])
     return {"keyboard": rows, "resize_keyboard": True}
 
@@ -133,6 +136,16 @@ def handle_update(tenant, update: dict, base_url: str | None = None) -> bool:
         else:
             say(tenant, bu.chat_id, "✅ Rahmat! Raqamingiz saqlandi — endi buyurtmalaringiz va bonuslaringiz shu yerda.",
                 main_keyboard(tenant, bu, base_url))
+        if tenant.module_enabled("crm"):
+            from modules.crm import services as crm
+            c, _ = crm.get_or_create(tenant, bu.phone, bu.full_name, source="telegram")
+            if c and not c.birthday and not staff:
+                bu.state = {"step": "crm_bday"}
+                bu.save(update_fields=["state"])
+                bonus = int(crm.conf(tenant).get("birthday_bonus") or 0)
+                say(tenant, bu.chat_id, "🎂 Tug'ilgan kuningizni yozing (masalan <b>25.09.1995</b>)"
+                    + (f" — o'sha kuni <b>{money(bonus)} so'm</b> sovg'a bonus olasiz!" if bonus else ""),
+                    {"keyboard": [[BTN_SKIP]], "resize_keyboard": True})
         return True
 
     # --- xodim buyruqlari — eski ishlovchiga
@@ -156,6 +169,15 @@ def handle_update(tenant, update: dict, base_url: str | None = None) -> bool:
     step = (bu.state or {}).get("step")
     if step and step.startswith("book_"):
         return _booking_step(tenant, bu, text, base_url)
+    if step == "crm_bday":
+        if text in (BTN_MENU, BTN_BOOK, BTN_ORDERS, BTN_CONTACT, BTN_BONUS) or text.startswith("/"):
+            bu.state = {}                       # mijoz boshqa tugmani bosdi — so'rovni tashlab, o'shani bajaramiz
+            bu.save(update_fields=["state"])
+        else:
+            return _birthday_step(tenant, bu, text, base_url)
+
+    if text == BTN_BONUS or text == "/bonus":
+        return _bonus_info(tenant, bu, base_url)
 
     if text == BTN_BOOK:
         if not (conf(tenant).get("enable_booking") and tenant.module_enabled("reservations")):
@@ -397,3 +419,56 @@ def send_broadcast(tenant, b: Broadcast) -> Broadcast:
     b.status, b.sent_at = BroadcastStatus.SENT, timezone.now()
     b.save()
     return b
+
+
+# ------------------------------------------------------------------ bonus (CRM moduli yoqilgan bo'lsa)
+def _birthday_step(tenant, bu: BotUser, text: str, base_url) -> bool:
+    from datetime import date as _date
+    bu.state = {}
+    if text != BTN_SKIP:
+        parts = [p for p in text.replace("/", ".").replace("-", ".").replace(" ", ".").split(".") if p]
+        try:
+            d, m, y = int(parts[0]), int(parts[1]), int(parts[2])
+            y = y + 1900 if y < 100 and y > 30 else (y + 2000 if y < 100 else y)
+            bd = _date(y, m, d)
+            if not (1920 <= bd.year <= timezone.localdate().year - 5):
+                raise ValueError
+        except (ValueError, IndexError):
+            bu.state = {"step": "crm_bday"}
+            bu.save(update_fields=["state"])
+            say(tenant, bu.chat_id, "Tushunmadim 🙂 Kun.oy.yil ko'rinishida yozing, masalan <b>25.09.1995</b>",
+                {"keyboard": [[BTN_SKIP]], "resize_keyboard": True})
+            return True
+        from modules.crm.models import Customer
+        Customer.objects.filter(phone=bu.phone, birthday__isnull=True).update(birthday=bd)
+        bu.save(update_fields=["state"])
+        say(tenant, bu.chat_id, f"🎉 Saqlandi: {bd:%d.%m.%Y}. Tug'ilgan kuningizda sovg'a kutib turadi!", main_keyboard(tenant, bu, base_url))
+        return True
+    bu.save(update_fields=["state"])
+    say(tenant, bu.chat_id, "Mayli. Kerak bo'lsa keyin yozishingiz mumkin.", main_keyboard(tenant, bu, base_url))
+    return True
+
+
+def _bonus_info(tenant, bu: BotUser, base_url) -> bool:
+    if not tenant.module_enabled("crm"):
+        say(tenant, bu.chat_id, "Bonus tizimi hozircha yoqilmagan.", main_keyboard(tenant, bu, base_url))
+        return True
+    if not bu.phone:
+        say(tenant, bu.chat_id, "Bonuslaringizni ko'rish uchun telefon raqamingizni ulashing 👇", main_keyboard(tenant, bu, base_url))
+        return True
+    from modules.crm import services as crm
+    from modules.crm.models import Promo
+    c, _ = crm.get_or_create(tenant, bu.phone, bu.full_name, source="telegram")
+    cfg = crm.conf(tenant)
+    lvl = crm.level_of(c, cfg)
+    lines = [f"🎁 <b>Bonus balansingiz: {money(c.balance)} so'm</b>",
+             f"Daraja: <b>{lvl['name']}</b> — har xariddan {lvl['percent']}% qaytadi"]
+    if lvl["next"]:
+        lines.append(f"{lvl['next']} darajagacha: {money(lvl['next_left'])} so'm xarid")
+    lines.append(f"Bonus bilan chekning {cfg['max_pay_percent']}% gacha to'lash mumkin — kassada raqamingizni ayting.")
+    promos = [p for p in Promo.objects.filter(is_active=True)[:10] if not (p.ends_on and p.ends_on < timezone.localdate())]
+    if promos:
+        lines.append("\n<b>Aksiyalar</b>")
+        lines += [f"• {p.name}" + (f" — promokod <code>{p.code}</code>" if p.code else "") for p in promos[:6]]
+    say(tenant, bu.chat_id, "\n".join(lines), main_keyboard(tenant, bu, base_url))
+    return True

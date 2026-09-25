@@ -461,6 +461,7 @@ def dashboard_summary(request):
 from integrations.telegram.api import router as telegram_router  # noqa: E402
 from modules.catalog.api import router as catalog_router  # noqa: E402
 from modules.cms.api import router as cms_router  # noqa: E402
+from modules.crm.api import router as crm_router  # noqa: E402
 from modules.finance.api import router as finance_router  # noqa: E402
 from modules.hr.api import router as hr_router  # noqa: E402
 from modules.inventory.api import router as inventory_router  # noqa: E402
@@ -487,6 +488,7 @@ api.add_router("/reservations", reservations_router)
 api.add_router("/telegram", telegram_router)
 api.add_router("/training", training_router)
 api.add_router("/bot", bot_router)
+api.add_router("/crm", crm_router)
 
 
 @api.get("/health", tags=["system"])

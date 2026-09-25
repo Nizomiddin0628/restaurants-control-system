@@ -7,6 +7,8 @@ const paths: Record<string, string> = {
   calendar: 'M4 6h16v15H4zM4 10h16M8 3v4M16 3v4',
   archive: 'M3 4h18v4H3zM5 8v12h14V8M10 12h4',
   paperclip: 'M20 11l-8.5 8.5a5 5 0 0 1-7-7L13 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 6',
+  gift: 'M3 9h18v4H3zM5 13v8h14v-8M12 9v12M12 9C10 5 6 4.5 6 7s4 2 6 2zM12 9c2-4 6-4.5 6-2s-4 2-6 2z',
+  star: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.8l6.1-.9z',
   send: 'M4 12l16-8-6 16-2.5-6z',
   filter: 'M3 5h18l-7 8v6l-4 2v-8z',
   camera: 'M3 8h4l2-3h6l2 3h4v12H3zM12 16a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z',

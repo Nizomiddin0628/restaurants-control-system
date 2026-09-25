@@ -1,0 +1,27 @@
+{
+  "code": "crm",
+  "name": {"uz": "Marketing va bonuslar", "ru": "Маркетинг и бонусы", "en": "Marketing & loyalty"},
+  "version": "1.0.0", "phase": 8, "implemented": true, "order": 55,
+  "depends": ["pos"],
+  "permissions": ["crm.view", "crm.manage", "crm.bonus", "crm.message", "crm.*"],
+  "nav": [
+    {"route": "/crm", "label": {"uz": "Mijozlar va bonus", "ru": "Клиенты и бонусы", "en": "Customers & loyalty"}, "icon": "gift", "order": 55, "perm": "crm.view"}
+  ],
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "cashback_percent": {"type": "integer", "title": "Keshbek — oddiy mijoz (%)", "default": 3},
+      "silver_from": {"type": "integer", "title": "Kumush daraja (jami xarid, so'm)", "default": 1000000},
+      "silver_percent": {"type": "integer", "title": "Kumush keshbek (%)", "default": 5},
+      "gold_from": {"type": "integer", "title": "Oltin daraja (jami xarid, so'm)", "default": 3000000},
+      "gold_percent": {"type": "integer", "title": "Oltin keshbek (%)", "default": 8},
+      "max_pay_percent": {"type": "integer", "title": "Chekning necha foizini bonus bilan to'lash mumkin", "default": 50},
+      "welcome_bonus": {"type": "integer", "title": "Yangi mijozga sovg'a bonus (so'm)", "default": 5000},
+      "birthday_bonus": {"type": "integer", "title": "Tug'ilgan kun bonusi (so'm)", "default": 30000},
+      "birthday_text": {"type": "string", "title": "Tug'ilgan kun tabrigi", "default": "🎂 Tug'ilgan kuningiz bilan, {name}! Sizga {bonus} so'm sovg'a bonus qo'shdik — keyingi tashrifda ishlating."},
+      "birthday_window": {"type": "integer", "title": "Tug'ilgan kun aksiyasi amal qiladi (± kun)", "default": 3},
+      "sleeping_days": {"type": "integer", "title": "«Uxlab qolgan» mijoz — necha kun kelmagan", "default": 30},
+      "notify_bonus": {"type": "boolean", "title": "Bonus qo'shilganda Telegram'da xabar", "default": true}
+    }
+  }
+}

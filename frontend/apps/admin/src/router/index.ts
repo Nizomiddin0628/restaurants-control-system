@@ -23,6 +23,7 @@ export const router = createRouter({
         { path: 'training/lesson/:id', name: 'training-lesson', component: () => import('@/views/TrainingLessonView.vue'), meta: { module: 'training' } },
         { path: 'training/quiz/:id', name: 'training-quiz', component: () => import('@/views/TrainingQuizView.vue'), meta: { module: 'training' } },
         { path: 'training/certificate/:id', name: 'training-cert', component: () => import('@/views/TrainingCertView.vue'), meta: { module: 'training' } },
+        { path: 'crm', name: 'crm', component: () => import('@/views/CrmView.vue'), meta: { module: 'crm', title: 'Mijozlar va bonus' } },
         { path: 'telegram', name: 'telegram', component: () => import('@/views/TelegramView.vue'), meta: { module: 'telegram' } },
         { path: 'site', name: 'site', component: () => import('@/views/SiteView.vue'), meta: { module: 'cms' } },
         { path: 'branches', name: 'branches', component: () => import('@/views/BranchesView.vue') },
