@@ -10,6 +10,7 @@
   --brand: #D9482B; --brand-ink: #FFF6EA;
   --ok: #1E7F4F; --ok-tint: #E3F0EC; --warn: #B7791F; --warn-tint: #FBF3E3; --warn-ink: #8A5A12;
   --danger: #C2321F; --danger-tint: #FBEDEA; --info: #1F5FBF; --info-tint: #E6EEF9;
+  --series-mute: #C9C7BE;
   --series-1: #2A78D6; --series-2: #EB6834; --series-3: #1BAF7A; --series-4: #EDA100;
   /* grafik ranglari — CVD (rang ko'rmaslik) tekshiruvidan o'tgan qadamlar; holat = rang + yozuv */
   --chart-new: #6C5CA8; --chart-active: #B7791F; --chart-review: #1F5FBF; --chart-done: #1E7F4F; --chart-cancel: #6B6A63;
@@ -34,6 +35,7 @@
   --brand: #E85A3C; --brand-ink: #1C1512;
   --ok: #4CC38A; --ok-tint: #16322C; --warn: #E0A33A; --warn-tint: #3A2E14; --warn-ink: #E0A33A;
   --danger: #F0705C; --danger-tint: #3B1F1B; --info: #7FB2F5; --info-tint: #1C2A40;
+  --series-mute: #4A4A52;
   --series-1: #3987E5; --series-2: #D95926; --series-3: #199E70; --series-4: #C98500;
   --chart-new: #8374D0; --chart-active: #C08528; --chart-review: #3D86E0; --chart-done: #279A66; --chart-cancel: #A19F96;
   --chart-bar: #3DBE8B; --chart-grid: #2E2E34;
@@ -48,6 +50,7 @@
     --brand: #E85A3C; --brand-ink: #1C1512;
     --ok: #4CC38A; --ok-tint: #16322C; --warn: #E0A33A; --warn-tint: #3A2E14; --warn-ink: #E0A33A;
     --danger: #F0705C; --danger-tint: #3B1F1B; --info: #7FB2F5; --info-tint: #1C2A40;
+  --series-mute: #4A4A52;
     --series-1: #3987E5; --series-2: #D95926; --series-3: #199E70; --series-4: #C98500;
   --chart-new: #8374D0; --chart-active: #C08528; --chart-review: #3D86E0; --chart-done: #279A66; --chart-cancel: #A19F96;
   --chart-bar: #3DBE8B; --chart-grid: #2E2E34;

@@ -10,7 +10,7 @@ from modules.catalog.models import Product
 from .models import CashShift, Order, OrderItem, OrderStatus, PayMethod
 
 
-def seed_demo_orders(days: int = 30, per_day: tuple[int, int] = (55, 80)) -> int:
+def seed_demo_orders(days: int = 30, per_day: tuple[int, int] = (55, 80), weights: dict[str, float] | None = None) -> int:
     if Order.objects.exists():
         return 0
     random.seed(7)
@@ -19,7 +19,8 @@ def seed_demo_orders(days: int = 30, per_day: tuple[int, int] = (55, 80)) -> int
         return 0
     branch = Branch.objects.filter(deleted_at__isnull=True).first()
     cashier = User.objects.filter(memberships__role__code__in=["cashier", "owner"]).first()
-    now = timezone.now()
+    w = [weights.get(p.name.get("uz", ""), 1.0) for p in products] if weights else None
+    now = timezone.localtime()          # mahalliy soat (Toshkent) — aks holda savdo soatlari 5 soatga siljiydi
     n = 0
     for d in range(days, -1, -1):
         day = now - timedelta(days=d)
@@ -35,7 +36,9 @@ def seed_demo_orders(days: int = 30, per_day: tuple[int, int] = (55, 80)) -> int
                                      type=random.choice(["takeaway", "takeaway", "dine_in", "delivery"]),
                                      payment_method=random.choices([m.value for m in PayMethod], weights=[45, 30, 10, 10, 4, 1])[0],
                                      paid_at=at)
-            for p in random.sample(products, k=random.randint(1, 3)):
+            k = random.randint(1, 3)
+            picks = random.sample(products, k=k) if not weights else list({id(x): x for x in random.choices(products, weights=w, k=k + 1)}.values())[:k]
+            for p in picks:
                 OrderItem.objects.create(order=o, product=p, name=p.name.get("uz") or str(p), qty=random.randint(1, 2),
                                          price=p.price, cost=p.cost)
             o.recalc()

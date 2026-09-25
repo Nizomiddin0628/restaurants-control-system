@@ -458,6 +458,13 @@ def dashboard_summary(request):
     }
 
 
+@api.get("/dashboard/overview", auth=auth, tags=["dashboard"])
+def dashboard_overview(request, period: str = "today", branch_id: Optional[int] = None):
+    """Menejer paneli: KPI, dinamika, holat, top, filiallar, so'nggi buyurtmalar, ombor, vazifalar, faoliyat."""
+    from .dashboard import overview
+    return overview(request, period, branch_id)
+
+
 # ------------------------------------------------------------------ modullar routerlari
 from integrations.telegram.api import router as telegram_router  # noqa: E402
 from modules.catalog.api import router as catalog_router  # noqa: E402

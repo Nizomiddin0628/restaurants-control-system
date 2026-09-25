@@ -40,7 +40,7 @@ async function onEdit({ id, key, value }: { id: number; key: string; value: any 
   try { const p = await api.patch<Product>(`/catalog/products/${id}`, { [key]: value }); products.value = products.value.map(x => (x.id === id ? p : x)); toast('Saqlandi') }
   catch (e: any) { toast(e.detail ?? 'Xato', 'danger') }
 }
-function openNew() { editing.value = { category_id: activeCat.value ?? cats.value[0]?.id, name: { uz: '', ru: '', en: '' }, description: { uz: '', ru: '', en: '' }, price: 0, cost: 0, tags: [], is_active: true, in_stop_list: false, sku: '', ikpu_code: '', custom_data: {} }; drawer.value = true }
+function openNew() { editing.value = { category_id: activeCat.value ?? cats.value[0]?.id, name: { uz: '', ru: '', en: '' }, description: { uz: '', ru: '', en: '' }, price: 0, cost: 0, tags: [], is_active: true, in_stop_list: false, sku: '', ikpu_code: '', image_url: '', custom_data: {} }; drawer.value = true }
 function openRow(p: Product) { editing.value = JSON.parse(JSON.stringify(p)); drawer.value = true }
 async function save() {
   if (!editing.value) return
@@ -120,6 +120,7 @@ function selectCat(id: number) { activeCat.value = id; loadProducts() }
           <div v-if="editing.image" class="preview" :style="{ backgroundImage: `url(${editing.image})` }"></div>
           <UiDropzone accept="image/*" label="Taom rasmi" hint="JPG/PNG/WebP · telefondan ham" @files="uploadImage" />
         </div>
+        <UiInput v-model="editing.image_url" label="Yoki rasm havolasi (ixtiyoriy)" placeholder="https://…" hint="Internetdagi rasm — yuklash shart emas, baza tejaladi. Yuklangan rasm bo'lsa, u ustun turadi." />
         <UiSelect v-model="editing.category_id" label="Kategoriya" :options="cats.map(c => ({ value: c.id, label: t(c.name, ui.lang) }))" />
         <div class="i18n"><UiInput v-model="editing.name!.uz" label="Nomi (uz)" /><UiInput v-model="editing.name!.ru" label="Nomi (ru)" /><UiInput v-model="editing.name!.en" label="Nomi (en)" /></div>
         <UiInput v-model="editing.description!.uz" label="Tavsif (uz)" />

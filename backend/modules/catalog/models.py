@@ -66,6 +66,7 @@ class Product(TimeStamped, SoftDelete):
     price = models.BigIntegerField(default=0, help_text="asosiy sotuv narxi, so'm")
     cost = models.BigIntegerField(default=0, help_text="tannarx, so'm (ombor moduli avtomatik yangilaydi)")
     image = models.ImageField(upload_to="catalog/products/", blank=True)
+    image_url = models.URLField(max_length=500, blank=True, help_text="internetdagi rasm havolasi (yuklash shart emas — baza tejaladi)")
     weight_g = models.PositiveIntegerField(null=True, blank=True)
     kcal = models.PositiveIntegerField(null=True, blank=True)
     tags = models.JSONField(default=list, blank=True, help_text='["hit", "new", "spicy"]')
@@ -75,6 +76,13 @@ class Product(TimeStamped, SoftDelete):
     sort_order = models.PositiveIntegerField(default=0)
     ikpu_code = models.CharField(max_length=17, blank=True, help_text="fiskal chek uchun IKPU (4-bosqich)")
     custom_data = models.JSONField(default=dict, blank=True, help_text="egasi qo'shgan maydonlar")
+
+    @property
+    def image_src(self) -> str | None:
+        """Yuklangan rasm bo'lsa — o'sha, bo'lmasa havola."""
+        if self.image:
+            return self.image.url
+        return self.image_url or None
     history = HistoricalRecords(m2m_fields=[modifier_groups])
 
     class Meta:

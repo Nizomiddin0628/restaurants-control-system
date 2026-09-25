@@ -142,7 +142,7 @@ function printReceipt(o: any) {
         </div>
         <div class="grid">
           <button v-for="p in products" :key="p.id" class="prod" :class="{ stop: p.in_stop_list }" @click="add(p)">
-            <img v-if="p.image" :src="p.image" alt="" loading="lazy" />
+            <img v-if="p.image" :src="p.image" alt="" loading="lazy" referrerpolicy="no-referrer" @error="p.image = null" />
             <span v-else class="ph">{{ t(p.name, ui.lang).slice(0, 1) }}</span>
             <b>{{ t(p.name, ui.lang) }}</b>
             <span class="pr">{{ money(p.price) }}</span>

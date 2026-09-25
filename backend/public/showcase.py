@@ -17,6 +17,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.db import connection
+from django.db.models import F
 from django.utils import timezone
 from django_tenants.utils import schema_context
 
@@ -146,6 +147,78 @@ EXTRA_STAFF = [("+998901110011", "Bobur Rahmonov", "waiter"), ("+998901110012", 
                ("+998901110013", "Otabek Nurmatov", "waiter"), ("+998901110014", "Ravshan Hakimov", "cook"),
                ("+998901110015", "Farhod Tursunov", "cook"), ("+998901110016", "Elyor Qosimov", "courier")]
 
+# Taom rasmlari — Wikimedia Commons (erkin litsenziya: CC BY-SA / CC BY / PD; muallif — fayl sahifasida).
+# Rasm bazaga yuklanmaydi, havola saqlanadi; havola ochilmasa kassa va sayt bosh harfni ko'rsatadi.
+COMMONS = "https://commons.wikimedia.org/wiki/Special:FilePath/{}?width=640"
+PHOTOS = {
+    "To'y oshi": "Plov_Tashkent.jpg",
+    "Choyxona oshi": "Uzbek_palov_in_Yerevan_Food_Court.jpg",
+    "Samarqand oshi": "Samarkand_Zigir-pilaf.jpg",
+    "Qazili osh": "Plov_Tashkent.jpg",
+    "Sho'rva": "Shorpo.jpg",
+    "Mastava": "Мастава.jpg",
+    "Chuchvara sho'rva": "Chuchvara.jpg",
+    "Mosh xo'rda": "Мастава.jpg",
+    "Qovurma lag'mon": "Лагман.jpg",
+    "Suyuq lag'mon": "Uyghur_Lagman.jpg",
+    "Manti (5 dona)": "Uzbek_Manti_(bright).jpg",
+    "Dimlama": "Dimlama_(16425713838).jpg",
+    "Qozon kabob": "Qozon_kabob_(Uzbek_national_cuisine).jpg",
+    "Norin": "Naryn_tashkent_2024.jpg",
+    "Qo'y go'shti kabob": "Barbecued_lamb_sticks.jpg",
+    "Mol go'shti kabob": "Shashlik.jpg",
+    "Jigar kabob": "Shashlik.jpg",
+    "Lula kabob": "Lula_kebab.jpg",
+    "Tovuq kabob": "Shashlik.jpg",
+    "Tandir somsa": "Ouzbékistan-Samsas.jpg",
+    "Qovoqli somsa": "Самса.jpg",
+    "Obi non": "Samarqand_noni.jpg",
+    "Patir non": "Патир-нон-02.jpg",
+    "Achchiq-chuchuk": "سالاد_شیرازی.jpg",
+    "Suzma ko'katlar bilan": "Turkish_strained_yogurt.jpg",
+    "Olivye": "Салат_Оливье_03.jpg",
+    "Ko'k salat": "سالاد_شیرازی.jpg",
+    "Chak-chak": "Чак-чак.jpg",
+    "Halvo": "Orient_sweets_(special_halva)_Samarkand,_Siyab.jpg",
+    "Ko'k choy (choynak)": "Green_Tea.jpg",
+    "Qora choy (choynak)": "Cup_of_black_tea.jpg",
+    "Limonli choy": "Russiantea1.jpg",
+    "Kompot (1 l)": "Peach_kompot.jpg",
+    "Ayron": "Fresh_ayran.jpg",
+    "Coca-Cola 0,5": "6_Coca-Cola_bottles.jpg",
+    "Suv 0,5": "PET_Bottle_Water.jpg",
+}
+
+# O'qitish videolari (YouTube, ochiq): dars nomi → havola
+VIDEOS = {
+    "Zirvak": "https://www.youtube.com/watch?v=nPCynUmy-uA",
+    "Guruch solish va damlash": "https://www.youtube.com/watch?v=CEXa3aEiTJU",
+    "Forma va tashqi ko'rinish": "https://www.youtube.com/watch?v=FOM3SUFY030",
+    "Mahsulotlarni saqlash": "https://www.youtube.com/watch?v=wxFj4_TBjeg",
+    "Kutib olish": "https://www.youtube.com/watch?v=jBe8e69ypcc",
+    "Shikoyat bilan ishlash": "https://www.youtube.com/watch?v=zrnL0FUYz4M",
+    "Pichoq bilan xavfsiz ishlash": "https://www.youtube.com/watch?v=oLTaMPjAgLo",
+    "O't o'chirgich (PASS usuli)": "https://www.youtube.com/watch?v=heVKavoFhKA",
+}
+LESSON_LINKS = {
+    "Qo'lni to'g'ri yuvish": [("JSST: qo'l yuvish plakati (PDF)", "https://www.who.int/docs/default-source/patient-safety/how-to-handwash-poster.pdf")],
+}
+SAFETY_COURSE = {
+    "title": "Oshxona xavfsizligi", "category": "Xavfsizlik", "roles": ["cook", "manager"], "due_days": 14,
+    "description": "Pichoq, olov va issiq idish bilan xavfsiz ishlash — jarohatsiz smena.",
+    "lessons": [
+        ("Pichoq bilan xavfsiz ishlash", "Pichoq o'tkir bo'lsin, taxta sirpanmasin (ostiga nam sochiq), barmoqlar «mushuk panjasi» holatida.",
+         ["O'tkir pichoq — xavfsizroq", "Taxta ostida nam sochiq", "«Mushuk panjasi»"]),
+        ("O't o'chirgich (PASS usuli)", "P — chekani torting, A — shlangni olov tagiga qarating, S — bosing, S — u yoqdan-bu yoqqa suring. Yog' yonsa — suv sepilmaydi!",
+         ["PASS", "Yog'ga suv sepilmaydi", "O't o'chirgich joyi — eshik yonida"]),
+    ],
+    "quiz": ("Xavfsizlik testi", 120, [
+        ("Qozondagi yog' yonib ketsa nima qilinadi?", ["Suv sepiladi", "Qopqoq yopiladi / o't o'chirgich", "Qochiladi", "Pufiladi"], 1, "Yog'ga suv — portlashga olib keladi."),
+        ("PASS da birinchi harakat?", ["Bosish", "Chekani tortish", "Surish", "Qaratish"], 1, "Avval chekani torting."),
+        ("Qaysi pichoq xavfsizroq?", ["O'tmas", "O'tkir", "Farqi yo'q", "Plastik"], 1, "O'tmas pichoq sirpanadi — jarohat ko'proq."),
+    ]),
+}
+
 OSH_COURSE = {
     "title": "Osh tayyorlash standarti", "category": "Oshxona", "roles": ["cook", "manager"], "due_days": 7,
     "description": "Zirvakdan damlashgacha — har qozon bir xil ta'm, rang va porsiyada bo'lishi uchun.",
@@ -249,6 +322,9 @@ def _menu(t, log):
         p = Product.objects.create(category=cats[cat], name={"uz": uz, "ru": ru, "en": uz}, description={"uz": desc, "ru": desc, "en": desc},
                                    price=price, weight_g=w, kcal=kcal, tags=tags, sort_order=i)
         p.modifier_groups.set([groups[c] for c in gcodes])
+        if uz in PHOTOS:
+            Product.objects.filter(pk=p.pk).update(image_url=COMMONS.format(PHOTOS[uz]),
+                                                   custom_data={"image_credit": "Wikimedia Commons (erkin litsenziya)"})
     Product.objects.filter(name__uz="Norin").update(in_stop_list=True)      # stop-list namunasi
     cat_services.publish(by="namuna", note="Boshlang'ich taomnoma", tenant=t)
     log(f"Taomnoma: {len(MENU)} taom, {len(CATS)} bo'lim")
@@ -296,17 +372,62 @@ def _operations(t, log):
     from modules.tables.demo import seed_demo_tables
     from modules.tasks.demo import seed_demo_tasks
     tasks = seed_demo_tasks()
-    orders = seed_demo_orders(days=65, per_day=(100, 135))
+    pop = {"To'y oshi": 6, "Choyxona oshi": 4, "Samarqand oshi": 3, "Qazili osh": 2, "Qo'y go'shti kabob": 4, "Mol go'shti kabob": 3,
+           "Lula kabob": 2, "Tandir somsa": 4, "Obi non": 5, "Ko'k choy (choynak)": 5, "Qora choy (choynak)": 3, "Achchiq-chuchuk": 3,
+           "Qovurma lag'mon": 3, "Sho'rva": 2, "Manti (5 dona)": 2, "Coca-Cola 0,5": 2, "Qozon kabob": 1.5}
+    orders = seed_demo_orders(days=65, per_day=(100, 135), weights=pop)
+    _branches(t)
     # zalda o'tirganlarga stol raqami — hisobot va stol tarixi haqiqiy ko'rinsin
     rnd = random.Random(5)
     for o in Order.objects.filter(type="dine_in", status=OrderStatus.PAID).only("id")[:4000]:
         Order.objects.filter(pk=o.pk).update(table_no=str(rnd.randint(1, 10)))
     hr = seed_demo_hr()
     _payroll_rates()
+    _payroll_history()
     exp = _expenses()
     tables = seed_demo_tables()
     res = seed_demo_reservations()
     log(f"Kassa: {orders} chek (65 kun) · vazifalar: {tasks} · xodim kartalari: {hr} · chiqimlar: {exp} · stollar: {tables} · bronlar: {res}")
+
+
+def _branches(t):
+    """3 ta filial: savdo 50 / 30 / 20 % — filiallar jadvali va filial tanlagichi bo'sh turmasin. ~1,2% chek bekor qilingan."""
+    from core.models import Branch
+    from modules.pos.models import CashShift, Order, OrderStatus
+    main = Branch.objects.filter(deleted_at__isnull=True).first()
+    b2 = Branch.objects.create(name="Yunusobod filiali", address="Toshkent sh., Yunusobod tumani, 4-kvartal (namuna)", phone="+998712000001", sort_order=1)
+    b3 = Branch.objects.create(name="Sergeli filiali", address="Toshkent sh., Sergeli tumani, 7-kvartal (namuna)", phone="+998712000002", sort_order=2)
+    rnd = random.Random(17)
+    ids = list(Order.objects.values_list("id", flat=True))
+    to2, to3, cancel = [], [], []
+    for i in ids:
+        x = rnd.random()
+        (to2 if x < 0.30 else to3 if x < 0.50 else []).append(i)
+        if rnd.random() < 0.012:
+            cancel.append(i)
+    Order.objects.filter(pk__in=to2).update(branch=b2)
+    Order.objects.filter(pk__in=to3).update(branch=b3)
+    Order.objects.filter(pk__in=cancel, status=OrderStatus.PAID).update(
+        status=OrderStatus.CANCELLED, cancel_reason="Mijoz bekor qildi", cancelled_at=F("paid_at"), paid_at=None)
+    CashShift.objects.filter(branch__isnull=True).update(branch=main)
+    return [main, b2, b3]
+
+
+def _payroll_history():
+    """O'tgan 2 oy oyliklari (to'langan) — mehnat xarajati va oylik tarixi taqqoslansin."""
+    from modules.hr.models import Employee, PayrollStatus, Payslip
+    first = timezone.localdate().replace(day=1)
+    rnd = random.Random(4)
+    for k in (1, 2):
+        per = first
+        for _ in range(k):
+            per = (per - timedelta(days=1)).replace(day=1)
+        for e in Employee.objects.all():
+            s = Payslip(employee=e, period=per, salary_type=e.salary_type, rate=e.rate, hours=rnd.choice([168, 176, 184]),
+                        shifts=rnd.choice([24, 26, 27]), bonus=rnd.choice([0, 0, 200_000, 400_000]), penalty=rnd.choice([0, 0, 0, 50_000]),
+                        status=PayrollStatus.PAID, paid_at=timezone.now() - timedelta(days=30 * k - 5))
+            s.compute()
+            s.save()
 
 
 def _expenses() -> int:
@@ -355,9 +476,17 @@ def _payroll_rates():
 
 def _training(t, log):
     from modules.training.demo import COURSES, seed_demo_training
-    n = seed_demo_training(courses=[OSH_COURSE, COURSES[1], COURSES[2]],
+    n = seed_demo_training(courses=[OSH_COURSE, COURSES[1], COURSES[2], SAFETY_COURSE],
                            cook_task=("Oshni standart bo'yicha damlang", "Bitta qozon oshni darsdagi tartibda damlab, laganda porsiya rasmini yuboring."))
-    log(f"O'qitish: {n} kurs, testlar, standartlar, topshiriqlar")
+    from modules.training.models import Lesson, LessonFile
+    for title, url in VIDEOS.items():
+        Lesson.objects.filter(title=title, video_url="").update(video_url=url)
+    for title, links in LESSON_LINKS.items():
+        for les in Lesson.objects.filter(title=title):
+            for lt, url in links:
+                LessonFile.objects.create(lesson=les, title=lt, url=url)
+    vids = Lesson.objects.exclude(video_url="").count()
+    log(f"O'qitish: {n} kurs, {vids} ta video dars, testlar, standartlar, topshiriqlar")
 
 
 def _crm_and_telegram(t, log):
@@ -436,12 +565,24 @@ def _kitchen_now(t, log):
     cashier = User.objects.filter(memberships__role__code="cashier").first()
     rnd = random.Random(3)
     prods = list(Product.objects.filter(in_stop_list=False))
-    for k, (typ, table) in enumerate([("dine_in", "4"), ("dine_in", "VIP-1"), ("takeaway", ""), ("delivery", "")]):
-        o = Order.objects.create(shift=shift, cashier=cashier, type=typ, table_no=table, source="telegram" if typ == "delivery" else "pos",
+    from modules.kds.models import Ticket, TicketStatus
+    plan = [("dine_in", "4", "new"), ("dine_in", "VIP-1", "cooking"), ("takeaway", "", "new"), ("delivery", "", "cooking"),
+            ("dine_in", "7", "ready"), ("dine_in", "2", "cooking"), ("delivery", "", "ready"), ("takeaway", "", "new")]
+    cooks = list(User.objects.filter(memberships__role__code="cook"))
+    for k, (typ, table, kst) in enumerate(plan):
+        o = Order.objects.create(shift=shift, branch=shift.branch if shift else None, cashier=cashier, type=typ, table_no=table, source="telegram" if typ == "delivery" else "pos",
                                  note="Piyozsiz" if k == 1 else "")
         for p in rnd.sample(prods, k=rnd.randint(2, 4)):
             OrderItem.objects.create(order=o, product=p, name=p.name["uz"], qty=rnd.randint(1, 3), price=p.price, cost=p.cost)
         o.recalc()
         o.save()
         emit("pos.order_created", {"order_id": o.pk, "number": o.number, "total": o.total, "_tenant": t}, tenant=t)
-    log("Oshxona ekrani: 4 ta faol buyurtma")
+        started = timezone.now() - timedelta(minutes=rnd.randint(4, 14))
+        upd = {"status": kst}
+        if kst in (TicketStatus.COOKING, TicketStatus.READY):
+            upd.update(started_at=started, cook=rnd.choice(cooks) if cooks else None)
+        if kst == TicketStatus.READY:
+            upd["ready_at"] = started + timedelta(minutes=rnd.randint(6, 11))
+        Ticket.objects.filter(order=o).update(**upd)
+        Order.objects.filter(pk=o.pk).update(created_at=timezone.now() - timedelta(minutes=(8 - k) * 3))
+    log("Oshxona ekrani: 8 ta faol buyurtma (yangi / tayyorlanmoqda / tayyor)")

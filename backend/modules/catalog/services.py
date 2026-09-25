@@ -19,7 +19,7 @@ def build_snapshot() -> dict:
         for p in c.products.filter(is_active=True, deleted_at__isnull=True, in_stop_list=False).prefetch_related("modifier_groups__options", "branch_prices"):
             products.append({
                 "id": p.pk, "name": p.name, "description": p.description, "price": p.price,
-                "image": p.image.url if p.image else None, "weight_g": p.weight_g, "kcal": p.kcal, "tags": p.tags,
+                "image": p.image_src, "weight_g": p.weight_g, "kcal": p.kcal, "tags": p.tags,
                 "branch_prices": {bp.branch_id: bp.price for bp in p.branch_prices.all()},
                 "modifier_groups": [
                     {"id": g.pk, "name": g.name, "min": g.min_select, "max": g.max_select,

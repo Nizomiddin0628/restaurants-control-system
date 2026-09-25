@@ -90,6 +90,7 @@ class ProductIn(Schema):
     is_active: bool = True
     in_stop_list: bool = False
     ikpu_code: str = ""
+    image_url: str = ""
     custom_data: dict = {}
 
 
@@ -123,11 +124,12 @@ class ProductOut(Schema):
     in_stop_list: bool
     sort_order: int
     ikpu_code: str
+    image_url: str = ""
     custom_data: dict
 
     @staticmethod
     def resolve_image(obj):
-        return obj.image.url if obj.image else None
+        return obj.image_src
 
     @staticmethod
     def resolve_modifier_group_ids(obj):

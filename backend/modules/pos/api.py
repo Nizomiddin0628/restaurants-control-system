@@ -130,7 +130,7 @@ def menu(request):
     _guard(request, "pos.sell")
     cats = []
     for c in Category.objects.filter(deleted_at__isnull=True, is_active=True):
-        prods = [{"id": p.id, "name": p.name, "price": p.price, "cost": p.cost, "image": p.image.url if p.image else None,
+        prods = [{"id": p.id, "name": p.name, "price": p.price, "cost": p.cost, "image": p.image_src,
                   "in_stop_list": p.in_stop_list, "tags": p.tags}
                  for p in c.products.filter(deleted_at__isnull=True, is_active=True)]
         if prods:

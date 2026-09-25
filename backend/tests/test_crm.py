@@ -203,3 +203,20 @@ def test_module_disabled_404(api, tenant, crm):
     assert api.get("/api/v1/crm/stats").status_code == 404
     with schema_context("public"):
         set_modules(tenant, [*tenant.enabled_modules, "crm"])
+
+
+@pytest.mark.django_db
+def test_dashboard_overview_all_periods(api, crm):
+    """Boshqaruv paneli: har bir davr uchun barcha bloklar keladi, bugungi to'lov KPI'ga tushadi."""
+    _sell(api, [{"product_id": crm["burger"].pk, "qty": 2}], PHONE)
+    for p in ("today", "yesterday", "week", "month", "year"):
+        r = api.get(f"/api/v1/dashboard/overview?period={p}")
+        assert r.status_code == 200, r.content
+        d = r.json()
+        assert {k["key"] for k in d["kpis"]} >= {"revenue", "orders", "avg_check", "food_cost", "labor", "net"}
+        assert d["series"]["points"] and isinstance(d["activity"], list)
+        if p != "yesterday":
+            assert d["status"]["total"] >= 1
+    d = api.get("/api/v1/dashboard/overview?period=today").json()
+    assert next(k for k in d["kpis"] if k["key"] == "revenue")["value"] >= 100000
+    assert d["top"][0]["name"] == "CRM burger" and d["recent"][0]["status"] in ("done", "delivered")

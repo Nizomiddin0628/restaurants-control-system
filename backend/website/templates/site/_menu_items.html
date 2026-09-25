@@ -2,7 +2,7 @@
 <div class="grid">
 {% for c in menu.categories %}{% if c.id == active_cat %}{% for p in c.products %}
   <article class="card dish">
-    {% if p.image %}<img class="ph" src="{{ p.image }}" alt="{{ p.name|t:lang }}" loading="lazy">{% else %}<div class="ph ph-empty" aria-hidden="true"><span>{{ p.name|t:lang|slice:":1" }}</span></div>{% endif %}
+    {% if p.image %}<img class="ph" src="{{ p.image }}" alt="{{ p.name|t:lang }}" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML='<div class=&quot;ph ph-empty&quot; aria-hidden=&quot;true&quot;><span>{{ p.name|t:lang|slice:":1" }}</span></div>'">{% else %}<div class="ph ph-empty" aria-hidden="true"><span>{{ p.name|t:lang|slice:":1" }}</span></div>{% endif %}
     <div class="body">
       <div class="name"><span>{{ p.name|t:lang }}</span>{% if 'hit' in p.tags %}<span class="chip" style="color:var(--primary)">Xit</span>{% elif 'new' in p.tags %}<span class="chip">Yangi</span>{% endif %}</div>
       <span class="muted" style="font-size:.9em">{{ p.description|t:lang }}{% if p.weight_g %} · {{ p.weight_g }} g{% endif %}{% if p.kcal %} · {{ p.kcal }} kkal{% endif %}</span>
