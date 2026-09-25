@@ -1,0 +1,34 @@
+{% extends "site/base.html" %}{% load site_tags %}
+{% block title %}Vakansiyalar — {{ site.title|default:tenant.name }}{% endblock %}
+{% block content %}
+<section class="section container jobs">
+  <span class="chip">💼 Biz bilan ishlang</span>
+  <h1 class="h2" style="margin:12px 0 8px">Vakansiyalar</h1>
+  <p class="muted" style="max-width:62ch;margin:0 0 24px">{{ intro }}</p>
+  <div class="jgrid">
+    {% for j in jobs %}
+    <a class="card job" href="/vacancies/{{ j.v.id }}/">
+      {% if j.v.image_src %}<img class="jimg" src="{{ j.v.image_src }}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}
+      <div class="jb">
+        <b class="jt">{{ j.v.title }}</b>
+        <span class="jsal">{{ j.salary }}</span>
+        <span class="muted jm">{{ j.employment }}{% if j.v.schedule %} · {{ j.v.schedule }}{% endif %}{% if j.v.branch %} · {{ j.v.branch.name }}{% endif %}</span>
+        {% if j.v.summary %}<p class="muted" style="margin:6px 0 0">{{ j.v.summary }}</p>{% endif %}
+        <span class="jgo">Batafsil va ariza →</span>
+      </div>
+    </a>
+    {% empty %}
+    <div class="card" style="padding:24px"><b>Hozircha ochiq vakansiya yo'q.</b><p class="muted" style="margin:6px 0 0">Keyinroq qayta kiring yoki bizga qo'ng'iroq qiling{% if site.phone %}: <a href="tel:{{ site.phone }}">{{ site.phone }}</a>{% endif %}.</p></div>
+    {% endfor %}
+  </div>
+</section>
+<style>
+.jgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 16px; }
+.job { display: flex; flex-direction: column; overflow: hidden; text-decoration: none; color: var(--ink); transition: transform .15s, box-shadow .15s; }
+.job:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0,0,0,.08); }
+.jimg { width: 100%; aspect-ratio: 16/9; object-fit: cover; background: var(--tint); }
+.jb { padding: 16px; display: flex; flex-direction: column; gap: 4px; }
+.jt { font-size: 1.15em; } .jsal { font-weight: 800; color: var(--primary); } .jm { font-size: .9em; }
+.jgo { margin-top: 10px; font-weight: 700; color: var(--accent); }
+</style>
+{% endblock %}

@@ -383,6 +383,11 @@ def _operations(t, log):
         Order.objects.filter(pk=o.pk).update(table_no=str(rnd.randint(1, 10)))
     hr = seed_demo_hr()
     _payroll_rates()
+    from core.models import Membership
+    from modules.hr.demo import seed_demo_recruit_people
+    own = Membership.objects.filter(role__code="owner").select_related("user").first()
+    rec = seed_demo_recruit_people(own.user if own else None)
+    log(f"HR: vakansiya {rec.get('vacancies', 0)} · nomzod {rec.get('applications', 0)} · profil {rec.get('profiles', 0)}")
     _payroll_history()
     exp = _expenses()
     tables = seed_demo_tables()

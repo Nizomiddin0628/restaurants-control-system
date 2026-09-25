@@ -115,6 +115,10 @@ def process_update(tenant, upd: dict, base_url: str | None = None) -> None:
                 if a:
                     a.check_out = timezone.now(); a.save()
                     send_message(chat_id, f"👋 Ketdingiz: {timezone.localtime():%H:%M} · {a.hours} soat")
+                    hr_cfg = (((tenant.settings or {}).get("modules") or {}).get("hr") or {})
+                    if tenant.module_enabled("telegram") and hr_cfg.get("shift_feedback", True):
+                        from modules.telegram.hr_flow import mood_markup
+                        send_message(chat_id, "Bugungi smena qanday o'tdi?", reply_markup=mood_markup(a.pk))
                 else:
                     send_message(chat_id, "Ochiq smena yo'q.")
         except Exception:

@@ -521,3 +521,6 @@ def payslip_status(request, sid: int, status: str):
         emit("hr.payslip_paid", {"payslip_id": s.pk, "employee_id": s.employee_id, "total": s.total, "period": s.period.isoformat()},
              tenant=request.tenant)
     return s
+
+
+from . import api_people  # noqa: E402,F401  (profil, KPI, vakansiyalar — shu routerga qo'shiladi)

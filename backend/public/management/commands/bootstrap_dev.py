@@ -45,6 +45,9 @@ class Command(BaseCommand):
                 seed_demo_inventory(t)      # tex-kartalar → taom tannarxi real
                 seed_demo_orders()          # 14 kunlik savdo → hisobotlar
                 seed_demo_hr()              # xodimlar, smena, davomat, oylik
+                from core.models import Membership
+                from modules.hr.demo import seed_demo_recruit_people
+                seed_demo_recruit_people(Membership.objects.filter(role__code="owner").first().user)
                 seed_demo_expenses()        # ijara, kommunal, marketing
                 seed_demo_tables()          # zal xaritasi: 2 zal, 14 stol
                 seed_demo_reservations()    # bugungi/ertangi bronlar + navbat

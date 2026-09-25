@@ -29,6 +29,7 @@
     <nav class="nav">
       {% for s in sections %}{% if s.type != 'hero' and s.type != 'menu' %}<a href="/#{{ s.type }}">{{ s.title|t:lang|default:s.get_type_display }}</a>{% endif %}{% endfor %}
       <a href="/menu/">{% if lang == 'ru' %}Меню{% elif lang == 'en' %}Menu{% else %}Taomnoma{% endif %}</a>
+      {% if jobs_count %}<a href="/vacancies/">{% if lang == 'ru' %}Вакансии{% elif lang == 'en' %}Careers{% else %}Vakansiyalar{% endif %} <span class="jobs-n">{{ jobs_count }}</span></a>{% endif %}
     </nav>
     {% if languages|length > 1 %}<div class="lang">{% for l in languages %}<a href="?lang={{ l }}" class="{% if l == lang %}on{% endif %}">{{ l|upper }}</a>{% endfor %}</div>{% endif %}
     {% if site.telegram %}<a class="btn" href="https://t.me/{{ site.telegram|cut:'@'|cut:'https://t.me/' }}" style="display:none" id="tgBtn">Telegram</a>{% endif %}
@@ -39,12 +40,13 @@
   <div class="container"><nav class="mnav" id="mnav">
     {% for s in sections %}{% if s.type != 'hero' and s.type != 'menu' %}<a href="/#{{ s.type }}" onclick="document.getElementById('mnav').classList.remove('open')">{{ s.title|t:lang|default:s.get_type_display }}</a>{% endif %}{% endfor %}
     <a href="/menu/">{% if lang == 'ru' %}Меню{% elif lang == 'en' %}Menu{% else %}Taomnoma{% endif %}</a>
+    {% if jobs_count %}<a href="/vacancies/">{% if lang == 'ru' %}Вакансии{% elif lang == 'en' %}Careers{% else %}Vakansiyalar{% endif %} ({{ jobs_count }})</a>{% endif %}
   </nav></div>
 </header>
 <main>{% block content %}{% endblock %}</main>
 <footer class="container ftr">
   <span>© {{ site.title|default:tenant.name }}{% if site.address %} · {{ site.address }}{% endif %}</span>
-  <span>{% if site.phone %}<a href="tel:{{ site.phone }}">{{ site.phone }}</a>{% endif %}{% if site.instagram %} · <a href="https://instagram.com/{{ site.instagram|cut:'@' }}">Instagram</a>{% endif %} · <a href="/tv/menu-board/">TV</a> · <a href="/admin/">Boshqaruv</a></span>
+  <span>{% if site.phone %}<a href="tel:{{ site.phone }}">{{ site.phone }}</a>{% endif %}{% if site.instagram %} · <a href="https://instagram.com/{{ site.instagram|cut:'@' }}">Instagram</a>{% endif %}{% if jobs_count %} · <a href="/vacancies/">Vakansiyalar</a>{% endif %} · <a href="/tv/menu-board/">TV</a> · <a href="/admin/">Boshqaruv</a></span>
 </footer>
 <script>
   // Mavjud tema tanlovi (mijoz brauzeri) — localStorage bo'lmasa ham ishlaydi

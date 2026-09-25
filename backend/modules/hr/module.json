@@ -1,17 +1,81 @@
 {
   "code": "hr",
-  "name": {"uz": "Xodimlar va oylik", "ru": "Сотрудники и зарплата", "en": "Staff & payroll"},
-  "version": "1.0.0", "phase": 1, "implemented": true, "order": 70,
+  "name": {
+    "uz": "Xodimlar va oylik",
+    "ru": "Сотрудники и зарплата",
+    "en": "Staff & payroll"
+  },
+  "version": "1.0.0",
+  "phase": 1,
+  "implemented": true,
+  "order": 70,
   "depends": [],
-  "permissions": ["hr.view", "hr.edit", "hr.payroll", "hr.*"],
+  "permissions": [
+    "hr.view",
+    "hr.edit",
+    "hr.payroll",
+    "hr.recruit",
+    "hr.review",
+    "hr.*"
+  ],
   "nav": [
-    {"route": "/hr", "label": {"uz": "Xodimlar", "ru": "Сотрудники", "en": "Staff"}, "icon": "users", "order": 70, "perm": "hr.view"}
+    {
+      "route": "/hr",
+      "label": {
+        "uz": "Xodimlar",
+        "ru": "Сотрудники",
+        "en": "Staff"
+      },
+      "icon": "users",
+      "order": 70,
+      "perm": "hr.view"
+    },
+    {
+      "route": "/recruiting",
+      "label": {
+        "uz": "Ishga olish",
+        "ru": "Найм",
+        "en": "Hiring"
+      },
+      "icon": "megaphone",
+      "order": 71,
+      "perm": "hr.recruit"
+    },
+    {
+      "route": "/kpi",
+      "label": {
+        "uz": "Baholash va KPI",
+        "ru": "Оценка и KPI",
+        "en": "Performance"
+      },
+      "icon": "star",
+      "order": 72,
+      "perm": "hr.review"
+    }
   ],
   "settings_schema": {
     "type": "object",
     "properties": {
-      "late_tolerance_minutes": {"type": "integer", "title": "Kechikish uchun ruxsat (daqiqa)", "default": 10},
-      "payroll_day": {"type": "integer", "title": "Oylik to'lash kuni", "default": 5}
+      "late_tolerance_minutes": {
+        "type": "integer",
+        "title": "Kechikish uchun ruxsat (daqiqa)",
+        "default": 10
+      },
+      "payroll_day": {
+        "type": "integer",
+        "title": "Oylik to'lash kuni",
+        "default": 5
+      },
+      "careers_intro": {
+        "type": "string",
+        "title": "Vakansiyalar sahifasi matni",
+        "default": "Biz bilan ishlang: barqaror maosh, bepul ovqat, o'qitish va o'sish imkoniyati."
+      },
+      "shift_feedback": {
+        "type": "boolean",
+        "title": "Smenadan keyin kayfiyat so'rovi (Telegram)",
+        "default": true
+      }
     }
   }
 }

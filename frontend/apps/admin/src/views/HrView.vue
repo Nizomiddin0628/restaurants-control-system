@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { RouterLink } from 'vue-router'
 /**
  * Xodimlar: ro'yxat + karta (lavozim, maosh sharti, rol, vazifalari, davomati, oyliklari) ·
  * smena jadvali (hafta) · davomat (keldi/ketdi) · oylik (hisoblash → tasdiqlash → to'lash).
@@ -136,6 +137,7 @@ const fmtD = (s: string) => new Date(s).toLocaleDateString('uz-UZ', { day: '2-di
           <div><span>Ishga kirgan</span><b>{{ fmtD(card.employee.hire_date) }}</b></div>
         </div>
         <div class="acts">
+          <RouterLink :to="`/hr/employee/${card.employee.id}`" class="full">To'liq profil →</RouterLink>
           <UiButton v-if="!card.employee.on_shift" size="s" @click="checkIn(card.employee)"><UiIcon name="clock" :size="14" /> Keldi</UiButton>
           <UiButton v-else size="s" variant="secondary" @click="checkOut(card.employee)">Ketdi</UiButton>
           <UiChip v-if="card.employee.telegram_id" tone="ok">Telegram ulangan</UiChip><UiChip v-else tone="neutral">Telegram: botga /start → telefon</UiChip>
@@ -281,4 +283,5 @@ const fmtD = (s: string) => new Date(s).toLocaleDateString('uz-UZ', { day: '2-di
 .fl.chk { flex-direction: row; align-items: center; gap: 8px; margin-top: 8px; }
 @media (max-width: 1100px) { .split { grid-template-columns: 1fr; } .card { position: static; } .kpis { grid-template-columns: 1fr 1fr; } .grid { grid-template-columns: 120px repeat(7, 1fr); } }
 @media (max-width: 600px) { .emp { grid-template-columns: 36px 1fr; } .emp > :nth-child(n+3) { display: none; } .p-h { display: none; } .p-r { grid-template-columns: 1fr 1fr; } .grid2 { grid-template-columns: 1fr; } .grid { grid-template-columns: 90px repeat(7, 1fr); font-size: 10px; } }
+.full { font-weight: 800; color: var(--accent); text-decoration: none; font-size: var(--fs-s); align-self: center; margin-right: auto; }
 </style>

@@ -28,7 +28,15 @@ def _ctx(request):
         "sections": SiteSection.objects.filter(is_enabled=True),
         "menu": menu, "branches": Branch.objects.filter(is_active=True, deleted_at__isnull=True),
         "languages": site.languages or ["uz"], "platform": settings.PLATFORM_NAME,
+        "jobs_count": _jobs_count(request),
     }
+
+
+def _jobs_count(request) -> int:
+    if not request.tenant.module_enabled("hr"):
+        return 0
+    from modules.hr.models import Vacancy, VacancyStatus
+    return Vacancy.objects.filter(status=VacancyStatus.OPEN).count()
 
 
 def home(request):
@@ -88,3 +96,72 @@ def manifest(request):
         "theme_color": site.theme.get("primary", "#D9482B"),
         "icons": [{"src": site.logo.url, "sizes": "512x512", "type": "image/png"}] if site.logo else [],
     })
+
+
+# ------------------------------------------------------------------ vakansiyalar (HR moduli)
+def _bot_link(request, vid: int) -> str | None:
+    if not request.tenant.module_enabled("telegram"):
+        return None
+    from modules.telegram.services import conf
+    u = (conf(request.tenant).get("bot_username") or "").strip().lstrip("@")
+    return f"https://t.me/{u}?start=job_{vid}" if u else None
+
+
+def _media(v) -> dict:
+    from modules.training.media import info
+    return info(v.video_url) if v.video_url else {}
+
+
+def vacancies(request):
+    """/vacancies/ — ochiq vakansiyalar ro'yxati."""
+    if not request.tenant.module_enabled("hr"):
+        return render(request, "site/offline.html", status=404)
+    from modules.hr import recruit
+    from modules.hr.models import Vacancy, VacancyStatus
+    ctx = _ctx(request)
+    rows = [v for v in Vacancy.objects.filter(status=VacancyStatus.OPEN).select_related("branch") if recruit.is_open(v)]
+    ctx["jobs"] = [{"v": v, "salary": recruit.salary_text(v), "employment": recruit.EMPLOYMENT.get(v.employment, "")} for v in rows]
+    ctx["intro"] = (((request.tenant.settings or {}).get("modules") or {}).get("hr") or {}).get(
+        "careers_intro", "Biz bilan ishlang: barqaror maosh, bepul ovqat, o'qitish va o'sish imkoniyati.")
+    return render(request, "site/vacancies.html", ctx)
+
+
+def vacancy(request, vid: int):
+    """/vacancies/<id>/ — to'liq ma'lumot + ariza (Telegram bot yoki shu yerda forma)."""
+    if not request.tenant.module_enabled("hr"):
+        return render(request, "site/offline.html", status=404)
+    from django.db.models import F
+
+    from modules.hr import recruit
+    from modules.hr.models import Vacancy
+    v = Vacancy.objects.select_related("branch").filter(pk=vid).first()
+    if v is None or not recruit.is_open(v):
+        ctx = _ctx(request)
+        ctx["closed"] = True
+        return render(request, "site/vacancy.html", ctx, status=404 if v is None else 200)
+    ctx = _ctx(request)
+    ctx.update({"v": v, "salary": recruit.salary_text(v), "employment": recruit.EMPLOYMENT.get(v.employment, ""),
+                "bot_link": _bot_link(request, v.pk), "media": _media(v), "questions": list(enumerate(v.questions or []))})
+    if request.method == "POST":
+        if request.POST.get("website"):                       # bot to'ldiradigan yashirin maydon (spam)
+            ctx["sent"] = True
+            return render(request, "site/vacancy.html", ctx)
+        answers = [{"i": i, "a": request.POST.get(f"q{i}", "")} for i, _ in enumerate(v.questions or [])]
+        by = request.POST.get("birth_year", "").strip()
+        wh = [{"company": request.POST.get("prev_company", "").strip(), "position": request.POST.get("prev_position", "").strip(),
+               "years": request.POST.get("prev_years", "").strip()}] if request.POST.get("prev_company", "").strip() else []
+        photo = request.FILES.get("photo")
+        if photo and (photo.size > 5 * 1024 * 1024 or not (photo.content_type or "").startswith("image/")):
+            photo = None
+        try:
+            recruit.create_application(request.tenant, v, full_name=request.POST.get("full_name", ""), phone=request.POST.get("phone", ""),
+                                       answers=answers, experience=request.POST.get("experience", ""), work_history=wh,
+                                       birth_year=int(by) if by.isdigit() and 1950 < int(by) < 2012 else None,
+                                       city=request.POST.get("city", ""), source="site", photo=photo)
+            ctx["sent"] = True
+        except ValueError as e:
+            ctx["error"] = str(e)
+            ctx["form"] = request.POST
+    else:
+        Vacancy.objects.filter(pk=v.pk).update(views=F("views") + 1)
+    return render(request, "site/vacancy.html", ctx)

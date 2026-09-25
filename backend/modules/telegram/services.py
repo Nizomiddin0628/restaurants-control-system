@@ -67,8 +67,15 @@ def main_keyboard(tenant, bu: BotUser, base_url: str | None) -> dict:
         second.append({"text": BTN_BOOK})
     second.append({"text": BTN_ORDERS})
     rows.append(second)
+    extra = []
     if tenant.module_enabled("crm"):
-        rows.append([{"text": BTN_BONUS}])
+        extra.append({"text": BTN_BONUS})
+    if tenant.module_enabled("hr") and not bu.staff_id:
+        from .hr_flow import open_jobs
+        if open_jobs():
+            extra.append({"text": "💼 Vakansiyalar"})
+    if extra:
+        rows.append(extra)
     rows.append([{"text": BTN_PHONE, "request_contact": True}] if not bu.phone else [{"text": BTN_CONTACT}])
     return {"keyboard": rows, "resize_keyboard": True}
 
@@ -109,12 +116,26 @@ def money(v: int) -> str:
 def handle_update(tenant, update: dict, base_url: str | None = None) -> bool:
     msg = update.get("message") or update.get("edited_message")
     if not msg:
-        return bool(update.get("callback_query") or update.get("my_chat_member"))
+        cq = update.get("callback_query")
+        if cq:
+            from . import hr_flow
+            hr_flow.handle_callback(tenant, cq)
+        return bool(cq or update.get("my_chat_member"))
     chat = msg.get("chat") or {}
     if chat.get("type") not in (None, "private"):
         return True                         # guruhlarda javob bermaymiz (xodimlar guruhi — faqat bildirishnoma uchun)
     text = (msg.get("text") or "").strip()
     bu = touch(msg)
+
+    # --- ishga ariza suhbati (HR) — kontakt ham shu yerda qabul qilinadi
+    if str((bu.state or {}).get("step") or "").startswith("rec_") and text not in (BTN_CANCEL, "/cancel") and not text.startswith("/start"):
+        from . import hr_flow
+        if hr_flow.step(tenant, bu, msg, text):
+            return True
+    if text.startswith("/start job_") and tenant.module_enabled("hr"):
+        from . import hr_flow
+        vid = text.split("job_", 1)[1].split()[0]
+        return hr_flow.start_apply(tenant, bu, int(vid)) if vid.isdigit() else hr_flow.show_jobs(tenant, bu)
 
     # --- telefon ulashildi
     contact = msg.get("contact")
@@ -178,6 +199,10 @@ def handle_update(tenant, update: dict, base_url: str | None = None) -> bool:
 
     if text == BTN_BONUS or text == "/bonus":
         return _bonus_info(tenant, bu, base_url)
+
+    if (text == "💼 Vakansiyalar" or text == "/vakansiyalar") and tenant.module_enabled("hr"):
+        from . import hr_flow
+        return hr_flow.show_jobs(tenant, bu)
 
     if text == BTN_BOOK:
         if not (conf(tenant).get("enable_booking") and tenant.module_enabled("reservations")):
