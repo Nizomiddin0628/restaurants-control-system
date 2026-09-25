@@ -20,7 +20,11 @@ let timer: number | undefined
 async function start() {
   result.value = null; showReview.value = false; i.value = 0; answers.value = {}
   try { A.value = await api.post(`/training/my/quizzes/${route.params.id}/start`) } catch (e: any) { toast(e.detail ?? 'Xato', 'danger'); router.back(); return }
-  const lim = A.value.quiz.time_limit_seconds
+  answers.value = { ...(A.value.answers || {}) }                 // sahifa yangilangan bo'lsa — javoblar qaytadi
+  const firstOpen = A.value.questions.findIndex((x: any) => !(answers.value[String(x.id)] ?? []).length)
+  i.value = firstOpen < 0 ? Math.max(0, A.value.questions.length - 1) : firstOpen
+  if (Object.keys(answers.value).length) toast('Test davom etmoqda — javoblaringiz saqlangan', 'info')
+  const lim = A.value.remaining_seconds ?? A.value.quiz.time_limit_seconds
   if (lim) {
     const end = Date.now() + lim * 1000
     left.value = lim
@@ -38,7 +42,9 @@ function pick(oid: string) {
   const k = String(Q.value.id)
   if (Q.value.multiple) { const cur = new Set(answers.value[k] ?? []); cur.has(oid) ? cur.delete(oid) : cur.add(oid); answers.value[k] = [...cur] }
   else answers.value[k] = [oid]
+  clearTimeout(saveT); saveT = window.setTimeout(() => api.post(`/training/my/attempts/${A.value.attempt_id}/save`, { answers: answers.value }).catch(() => {}), 400)
 }
+let saveT: number | undefined
 const answered = computed(() => (answers.value[String(Q.value?.id)] ?? []).length > 0)
 function next() { if (i.value < total.value - 1) i.value++; else finish() }
 async function finish() {
@@ -62,7 +68,7 @@ const optText = (q: any, id: string) => q.options.find((o: any) => o.id === id)?
       </header>
       <div class="card">
         <div class="pr">
-          <div class="pl"><small>{{ i + 1 }} / {{ total }}</small><div class="tr-bar blue"><i :style="{ width: ((i + 1) / total) * 100 + '%' }"></i></div></div>
+          <div class="pl"><small>{{ i + 1 }} / {{ total }}</small><div class="tr-bar"><i :style="{ width: ((i + 1) / total) * 100 + '%' }"></i></div></div>
           <span v-if="A.quiz.time_limit_seconds" class="tm" :class="{ low: left < 30 }">⏱ {{ fmtDur(left) }}</span>
         </div>
         <h3 class="qt">{{ Q.text }}</h3>

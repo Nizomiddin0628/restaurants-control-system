@@ -260,7 +260,38 @@ def attempts_left(quiz: Quiz, user: User) -> int | None:
     return max(0, quiz.max_attempts - used)
 
 
+def quiz_ready(quiz: Quiz, user: User) -> bool:
+    """Test ochiqmi: darsga bog'langan bo'lsa — o'sha dars, yakuniy bo'lsa — barcha darslar tugagan bo'lishi kerak."""
+    done = lesson_done_ids(user, quiz.course)
+    if quiz.lesson_id:
+        return quiz.lesson_id in done
+    return set(quiz.course.lessons.values_list("id", flat=True)) <= done
+
+
+def remaining_seconds(attempt: QuizAttempt) -> int | None:
+    lim = attempt.quiz.time_limit_seconds
+    if not lim:
+        return None
+    return max(0, int(lim - (timezone.now() - attempt.started_at).total_seconds()))
+
+
+def open_attempt(quiz: Quiz, user: User) -> QuizAttempt | None:
+    """Tugallanmagan urinish (sahifa yangilansa — shu davom etadi, taymer qaytadan boshlanmaydi).
+    Vaqti o'tib ketgan bo'lsa — saqlangan javoblar bilan yakunlanadi va urinish hisoblanadi."""
+    a = QuizAttempt.objects.filter(quiz=quiz, user=user, finished_at__isnull=True).order_by("-started_at").first()
+    if a is None:
+        return None
+    left = remaining_seconds(a)
+    if left is not None and left <= 0:
+        grade(a, a.answers or {})
+        return None
+    return a
+
+
 def start_attempt(quiz: Quiz, user: User) -> QuizAttempt:
+    cur = open_attempt(quiz, user)
+    if cur is not None:
+        return cur
     ids = list(quiz.questions.values_list("id", flat=True))
     if quiz.shuffle:
         random.shuffle(ids)
@@ -294,13 +325,17 @@ def grade(attempt: QuizAttempt, answers: dict) -> QuizAttempt:
 
 
 # ------------------------------------------------------------------ topshiriq
-def submit(sub: Submission, text: str) -> Submission:
+def submit(sub: Submission, text: str, tenant=None) -> Submission:
     sub.text = text
     sub.status = SubmissionStatus.SUBMITTED
     sub.submitted_at = timezone.now()
     sub.attempts += 1
     sub.save()
     emit("training.assignment_submitted", {"submission_id": sub.pk, "assignment_id": sub.assignment_id})
+    resp = sub.assignment.responsible
+    if resp and resp.pk != sub.user_id:
+        notify(tenant, resp, f"📥 <b>{sub.user.full_name or sub.user.phone}</b> topshiriqni yubordi: <b>{sub.assignment.title}</b>\n"
+                             "O'qitish → Topshiriqlar bo'limida qabul qiling yoki qaytaring.")
     return sub
 
 
@@ -351,3 +386,71 @@ def user_summary(user: User) -> dict:
         "progress": round(sum(e.progress for e in ens) / len(ens)) if ens else 0,
         "last_activity": lp.order_by("-updated_at").values_list("updated_at", flat=True).first(),
     }
+
+
+# ------------------------------------------------------------------ eslatmalar (mas'uliyat)
+_remind_done: dict[str, object] = {}
+
+
+def _fmt(d) -> str:
+    return timezone.localtime(d).strftime("%d.%m.%Y") if d else ""
+
+
+def remind(tenant, force: bool = False) -> dict:
+    """Kuniga bir marta: xodimga — muddati yaqin/o'tgan kurs va topshiriqlar, tanishilmagan standartlar;
+    mas'ulga — kechikayotgan xodimlar ro'yxati va tekshiruvni kutayotgan topshiriqlar.
+    Bir kishiga kuniga bitta xabar (Reminder jurnali). force — sahifadagi «Eslatma yuborish» tugmasi."""
+    from .models import Reminder, SubmissionStatus
+    today = timezone.localdate()
+    key = getattr(tenant, "schema_name", "?")
+    if not force and _remind_done.get(key) == today:
+        return {"users": 0, "responsibles": 0, "skipped": True}
+    _remind_done[key] = today
+    now = timezone.now()
+    soon = now + timedelta(days=1)
+    per_user: dict = {}
+    per_resp: dict = {}
+
+    def add(bucket, user, line):
+        bucket.setdefault(user.pk, (user, []))[1].append(line)
+
+    for e in (Enrollment.objects.exclude(status=EnrollmentStatus.COMPLETED)
+              .filter(due_at__isnull=False, due_at__lte=soon, course__is_archived=False, course__is_published=True)
+              .select_related("user", "course", "course__responsible")):
+        late = e.due_at < now
+        add(per_user, e.user, (f"⚠️ Kurs muddati o'tdi: <b>{e.course.title}</b> ({e.progress}%)" if late
+                               else f"⏰ Ertagacha tugating: <b>{e.course.title}</b> ({e.progress}%)"))
+        if late and e.course.responsible_id and e.course.responsible_id != e.user_id:
+            add(per_resp, e.course.responsible, f"• {e.user.full_name or e.user.phone} — {e.course.title} ({e.progress}%, muddat {_fmt(e.due_at)})")
+    for s in (Submission.objects.filter(status__in=[SubmissionStatus.TODO, SubmissionStatus.REJECTED], assignment__is_active=True,
+                                        assignment__due_at__isnull=False, assignment__due_at__lte=soon)
+              .select_related("user", "assignment", "assignment__responsible")):
+        late = s.assignment.due_at < now
+        add(per_user, s.user, (f"⚠️ Topshiriq kechikdi: <b>{s.assignment.title}</b>" if late
+                               else f"⏰ Topshiriq muddati yaqin: <b>{s.assignment.title}</b>"))
+        if late and s.assignment.responsible_id and s.assignment.responsible_id != s.user_id:
+            add(per_resp, s.assignment.responsible, f"• {s.user.full_name or s.user.phone} — topshiriq «{s.assignment.title}» bajarilmagan")
+    for s in (Submission.objects.filter(status=SubmissionStatus.SUBMITTED, assignment__is_active=True, assignment__responsible__isnull=False)
+              .select_related("user", "assignment", "assignment__responsible")):
+        add(per_resp, s.assignment.responsible, f"• 📥 {s.user.full_name or s.user.phone} — «{s.assignment.title}» tekshiruvni kutmoqda")
+    for u in staff_users():
+        pending = [st for st in my_standards(u) if not standard_acked(st, u) and st.updated_at < now - timedelta(days=1)]
+        if pending:
+            add(per_user, u, f"📋 {len(pending)} ta standart bilan tanishmagansiz: " + ", ".join(f"<b>{x.title}</b>" for x in pending[:3]))
+
+    sent_u = sent_r = 0
+    for uid, (u, lines) in per_user.items():
+        if Reminder.objects.filter(user=u, day=today, kind="user").exists():
+            continue
+        text = "📚 <b>O'qitish — eslatma</b>\n" + "\n".join(lines[:8]) + "\n\nRestoPOS → O'qitish bo'limini oching."
+        Reminder.objects.create(user=u, day=today, kind="user", text=text)
+        notify(tenant, u, text)
+        sent_u += 1
+    for uid, (u, lines) in per_resp.items():
+        if Reminder.objects.filter(user=u, day=today, kind="digest").exists():
+            continue
+        text = "🧭 <b>Siz mas'ul bo'lgan o'qitish</b>\n" + "\n".join(lines[:15]) + (f"\n… yana {len(lines) - 15} ta" if len(lines) > 15 else "")
+        Reminder.objects.create(user=u, day=today, kind="digest", text=text)
+        notify(tenant, u, text)
+        sent_r += 1
+    return {"users": sent_u, "responsibles": sent_r, "skipped": False}

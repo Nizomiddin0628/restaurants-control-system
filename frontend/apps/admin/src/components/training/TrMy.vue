@@ -34,6 +34,7 @@ const first = computed(() => (home.value?.user.full_name || '').split(' ')[0])
 const openAssign = computed(() => subs.value.filter(s => s.status === 'todo' || s.status === 'rejected').length)
 const pendingStd = computed(() => stds.value.filter(s => !s.acked_at).length)
 const S = computed(() => home.value?.summary ?? {})
+const todo = computed(() => (home.value?.courses ?? []).filter((c: any) => c.status !== 'completed').length + openAssign.value + pendingStd.value)
 const pct = computed(() => {
   const s = S.value; const tot = (s.lessons_total || 0) + (s.quizzes_total || 0)
   return tot ? Math.round((100 * ((s.lessons_done || 0) + (s.quizzes_passed || 0))) / tot) : 0
@@ -74,13 +75,13 @@ const dueText = (d?: string | null) => { const n = daysLeft(d); if (n === null) 
       <RouterLink to="/settings" title="Profil rasmi"><UiAvatar :name="home.user.full_name" :src="auth.me?.avatar" :size="52" /></RouterLink>
       <div>
         <h2>Salom, {{ first }}! 👋</h2>
-        <p class="tr-muted">Bugun o'qishingiz kerak bo'lgan darslar</p>
+        <p class="tr-muted">{{ todo ? `Sizni ${todo} ta vazifa kutmoqda` : 'Hammasi bajarilgan — barakalla! 🎉' }}</p>
       </div>
     </section>
 
     <div class="layout">
       <div class="col">
-        <nav class="tr-seg">
+        <nav class="tr-seg subs">
           <button :class="{ on: sub === 'courses' }" @click="sub = 'courses'">Mening kurslarim</button>
           <button :class="{ on: sub === 'assignments' }" @click="sub = 'assignments'">Topshiriqlar <span v-if="openAssign" class="tr-badge">{{ openAssign }}</span></button>
           <button :class="{ on: sub === 'standards' }" @click="sub = 'standards'">Standartlar <span v-if="pendingStd" class="tr-badge">{{ pendingStd }}</span></button>
@@ -238,5 +239,5 @@ img.media { background: var(--surface-3); }
 .cert div { flex: 1; display: flex; flex-direction: column; } .cert small { color: var(--muted); }
 .trophy { font-size: 28px; }
 @media (max-width: 1024px) { .layout { grid-template-columns: 1fr; } .prog { position: static; } }
-@media (max-width: 600px) { .cards { grid-template-columns: 1fr; } .tr-seg button { flex: none; } }
+@media (max-width: 600px) { .cards { grid-template-columns: 1fr; } .subs { display: grid; grid-template-columns: 1fr 1fr; } .subs button { padding: 0 8px; font-size: 13px; } }
 </style>

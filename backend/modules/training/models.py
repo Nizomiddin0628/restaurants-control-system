@@ -275,3 +275,17 @@ class StandardAck(models.Model):
 
     class Meta:
         unique_together = [("standard", "user", "version")]
+
+
+class Reminder(models.Model):
+    """Kunlik eslatma jurnali — bir kishiga kuniga bitta eslatma (spam bo'lmasin)."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="training_reminders")
+    day = models.DateField()
+    kind = models.CharField(max_length=10, default="user", help_text="user — xodimga, digest — mas'ulga")
+    text = models.TextField(blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        unique_together = [("user", "day", "kind")]
+        ordering = ["-created_at"]

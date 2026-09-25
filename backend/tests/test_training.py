@@ -210,3 +210,66 @@ def test_links_instead_of_uploads(client, api, tr):
         les = Lesson.objects.get(pk=tr["l2"].pk)
         p = beat(tr["cook"], les, position=10, duration=5, played=10)
         assert p.duration == 120 and not p.completed_at
+
+
+@pytest.mark.django_db
+def test_quiz_locked_until_lessons_done_and_resumes(client, tr):
+    """Darslar tugamaguncha test ochilmaydi; sahifa yangilansa — o'sha urinish davom etadi (taymer qaytadan boshlanmaydi),
+    javoblar saqlanadi; vaqti o'tgan urinish urinish sifatida hisoblanadi."""
+    client.get("/api/v1/training/my", **tr["h"])
+    url = f"/api/v1/training/my/quizzes/{tr['quiz'].pk}/start"
+    assert _post(client, url, {}, tr["h"]).status_code == 403
+    assert _post(client, f"/api/v1/training/my/lessons/{tr['l2'].pk}/complete", {}, tr["h"]).status_code == 403   # ketma-ketlik
+    with schema_context("lazzat"):
+        from modules.training.models import Quiz
+        from modules.training.services import complete_text_lesson
+        for les in (tr["l1"], tr["l2"]):
+            complete_text_lesson(tr["cook"], les)
+        Quiz.objects.filter(pk=tr["quiz"].pk).update(time_limit_seconds=120, max_attempts=2)
+    a1 = _post(client, url, {}, tr["h"]).json()
+    assert a1["remaining_seconds"] and a1["remaining_seconds"] <= 120
+    _post(client, f"/api/v1/training/my/attempts/{a1['attempt_id']}/save", {"answers": {str(tr["q1"].pk): ["b"]}}, tr["h"])
+    a2 = _post(client, url, {}, tr["h"]).json()                                   # sahifa yangilandi
+    assert a2["attempt_id"] == a1["attempt_id"] and a2["answers"] == {str(tr["q1"].pk): ["b"]}
+    with schema_context("lazzat"):
+        from modules.training.models import QuizAttempt
+        QuizAttempt.objects.filter(pk=a1["attempt_id"]).update(started_at=timezone.now() - timedelta(minutes=10))
+    a3 = _post(client, url, {}, tr["h"]).json()                                   # eski urinish vaqti o'tdi → hisoblandi
+    assert a3["attempt_id"] != a1["attempt_id"] and a3["attempts_left"] == 1
+    with schema_context("lazzat"):
+        old = QuizAttempt.objects.get(pk=a1["attempt_id"])
+        assert old.finished_at is not None and old.score == 0                      # kech topshirilgan — ball berilmaydi
+
+
+@pytest.mark.django_db
+def test_reminders_to_employee_and_responsible(client, api, tr, tenant, monkeypatch):
+    sent = []
+    monkeypatch.setattr("modules.training.services.notify", lambda t, u, text: sent.append((u.phone, text)))
+    with schema_context("lazzat"):
+        from core.models import User
+        from modules.training.models import Course, Enrollment, Reminder
+        boss = User.objects.get(phone="+998901234567")
+        User.objects.filter(pk=tr["cook"].pk).update(telegram_id=111)
+        Course.objects.filter(pk=tr["course"].pk).update(responsible=boss)
+        Reminder.objects.all().delete()
+    client.get("/api/v1/training/my", **tr["h"])
+    with schema_context("lazzat"):
+        Enrollment.objects.filter(course=tr["course"], user=tr["cook"]).update(due_at=timezone.now() - timedelta(days=1))
+    r = api.post("/api/v1/training/report/remind").json()
+    assert r["users"] >= 1 and r["responsibles"] >= 1
+    assert any(p == "+998900000111" and "muddati o'tdi" in t for p, t in sent)
+    assert any(p == "+998901234567" and "Azizbek Oshpaz" in t for p, t in sent)
+    n = len(sent)
+    api.post("/api/v1/training/report/remind")                                     # bir kunda ikkinchi marta — spam yo'q
+    assert len(sent) == n
+
+
+@pytest.mark.django_db
+def test_report_export_xlsx(api, tr):
+    r = api.get("/api/v1/training/report/export.xlsx")
+    assert r.status_code == 200 and r["Content-Type"].startswith("application/vnd.openxmlformats")
+    from io import BytesIO
+
+    from openpyxl import load_workbook
+    wb = load_workbook(BytesIO(r.content))
+    assert wb.sheetnames == ["Xodimlar", "Kurslar bo'yicha"] and wb["Xodimlar"]["A1"].value == "Xodim"

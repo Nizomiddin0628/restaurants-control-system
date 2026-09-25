@@ -237,10 +237,19 @@ def _quiz_out(q: Quiz, with_questions: bool = False, admin: bool = False) -> dic
     return out
 
 
+def _auto_cover(c: Course) -> str | None:
+    """Muqova qo'yilmagan bo'lsa — birinchi YouTube darsning rasmi (bo'sh qo'ng'ir fon o'rniga)."""
+    for url in c.lessons.exclude(video_url="").values_list("video_url", flat=True)[:3]:
+        i = media.info(url)
+        if i.get("kind") == "youtube":
+            return f"https://i.ytimg.com/vi/{i['id']}/hqdefault.jpg"
+    return None
+
+
 def _course_out(c: Course, stats: bool = False) -> dict:
     out = {
         "id": c.pk, "title": c.title, "description": c.description, "category": c.category,
-        "cover": media.image_src(c.cover, c.cover_url), "cover_url": c.cover_url,
+        "cover": media.image_src(c.cover, c.cover_url) or _auto_cover(c), "cover_url": c.cover_url,
         "is_mandatory": c.is_mandatory, "due_days": c.due_days, "pass_score": c.pass_score,
         "responsible": _umini(c.responsible), "responsible_id": str(c.responsible_id) if c.responsible_id else None,
         "is_published": c.is_published, "certificate": c.certificate, "is_archived": c.is_archived,
@@ -275,6 +284,7 @@ def my_home(request):
     _guard(request, "training.view")
     u = request.auth
     services.sync_user(u, request.tenant)
+    services.remind(request.tenant)
     ens = list(Enrollment.objects.filter(user=u, course__is_archived=False, course__is_published=True)
                .select_related("course", "course__responsible").order_by("status", "due_at"))
     summary = services.user_summary(u)
@@ -296,6 +306,11 @@ def _my_enrollment(request, course: Course) -> Enrollment:
             return e
         raise HttpError(403, "Bu kurs sizga biriktirilmagan.")
     return e
+
+
+def _lesson_gate(request, lesson: Lesson) -> None:
+    if not _can(request, "training.manage") and services.lesson_locked(lesson, services.lesson_done_ids(request.auth, lesson.course)):
+        raise HttpError(403, "Avval oldingi darsni tugating.")
 
 
 @router.get("/my/courses/{int:cid}", auth=auth)
@@ -352,6 +367,7 @@ def my_lesson_beat(request, lid: int, data: BeatIn):
     _guard(request, "training.view")
     lesson = get_object_or_404(Lesson, pk=lid)
     _my_enrollment(request, lesson.course)
+    _lesson_gate(request, lesson)
     p = services.beat(request.auth, lesson, position=data.position, duration=data.duration, played=data.played, tenant=request.tenant)
     return {"percent": p.percent, "max_position": p.max_position, "done": p.completed_at is not None}
 
@@ -361,6 +377,7 @@ def my_lesson_complete(request, lid: int):
     _guard(request, "training.view")
     lesson = get_object_or_404(Lesson, pk=lid)
     _my_enrollment(request, lesson.course)
+    _lesson_gate(request, lesson)
     if lesson.has_video:
         p = LessonProgress.objects.filter(user=request.auth, lesson=lesson).first()
         if not (p and p.completed_at):
@@ -377,6 +394,9 @@ def my_quiz_start(request, qid: int):
     _guard(request, "training.view")
     q = get_object_or_404(Quiz.objects.select_related("course"), pk=qid)
     _my_enrollment(request, q.course)
+    if not _can(request, "training.manage") and not services.quiz_ready(q, request.auth):
+        raise HttpError(403, "Avval shu testga tegishli darslarni tugating." if q.lesson_id else "Avval barcha darslarni tugating — keyin yakuniy test ochiladi.")
+    services.open_attempt(q, request.auth)             # vaqti o'tgan eski urinish bo'lsa — yakunlanadi
     left = services.attempts_left(q, request.auth)
     if left == 0:
         raise HttpError(400, "Urinishlar tugadi. Mas'ul bilan bog'laning.")
@@ -392,7 +412,17 @@ def my_quiz_start(request, qid: int):
             random.shuffle(opts)
         questions.append({"id": x.pk, "text": x.text, "image": _url(x.image), "options": opts, "multiple": len(x.correct) > 1})
     return {"attempt_id": a.pk, "quiz": _quiz_out(q), "questions": questions, "started_at": a.started_at.isoformat(),
-            "attempts_left": left}
+            "attempts_left": left, "remaining_seconds": services.remaining_seconds(a), "answers": a.answers or {}}
+
+
+@router.post("/my/attempts/{int:aid}/save", auth=auth)
+def my_quiz_save(request, aid: int, data: AnswersIn):
+    """Javoblar yo'l-yo'lakay saqlanadi — sahifa yangilansa yoki internet uzilsa yo'qolmaydi."""
+    _guard(request, "training.view")
+    a = get_object_or_404(QuizAttempt, pk=aid, user=request.auth, finished_at__isnull=True)
+    a.answers = {str(k): [str(x) for x in (v or [])] for k, v in (data.answers or {}).items() if int(k) in a.question_ids}
+    a.save(update_fields=["answers", "updated_at"])
+    return {"ok": True, "remaining_seconds": services.remaining_seconds(a)}
 
 
 @router.post("/my/attempts/{int:aid}/submit", auth=auth)
@@ -445,7 +475,7 @@ def my_assignment_submit(request, sid: int, data: SubmitIn):
         raise HttpError(400, "Bu topshiriq allaqachon qabul qilingan.")
     if s.assignment.requires_proof and not s.files.exists():
         raise HttpError(400, "Avval rasm yoki video dalil yuklang.")
-    return _submission_out(services.submit(s, data.text))
+    return _submission_out(services.submit(s, data.text, request.tenant))
 
 
 @router.post("/my/assignments/{int:sid}/files", auth=auth)
@@ -1011,3 +1041,64 @@ def report_overdue(request):
                          "due_at": _dt(e.due_at)} for e in ens],
             "to_review": [{"id": s.pk, "user": _umini(s.user), "assignment": s.assignment.title, "assignment_id": s.assignment_id,
                            "submitted_at": _dt(s.submitted_at)} for s in subs]}
+
+
+@router.post("/report/remind", auth=auth)
+def report_remind(request):
+    """«Eslatma yuborish» — kechikayotgan xodimlarga va mas'ullarga hozir Telegram xabari (kuniga bir marta har kishiga)."""
+    _report_guard(request)
+    r = services.remind(request.tenant, force=True)
+    record(request, "training_remind", model="Training", after=r)
+    return r
+
+
+@router.get("/report/export.xlsx", auth=auth)
+def report_export(request):
+    """Excel: xodimlar bo'yicha umumiy + har bir kurs bo'yicha holat — rahbar/tekshiruv uchun."""
+    _report_guard(request)
+    from io import BytesIO
+
+    from django.http import HttpResponse
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+
+    names = dict(Role.objects.values_list("code", "name"))
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Xodimlar"
+    head = ["Xodim", "Telefon", "Rol", "Progress %", "Kurs (tugatgan/jami)", "Kechikkan kurs", "Darslar", "Videolar",
+            "Testlar (o'tgan/jami)", "O'rtacha ball %", "Topshiriqlar", "Tekshiruvda", "Standartlar", "Oxirgi faollik"]
+    ws.append(head)
+    for u in services.staff_users():
+        roles = services.user_roles(u)
+        if roles <= {"owner"}:
+            continue
+        s = services.user_summary(u)
+        last = s["last_activity"]
+        ws.append([u.full_name or u.phone, u.phone, ", ".join(names.get(r, r) for r in sorted(roles)), s["progress"],
+                   f"{s['courses_done']}/{s['courses_total']}", s["courses_overdue"], f"{s['lessons_done']}/{s['lessons_total']}",
+                   f"{s['videos_watched']}/{s['videos_total']}", f"{s['quizzes_passed']}/{s['quizzes_total']}",
+                   s["avg_score"] if s["avg_score"] is not None else "", f"{s['assignments_done']}/{s['assignments_total']}",
+                   s["assignments_review"], f"{s['standards_acked']}/{s['standards_total']}",
+                   timezone.localtime(last).strftime("%d.%m.%Y %H:%M") if last else "hali yo'q"])
+    ws2 = wb.create_sheet("Kurslar bo'yicha")
+    ws2.append(["Kurs", "Xodim", "Holat", "Progress %", "Muddat", "Kechikdi", "Eng yaxshi test %", "Tugatgan sana", "Sertifikat №"])
+    st = {"assigned": "Boshlamagan", "in_progress": "O'qiyapti", "completed": "Tugatgan"}
+    for e in Enrollment.objects.filter(course__is_archived=False).select_related("course", "user").order_by("course__title", "user__full_name"):
+        best = QuizAttempt.objects.filter(user=e.user, quiz__course=e.course, finished_at__isnull=False).order_by("-score").first()
+        ws2.append([e.course.title, e.user.full_name or e.user.phone, st.get(e.status, e.status), e.progress,
+                    timezone.localtime(e.due_at).strftime("%d.%m.%Y") if e.due_at else "", "ha" if e.is_overdue else "",
+                    best.score if best else "", timezone.localtime(e.completed_at).strftime("%d.%m.%Y") if e.completed_at else "",
+                    e.certificate_no])
+    bold, fill = Font(bold=True, color="FFFFFF"), PatternFill("solid", fgColor="A8894F")
+    for w in wb.worksheets:
+        for c in w[1]:
+            c.font, c.fill = bold, fill
+        for col in w.columns:
+            w.column_dimensions[col[0].column_letter].width = max(12, min(40, max(len(str(c.value or "")) for c in col) + 2))
+        w.freeze_panes = "A2"
+    buf = BytesIO()
+    wb.save(buf)
+    resp = HttpResponse(buf.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    resp["Content-Disposition"] = f'attachment; filename="oqitish_{timezone.localdate():%Y-%m-%d}.xlsx"'
+    return resp

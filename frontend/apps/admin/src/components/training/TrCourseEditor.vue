@@ -152,6 +152,7 @@ const lessonOpts = computed(() => [{ value: '', label: 'Kurs yakuniy testi' }, .
         <UiToggle v-model="form.is_published" label="E'lon qilish (xodimlarga ko'rinadi)" />
       </div>
       <UiButton variant="brand" :loading="saving" @click="save">{{ course ? 'Saqlash' : 'Kursni yaratish' }}</UiButton>
+      <a v-if="course" class="preview" :href="`/admin/training/course/${course.id}`" target="_blank" rel="noopener">👁 Xodim ko'zi bilan ko'rish</a>
       <div v-if="!course" class="next">
         <b>Keyingi qadam</b>
         <span>«Kursni yaratish»ni bosgach, shu oynada pastda <b>Darslar</b> (video, rasm, fayl, havola) va <b>Testlar</b> bo'limlari ochiladi.</span>
@@ -249,7 +250,8 @@ const lessonOpts = computed(() => [{ value: '', label: 'Kurs yakuniy testi' }, .
 .fld textarea, .fld input, .qtext, .opt input, .expl { width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font: inherit; background: var(--surface); color: var(--ink); }
 .fld input { min-height: 40px; }
 .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; } .g2 > div { display: flex; flex-direction: column; gap: 6px; }
-.g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; align-items: end; }
+.preview { text-align: center; color: var(--accent); font-weight: 700; text-decoration: none; font-size: 14px; }
+.g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; align-items: start; }
 .tg { display: flex; flex-direction: column; gap: 8px; }
 .coverrow { display: grid; grid-template-columns: 160px 1fr; gap: 10px; align-items: center; }
 .cov { aspect-ratio: 16/9; border-radius: 10px; background: var(--surface-3) center / cover; display: grid; place-items: center; color: var(--muted); font-size: 12px; }

@@ -77,6 +77,7 @@ def _me(request, user: User) -> dict:
         "id": str(user.pk), "phone": user.phone, "full_name": user.full_name, "language": user.language,
         "avatar": user.avatar.url if user.avatar else None,
         "roles": [m.role.code for m in user.memberships.filter(is_active=True).select_related("role")],
+        "role_names": [m.role.name for m in user.memberships.filter(is_active=True).select_related("role")],
         "permissions": perms,
         "tenant": {"name": tenant.name, "slug": tenant.slug, "preset": tenant.preset, "schema": tenant.schema_name,
                    "enabled_modules": tenant.enabled_modules, "settings": tenant.settings,

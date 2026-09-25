@@ -22,8 +22,11 @@ export function uploadWithProgress<T = any>(path: string, file: File, onProgress
   })
 }
 
-export const fmtDate = (s?: string | null) => (s ? new Date(s).toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—')
-export const fmtDateTime = (s?: string | null) => (s ? new Date(s).toLocaleString('uz-UZ', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—')
+const p2 = (n: number) => String(n).padStart(2, '0')
+/** 25.09.2026 — brauzer tiliga bog'liq emas (uz-UZ ba'zi brauzerlarda 2026-09-25 chiqaradi) */
+export const fmtDate = (s?: string | null) => { if (!s) return '—'; const d = new Date(s); return `${p2(d.getDate())}.${p2(d.getMonth() + 1)}.${d.getFullYear()}` }
+/** 25.09 14:30 */
+export const fmtDateTime = (s?: string | null) => { if (!s) return '—'; const d = new Date(s); return `${p2(d.getDate())}.${p2(d.getMonth() + 1)} ${p2(d.getHours())}:${p2(d.getMinutes())}` }
 export const fmtDur = (sec: number) => { const m = Math.floor(sec / 60), s = Math.floor(sec % 60); return `${m}:${String(s).padStart(2, '0')}` }
 export const initials = (n?: string | null) => (n || '?').split(' ').map((x) => x[0]).join('').slice(0, 2).toUpperCase()
 export const daysLeft = (s?: string | null) => (s ? Math.ceil((new Date(s).getTime() - Date.now()) / 86400000) : null)

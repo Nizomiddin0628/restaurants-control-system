@@ -36,7 +36,7 @@ const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d)
     <aside class="side" :class="{ open: ui.sidebarOpen }">
       <div class="brand">
         <span class="logo">{{ (a.me?.tenant.name ?? 'R').slice(0, 1) }}</span>
-        <div class="bt"><b>{{ a.me?.tenant.name }}</b><span>{{ a.me?.roles.includes('owner') ? 'Egasi · superadmin' : a.me?.roles.join(', ') }}</span></div>
+        <div class="bt"><b>{{ a.me?.tenant.name }}</b><span>{{ a.me?.roles.includes('owner') ? 'Egasi · superadmin' : (a.me?.role_names?.length ? a.me.role_names : a.me?.roles ?? []).join(', ') }}</span></div>
       </div>
       <nav class="nav">
         <RouterLink v-for="n in nav" :key="n.route" :to="n.route" class="item" :class="{ on: isOn(n.route) }" @click="ui.sidebarOpen = false">

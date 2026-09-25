@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /** Hisobot: har xodim — kurs, dars, video, test, topshiriq, standart. Qatorni bossangiz — batafsil (qaysi videoni necha % ko'rgan). */
 import { computed, onMounted, ref } from 'vue'
-import { api } from '@restopos/api'
-import { UiAvatar, UiChip, UiDrawer, UiEmpty, UiInput } from '@restopos/ui'
+import { api, auth as apiAuth } from '@restopos/api'
+import { UiAvatar, UiButton, UiChip, UiDrawer, UiEmpty, UiInput, toast } from '@restopos/ui'
 import { fmtDate, fmtDateTime, fmtDur, SUB_STATUS } from './upload'
 
 const R = ref<any>(null)
@@ -18,6 +18,19 @@ const rows = computed(() => (R.value?.rows ?? []).filter((r: any) => {
   if (filter.value === 'review') return r.assignments_review > 0
   return true
 }))
+const reminding = ref(false)
+async function remind() {
+  if (!confirm('Kechikayotgan xodimlarga va mas\'ullarga hozir Telegram eslatma yuborilsinmi? (har kishiga kuniga bitta)')) return
+  reminding.value = true
+  try { const r = await api.post('/training/report/remind'); toast(r.users || r.responsibles ? `Yuborildi: ${r.users} xodim, ${r.responsibles} mas'ul` : 'Bugun hammaga eslatma allaqachon yuborilgan') }
+  catch (e: any) { toast(e.detail ?? 'Xato', 'danger') } finally { reminding.value = false }
+}
+function exportXlsx() {
+  fetch('/api/v1/training/report/export.xlsx', { headers: { Authorization: `Bearer ${apiAuth.token}` } })
+    .then(r => { if (!r.ok) throw new Error(); return r.blob() })
+    .then(b => { const u = URL.createObjectURL(b); const el = document.createElement('a'); el.href = u; el.download = `oqitish_${new Date().toISOString().slice(0, 10)}.xlsx`; el.click(); URL.revokeObjectURL(u) })
+    .catch(() => toast('Yuklab bo\'lmadi', 'danger'))
+}
 async function open(r: any) { detail.value = await api.get(`/training/report/users/${r.user.id}`) }
 const ST: Record<string, any> = { assigned: ['Boshlamagan', 'neutral'], in_progress: ["O'qiyapti", 'info'], completed: ['Tugatgan', 'ok'] }
 const hours = (s: number) => (s >= 3600 ? `${(s / 3600).toFixed(1)} soat` : `${Math.round(s / 60)} daq`)
@@ -35,6 +48,7 @@ const hours = (s: number) => (s >= 3600 ? `${(s / 3600).toFixed(1)} soat` : `${M
     </div>
     <div class="bar">
       <UiInput v-model="q" placeholder="Xodimni qidirish" />
+      <div class="acts"><UiButton size="s" variant="secondary" :loading="reminding" @click="remind">🔔 Eslatma yuborish</UiButton><UiButton size="s" variant="secondary" @click="exportXlsx">⬇ Excel</UiButton></div>
       <div class="tr-seg f">
         <button :class="{ on: filter === 'all' }" @click="filter = 'all'">Hammasi</button>
         <button :class="{ on: filter === 'overdue' }" @click="filter = 'overdue'">Kechikkan</button>
@@ -98,6 +112,7 @@ const hours = (s: number) => (s >= 3600 ? `${(s / 3600).toFixed(1)} soat` : `${M
 .k b { font-size: 24px; font-weight: 800; font-family: var(--font-display); } .k b small { font-size: 14px; } .k span { font-size: 12px; color: var(--muted); font-weight: 700; } .k > small { font-size: 12px; color: var(--muted); }
 .k.warn b { color: var(--danger); } .k.info b { color: var(--info); }
 .bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; } .bar > :first-child { flex: 1; min-width: 200px; } .f { flex: 0 1 auto; }
+.acts { display: flex; gap: 8px; }
 .tbl { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
 .th, .tr { display: grid; grid-template-columns: 1.6fr 1.1fr .8fr 1fr .8fr 1fr .6fr 1fr; gap: 10px; align-items: center; padding: 10px 14px; }
 .th { font-size: 12px; font-weight: 800; color: var(--muted); background: var(--surface-2); border-bottom: 1px solid var(--line); }
