@@ -5,7 +5,7 @@
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { api } from '@restopos/api'
-import { UiButton, UiChip, UiDrawer, UiEmpty, UiIcon, UiInput, UiSelect, money, toast } from '@restopos/ui'
+import { UiAvatar, UiButton, UiChip, UiDrawer, UiEmpty, UiIcon, UiInput, UiSelect, money, toast } from '@restopos/ui'
 import { useAuth } from '@/stores/auth'
 
 const a = useAuth()
@@ -114,7 +114,7 @@ const fmtD = (s: string) => new Date(s).toLocaleDateString('uz-UZ', { day: '2-di
         <div class="bar"><UiInput v-model="q" placeholder="Ism yoki telefon" @keydown.enter="load()" /><UiButton v-if="canEdit" variant="brand" @click="openForm()"><UiIcon name="plus" :size="15" /> Xodim</UiButton></div>
         <div class="lst">
           <button v-for="e in employees" :key="e.id" class="emp" :class="{ sel: card?.employee.id === e.id }" @click="openCard(e)">
-            <span class="ava" :class="{ on: e.on_shift }">{{ (e.full_name || '?').split(' ').map((x: string) => x[0]).join('').slice(0, 2) }}</span>
+            <UiAvatar :name="e.full_name" :src="e.avatar" :online="e.on_shift" />
             <span class="nm"><b>{{ e.full_name }}</b><small>{{ e.position_name ?? '—' }} · {{ e.branch_name ?? '' }}</small></span>
             <UiChip :tone="ROLE_TONE[e.role_code] ?? 'neutral'">{{ e.role_name }}</UiChip>
             <span class="sal">{{ money(e.rate) }}<small>/{{ SAL[e.salary_type] }}</small></span>
@@ -125,7 +125,7 @@ const fmtD = (s: string) => new Date(s).toLocaleDateString('uz-UZ', { day: '2-di
       </div>
 
       <aside v-if="card" class="card">
-        <header><span class="ava big">{{ card.employee.full_name.split(' ').map((x: string) => x[0]).join('').slice(0, 2) }}</span>
+        <header><UiAvatar :name="card.employee.full_name" :src="card.employee.avatar" :size="52" />
           <div><h3>{{ card.employee.full_name }}</h3><p>{{ card.employee.position_name ?? '—' }} · {{ card.employee.role_name }} · {{ card.employee.phone }}</p></div>
           <UiButton v-if="canEdit" size="s" variant="secondary" @click="openForm(card.employee)"><UiIcon name="edit" :size="14" /></UiButton>
           <button class="x" @click="card = null"><UiIcon name="x" /></button></header>
@@ -173,7 +173,7 @@ const fmtD = (s: string) => new Date(s).toLocaleDateString('uz-UZ', { day: '2-di
     <div v-else-if="tab === 'attendance'" class="att">
       <div class="lst">
         <div v-for="e in employees" :key="e.id" class="a-row">
-          <span class="ava" :class="{ on: e.on_shift }">{{ (e.full_name || '?').split(' ').map((x: string) => x[0]).join('').slice(0, 2) }}</span>
+          <UiAvatar :name="e.full_name" :src="e.avatar" :online="e.on_shift" />
           <span class="nm"><b>{{ e.full_name }}</b><small>{{ e.position_name }}</small></span>
           <span v-if="att.find(x => x.employee_id === e.id)" class="mut">keldi {{ fmtT(att.find(x => x.employee_id === e.id).check_in) }}<template v-if="att.find(x => x.employee_id === e.id).check_out"> · ketdi {{ fmtT(att.find(x => x.employee_id === e.id).check_out) }} · {{ att.find(x => x.employee_id === e.id).hours }} s</template>
             <UiChip v-if="att.find(x => x.employee_id === e.id).late_minutes" tone="danger">{{ att.find(x => x.employee_id === e.id).late_minutes }} daq kech</UiChip></span>

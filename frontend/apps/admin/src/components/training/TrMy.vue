@@ -6,13 +6,14 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { api } from '@restopos/api'
-import { UiChip, UiDropzone, UiEmpty, UiIcon, toast } from '@restopos/ui'
+import { UiAvatar, UiChip, UiDropzone, UiEmpty, UiIcon, toast } from '@restopos/ui'
+import { useAuth } from '@/stores/auth'
 import MediaView from './MediaView.vue'
 import { daysLeft, fmtDate, SUB_STATUS, uploadWithProgress } from './upload'
 import './tr.css'
 
 type Sub = 'courses' | 'assignments' | 'standards' | 'certs'
-const route = useRoute(), router = useRouter()
+const route = useRoute(), router = useRouter(), auth = useAuth()
 const sub = ref<Sub>((route.query.sub as Sub) || 'courses')
 watch(sub, (v) => router.replace({ query: { ...route.query, sub: v } }))
 
@@ -70,8 +71,11 @@ const dueText = (d?: string | null) => { const n = daysLeft(d); if (n === null) 
 <template>
   <div v-if="home" class="my">
     <section class="hello">
-      <h2>Salom, {{ first }}! 👋</h2>
-      <p class="tr-muted">Bugun o'qishingiz kerak bo'lgan darslar</p>
+      <RouterLink to="/settings" title="Profil rasmi"><UiAvatar :name="home.user.full_name" :src="auth.me?.avatar" :size="52" /></RouterLink>
+      <div>
+        <h2>Salom, {{ first }}! 👋</h2>
+        <p class="tr-muted">Bugun o'qishingiz kerak bo'lgan darslar</p>
+      </div>
     </section>
 
     <div class="layout">
@@ -185,6 +189,7 @@ const dueText = (d?: string | null) => { const n = daysLeft(d); if (n === null) 
 
 <style scoped>
 .my { display: flex; flex-direction: column; gap: 16px; }
+.hello { display: flex; align-items: center; gap: 14px; }
 .hello h2 { margin: 0; font-family: var(--font-display); font-size: var(--fs-2xl); font-weight: 800; letter-spacing: -.02em; }
 .hello p { margin: 4px 0 0; }
 .layout { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }

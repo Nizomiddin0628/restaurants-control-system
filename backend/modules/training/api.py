@@ -79,7 +79,8 @@ def _dt(v) -> Optional[str]:
 
 
 def _umini(u: Optional[User]) -> Optional[dict]:
-    return {"id": str(u.pk), "full_name": u.full_name or u.phone, "phone": u.phone} if u else None
+    return {"id": str(u.pk), "full_name": u.full_name or u.phone, "phone": u.phone,
+            "avatar": u.avatar.url if u.avatar else None} if u else None
 
 
 # ------------------------------------------------------------------ sxemalar

@@ -1,0 +1,28 @@
+{
+  "code": "telegram",
+  "name": {"uz": "Telegram bot va Mini App", "ru": "Telegram-бот и Mini App", "en": "Telegram bot & Mini App"},
+  "version": "1.0.0", "phase": 6, "implemented": true, "order": 50,
+  "depends": ["catalog"],
+  "permissions": ["telegram.view", "telegram.manage", "telegram.broadcast", "telegram.*"],
+  "nav": [
+    {"route": "/telegram", "label": {"uz": "Telegram bot", "ru": "Telegram-бот", "en": "Telegram bot"}, "icon": "send", "order": 50, "perm": "telegram.view"}
+  ],
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "bot_token": {"type": "string", "title": "Bot tokeni (@BotFather)", "default": ""},
+      "bot_username": {"type": "string", "title": "Bot nomi (@ belgisiz)", "default": ""},
+      "welcome_text": {"type": "string", "title": "Salomlashish matni", "default": "Assalomu alaykum! Menyuni ko'ring, buyurtma bering yoki stol bron qiling 👇"},
+      "notify_staff_chat_id": {"type": "string", "title": "Xodimlar guruhi chat ID (yangi buyurtmalar shu yerga)", "default": ""},
+      "allow_delivery": {"type": "boolean", "title": "Yetkazib berish", "default": true},
+      "allow_pickup": {"type": "boolean", "title": "Olib ketish", "default": true},
+      "allow_dine_in": {"type": "boolean", "title": "Zalda", "default": false},
+      "delivery_fee": {"type": "integer", "title": "Yetkazish narxi (so'm)", "default": 9000},
+      "free_delivery_from": {"type": "integer", "title": "Bepul yetkazish (dan, so'm)", "default": 80000},
+      "min_order": {"type": "integer", "title": "Eng kam buyurtma (so'm)", "default": 30000},
+      "enable_booking": {"type": "boolean", "title": "Botda stol bron qilish", "default": true},
+      "notify_paid": {"type": "boolean", "title": "To'langanda mijozga rahmat xabari", "default": true},
+      "notify_ready": {"type": "boolean", "title": "Buyurtma tayyor bo'lganda xabar", "default": true}
+    }
+  }
+}

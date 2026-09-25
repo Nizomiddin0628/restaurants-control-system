@@ -7,7 +7,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import draggable from 'vuedraggable'
 import { api, type Task, type TaskCard, type TaskColumn, type TaskMeta, type TaskStats } from '@restopos/api'
-import { UiButton, UiCard, UiChip, UiDrawer, UiEmpty, UiIcon, UiInput, UiSelect, money, t, toast } from '@restopos/ui'
+import { UiAvatar, UiButton, UiCard, UiChip, UiDrawer, UiEmpty, UiIcon, UiInput, UiSelect, money, t, toast } from '@restopos/ui'
 import TaskDetail from '@/components/TaskDetail.vue'
 import TaskStatsPanel from '@/components/TaskStats.vue'
 import { useAuth } from '@/stores/auth'
@@ -226,7 +226,7 @@ const initials = (n?: string) => (n || '?').split(' ').map(x => x[0]).slice(0, 2
                   <span v-if="c.due_at" :class="{ late: c.is_overdue }"><UiIcon name="calendar" :size="12" /> {{ fmtDate(c.due_at) }}</span>
                 </div>
                 <div class="c-foot">
-                  <span class="ava" :title="c.assignee?.full_name">{{ initials(c.assignee?.full_name) }}</span>
+                  <UiAvatar :name="c.assignee?.full_name" :src="c.assignee?.avatar" :size="22" :title="c.assignee?.full_name" />
                   <span class="who">{{ (c.assignee?.full_name || 'Tayinlanmagan').split(' ')[0] }}</span>
                   <span v-if="c.department" class="dep" :style="{ background: c.department.color + '22', color: c.department.color }">{{ t(c.department.name as any, ui.lang) }}</span>
                   <span class="sp"></span>

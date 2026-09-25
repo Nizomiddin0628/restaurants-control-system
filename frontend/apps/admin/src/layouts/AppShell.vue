@@ -5,7 +5,7 @@
  */
 import { computed } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
-import { UiIcon } from '@restopos/ui'
+import { UiAvatar, UiIcon } from '@restopos/ui'
 import { t } from '@restopos/ui'
 import { useAuth } from '@/stores/auth'
 import { useUi } from '@/stores/ui'
@@ -60,7 +60,7 @@ const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d)
         <div class="sp"></div>
         <a class="link" :href="`/`" target="_blank" rel="noopener"><UiIcon name="globe" /><span class="hp">Sayt</span></a>
         <a class="link" :href="`/tv/menu-board/`" target="_blank" rel="noopener"><UiIcon name="tv" /><span class="hp">TV</span></a>
-        <span class="avatar" :title="a.me?.phone">{{ (a.me?.full_name || 'E').slice(0, 2).toUpperCase() }}</span>
+        <RouterLink to="/settings" class="me" :title="`${a.me?.full_name ?? ''} · ${a.me?.phone ?? ''} — profil`"><UiAvatar :name="a.me?.full_name || a.me?.phone" :src="a.me?.avatar" :size="36" /></RouterLink>
       </header>
       <main class="content"><RouterView /></main>
       <nav class="tabbar">
@@ -89,7 +89,8 @@ const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d)
 .top h1 { margin: 0; font-family: var(--font-display); font-size: var(--fs-xl); font-weight: 800; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sp { flex: 1; }
 .link { display: inline-flex; align-items: center; gap: 6px; min-height: var(--touch); padding: 0 10px; border-radius: var(--radius); border: 1px solid var(--line); color: var(--ink-2); text-decoration: none; font-size: var(--fs-s); font-weight: 700; }
-.avatar { width: 34px; height: 34px; border-radius: 10px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-size: var(--fs-xs); font-weight: 800; }
+.me { display: inline-flex; border-radius: 12px; text-decoration: none; }
+.me:hover { box-shadow: 0 0 0 3px var(--accent-tint); }
 .burger { display: none; width: var(--touch); height: var(--touch); border-radius: var(--radius); border: 1px solid var(--line); background: var(--surface); cursor: pointer; }
 .content { padding: var(--gutter); display: flex; flex-direction: column; gap: 16px; }
 .tabbar { display: none; }

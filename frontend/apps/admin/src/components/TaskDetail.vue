@@ -5,7 +5,7 @@
  */
 import { computed, ref, watch } from 'vue'
 import { api, type Task, type TaskActivity, type TaskComment, type TaskMeta } from '@restopos/api'
-import { UiButton, UiChip, UiDropzone, UiIcon, money, t, toast } from '@restopos/ui'
+import { UiAvatar, UiButton, UiChip, UiDropzone, UiIcon, money, t, toast } from '@restopos/ui'
 import { useAuth } from '@/stores/auth'
 import { useUi } from '@/stores/ui'
 
@@ -220,7 +220,7 @@ const ACTION_LABEL: Record<string, string> = {
 
       <div v-if="tab === 'comments'" class="feed">
         <div v-for="c in comments" :key="c.id" class="msg" :class="{ sys: c.is_system }">
-          <span class="ava">{{ (c.author?.full_name || '?').slice(0, 2).toUpperCase() }}</span>
+          <UiAvatar :name="c.author?.full_name" :src="c.author?.avatar" :size="30" />
           <div><b>{{ c.author?.full_name || 'Tizim' }}</b><time>{{ fmtDT(c.created_at) }}</time><p>{{ c.body }}</p></div>
         </div>
         <p v-if="!comments.length" class="hint">Hali izoh yo'q.</p>
@@ -228,7 +228,7 @@ const ACTION_LABEL: Record<string, string> = {
 
       <ul v-else-if="tab === 'activity'" class="log">
         <li v-for="e in activity" :key="e.id">
-          <span class="ava sm">{{ (e.actor?.full_name || 'T').slice(0, 1) }}</span>
+          <UiAvatar :name="e.actor?.full_name || 'Tizim'" :src="e.actor?.avatar" :size="22" />
           <div><b>{{ e.actor?.full_name || 'Tizim' }}</b> {{ ACTION_LABEL[e.action] ?? e.action }}
             <i v-if="e.detail">— {{ e.detail }}</i><time>{{ fmtDT(e.at) }}</time></div>
         </li>

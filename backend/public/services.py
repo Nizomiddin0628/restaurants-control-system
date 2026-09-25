@@ -22,13 +22,13 @@ from .models import Domain, Plan, Tenant
 
 SYSTEM_ROLES = [
     ("owner", "Egasi", ["*"]),
-    ("manager", "Filial menejeri", ["catalog.*", "cms.view", "core.branches.manage", "core.settings.view", "finance.*", "pos.*", "kds.*", "inventory.*", "hr.*", "tasks.*", "tables.*", "reservations.*", "payments.view", "training.*"]),
+    ("manager", "Filial menejeri", ["catalog.*", "cms.view", "core.branches.manage", "core.settings.view", "finance.*", "pos.*", "kds.*", "inventory.*", "hr.*", "tasks.*", "tables.*", "reservations.*", "payments.view", "training.*", "telegram.*"]),
     ("cashier", "Kassir", ["pos.sell", "pos.shift", "catalog.view", "tasks.view", "tasks.create", "hr.view", "tables.view", "tables.serve", "reservations.view", "reservations.manage"]),
     ("waiter", "Ofitsiant", ["tables.view", "tables.serve", "reservations.view", "reservations.manage", "pos.sell", "catalog.view", "kds.view", "tasks.view", "tasks.create", "hr.view"]),
     ("cook", "Oshpaz", ["kds.view", "kds.cook", "catalog.view", "inventory.view", "tasks.view", "tasks.create", "hr.view"]),
     ("courier", "Kuryer", ["delivery.courier", "tasks.view", "tasks.create", "hr.view"]),
     ("accountant", "Buxgalter", ["finance.*", "inventory.*", "hr.payroll", "hr.view", "core.settings.view", "tasks.view", "tasks.create", "payments.view"]),
-    ("marketer", "Marketolog", ["crm.*", "cms.*", "catalog.view", "tasks.view", "tasks.create", "tasks.edit"]),
+    ("marketer", "Marketolog", ["crm.*", "cms.*", "catalog.view", "tasks.view", "tasks.create", "tasks.edit", "telegram.view", "telegram.broadcast"]),
 ]
 # O'qitish: har bir xodim o'z kurslari, topshiriqlari va standartlarini ko'radi
 for _code, _name, _perms in SYSTEM_ROLES:

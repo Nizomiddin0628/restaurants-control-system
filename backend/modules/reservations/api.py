@@ -208,6 +208,8 @@ def create_reservation(request, data: ReservationIn):
         res.table = services.auto_table(res, tenant=request.tenant)
     res.save()
     record(request, "create", res)
+    from core.events import emit
+    emit("reservations.created", {"reservation_id": res.pk, "_tenant": request.tenant}, tenant=request.tenant)
     return res
 
 

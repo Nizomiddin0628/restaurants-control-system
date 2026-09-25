@@ -2,8 +2,8 @@
 /** Hisobot: har xodim — kurs, dars, video, test, topshiriq, standart. Qatorni bossangiz — batafsil (qaysi videoni necha % ko'rgan). */
 import { computed, onMounted, ref } from 'vue'
 import { api } from '@restopos/api'
-import { UiChip, UiDrawer, UiEmpty, UiInput } from '@restopos/ui'
-import { fmtDate, fmtDateTime, fmtDur, initials, SUB_STATUS } from './upload'
+import { UiAvatar, UiChip, UiDrawer, UiEmpty, UiInput } from '@restopos/ui'
+import { fmtDate, fmtDateTime, fmtDur, SUB_STATUS } from './upload'
 
 const R = ref<any>(null)
 const q = ref('')
@@ -45,7 +45,7 @@ const hours = (s: number) => (s >= 3600 ? `${(s / 3600).toFixed(1)} soat` : `${M
     <div class="tbl">
       <div class="th"><span>Xodim</span><span>Progress</span><span>Kurs</span><span>Dars / video</span><span>Test</span><span>Topshiriq</span><span>Standart</span><span>Oxirgi faollik</span></div>
       <button v-for="r in rows" :key="r.user.id" class="tr" type="button" @click="open(r)">
-        <span class="u"><i class="ava">{{ initials(r.user.full_name) }}</i><span><b>{{ r.user.full_name }}</b><small>{{ r.roles.join(', ') }}</small></span></span>
+        <span class="u"><UiAvatar :name="r.user.full_name" :src="r.user.avatar" /><span><b>{{ r.user.full_name }}</b><small>{{ r.roles.join(', ') }}</small></span></span>
         <span class="p"><div class="tr-bar"><i :style="{ width: r.progress + '%' }"></i></div><b>{{ r.progress }}%</b></span>
         <span data-l="Kurs"><b>{{ r.courses_done }}</b>/{{ r.courses_total }}<em v-if="r.courses_overdue" class="late"> · {{ r.courses_overdue }} kechikkan</em></span>
         <span data-l="Dars"><b>{{ r.lessons_done }}</b>/{{ r.lessons_total }}<small v-if="r.videos_total"> · 🎬 {{ r.videos_watched }}/{{ r.videos_total }}</small></span>

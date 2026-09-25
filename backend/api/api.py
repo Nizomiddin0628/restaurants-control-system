@@ -9,9 +9,11 @@ from typing import Optional
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from ninja import NinjaAPI, Schema
+from ninja import File, NinjaAPI, Schema
 from ninja.errors import HttpError
+from ninja.files import UploadedFile
 
+from core import avatars
 from core import modules as modreg
 from core.audit import record
 from core.auth import auth, issue_token, require_perm
@@ -73,6 +75,7 @@ def _me(request, user: User) -> dict:
     perms = sorted(user.tenant_permissions()) if not user.is_superuser else ["*"]
     return {
         "id": str(user.pk), "phone": user.phone, "full_name": user.full_name, "language": user.language,
+        "avatar": user.avatar.url if user.avatar else None,
         "roles": [m.role.code for m in user.memberships.filter(is_active=True).select_related("role")],
         "permissions": perms,
         "tenant": {"name": tenant.name, "slug": tenant.slug, "preset": tenant.preset, "schema": tenant.schema_name,
@@ -104,6 +107,19 @@ def update_me(request, data: MeIn):
         u.set_pin(data.pin)
     u.save()
     return _me(request, u)
+
+
+@api.post("/me/avatar", auth=auth, tags=["auth"])
+def upload_my_avatar(request, file: UploadedFile = File(...)):
+    """Har bir xodim o'z profil rasmini qo'yadi (telefondan kamera ham bo'ladi)."""
+    avatars.set_avatar(request.auth, file)
+    return _me(request, request.auth)
+
+
+@api.delete("/me/avatar", auth=auth, tags=["auth"])
+def delete_my_avatar(request):
+    avatars.clear_avatar(request.auth)
+    return _me(request, request.auth)
 
 
 # ------------------------------------------------------------------ modullar
@@ -263,6 +279,7 @@ class UserOut(Schema):
     id: str
     phone: str
     full_name: str
+    avatar: Optional[str] = None
     language: str
     is_active: bool
     roles: list[str]
@@ -272,6 +289,10 @@ class UserOut(Schema):
     @staticmethod
     def resolve_id(obj):
         return str(obj.pk)
+
+    @staticmethod
+    def resolve_avatar(obj):
+        return obj.avatar.url if obj.avatar else None
 
     @staticmethod
     def resolve_roles(obj):
@@ -304,6 +325,24 @@ def create_user(request, data: UserIn):
     m, _ = Membership.objects.get_or_create(user=u, role=role)
     m.branches.set(data.branch_ids)
     record(request, "create" if created else "update", u)
+    return u
+
+
+@api.post("/users/{uid}/avatar", response=UserOut, auth=auth, tags=["users"])
+def upload_user_avatar(request, uid: str, file: UploadedFile = File(...)):
+    """Egasi / administrator istalgan xodimning rasmini qo'yadi."""
+    require_perm(request, "core.users.manage")
+    u = get_object_or_404(User, pk=uid)
+    avatars.set_avatar(u, file)
+    record(request, "update", u, after={"avatar": u.avatar.name})
+    return u
+
+
+@api.delete("/users/{uid}/avatar", response=UserOut, auth=auth, tags=["users"])
+def delete_user_avatar(request, uid: str):
+    require_perm(request, "core.users.manage")
+    u = get_object_or_404(User, pk=uid)
+    avatars.clear_avatar(u)
     return u
 
 
@@ -431,6 +470,7 @@ from modules.pos.api import router as pos_router  # noqa: E402
 from modules.reservations.api import router as reservations_router  # noqa: E402
 from modules.tables.api import router as tables_router  # noqa: E402
 from modules.tasks.api import router as tasks_router  # noqa: E402
+from modules.telegram.api import router as bot_router  # noqa: E402
 from modules.training.api import router as training_router  # noqa: E402
 
 api.add_router("/catalog", catalog_router)
@@ -446,6 +486,7 @@ api.add_router("/tables", tables_router)
 api.add_router("/reservations", reservations_router)
 api.add_router("/telegram", telegram_router)
 api.add_router("/training", training_router)
+api.add_router("/bot", bot_router)
 
 
 @api.get("/health", tags=["system"])

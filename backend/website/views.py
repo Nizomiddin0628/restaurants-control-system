@@ -58,6 +58,17 @@ def menu_board(request):
     return render(request, "site/menu_board.html", ctx)
 
 
+def miniapp(request):
+    """Telegram Mini App (/tg/) — bot ichida ochiladigan menyu va savat. Buyurtma /api/v1/bot/miniapp/order ga ketadi."""
+    if not request.tenant.module_enabled("telegram"):
+        return render(request, "site/offline.html", status=404)
+    from modules.telegram.services import conf
+    ctx = _ctx(request)
+    cfg = conf(request.tenant)
+    ctx["rules"] = {k: cfg[k] for k in ("allow_delivery", "allow_pickup", "allow_dine_in", "delivery_fee", "free_delivery_from", "min_order")}
+    return render(request, "site/miniapp.html", ctx)
+
+
 def admin_spa(request, path: str = ""):
     """Boshqaruv paneli (Vue SPA). VITE_DEV=1 bo'lsa Vite dev-serverga ulanadi, aks holda build'ni beradi."""
     if settings.VITE_DEV:

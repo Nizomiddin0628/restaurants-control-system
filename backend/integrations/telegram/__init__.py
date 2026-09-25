@@ -19,7 +19,18 @@ API = "https://api.telegram.org/bot{token}/{method}"
 
 
 def _token(token: str | None = None) -> str | None:
-    return token or os.environ.get("TELEGRAM_BOT_TOKEN")
+    """Token tartibi: aniq berilgan → restoranning o'z boti (sozlamada) → .env TELEGRAM_BOT_TOKEN."""
+    if token:
+        return token
+    try:
+        from django.db import connection
+        tenant = getattr(connection, "tenant", None)
+        saved = (((getattr(tenant, "settings", None) or {}).get("modules") or {}).get("telegram") or {}).get("bot_token")
+        if saved:
+            return saved
+    except Exception:
+        pass
+    return os.environ.get("TELEGRAM_BOT_TOKEN")
 
 
 def call(method: str, payload: dict, token: str | None = None) -> dict:
