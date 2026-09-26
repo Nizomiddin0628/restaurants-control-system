@@ -2,16 +2,22 @@
 /**
  * Ombor va tannarx: Xomashyo (narx/qoldiq) · Kirim (bozorlik) · Tex-karta (taom → xomashyo → tannarx jonli) · Harakatlar.
  * Bozor narxi o'zgardi → kirim kiritiladi → barcha taomlar tannarxi o'zi yangilanadi (backend).
+ * «Xarid rejasi» (forecast moduli): bayram/ob-havo/hafta kuni hisobga olingan ehtiyoj → bir bosishda kirimga.
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { api } from '@restopos/api'
 import { UiButton, UiCard, UiChip, UiDrawer, UiEmpty, UiIcon, UiInput, UiSelect, money, t, toast } from '@restopos/ui'
 import { useAuth } from '@/stores/auth'
 import { useUi } from '@/stores/ui'
+import { useRoute } from 'vue-router'
+import HolidayAlert from '@/components/forecast/HolidayAlert.vue'
 
-const a = useAuth(), ui = useUi()
-type Tab = 'ingredients' | 'purchase' | 'recipes' | 'movements'
-const tab = ref<Tab>('recipes')
+const a = useAuth(), ui = useUi(), route = useRoute()
+type Tab = 'ingredients' | 'purchase' | 'recipes' | 'movements' | 'plan'
+const TAB_Q: Record<string, Tab> = { plan: 'plan', purchase: 'purchase', purchases: 'purchase', stock: 'ingredients', ingredients: 'ingredients', recipes: 'recipes', movements: 'movements' }
+const hasFc = computed(() => a.hasModule('forecast') && a.can('forecast.view'))
+const tab = ref<Tab>(TAB_Q[String(route.query.tab ?? '')] ?? 'recipes')
+if (tab.value === 'plan' && !hasFc.value) tab.value = 'recipes'
 const summary = ref<any>(null)
 const ingredients = ref<any[]>([])
 const recipes = ref<any[]>([])
@@ -31,9 +37,55 @@ async function load() {
   if (tab.value === 'recipes') recipes.value = await api.get('/inventory/recipes')
   if (tab.value === 'purchase') { purchases.value = await api.get('/inventory/purchases'); suppliers.value = await api.get('/inventory/suppliers') }
   if (tab.value === 'movements') movements.value = await api.get('/inventory/movements')
+  if (tab.value === 'plan') await loadPlan()
 }
-onMounted(load)
+onMounted(async () => {
+  if (hasFc.value) fc.value = await api.get('/forecast/overview').catch(() => null)
+  await load()
+})
 watch([tab, onlyLow], load)
+
+// ---- xarid rejasi (bayram / ob-havo prognozi)
+const fc = ref<any>(null)
+const planSel = ref<string>(route.query.holiday ? `h${route.query.holiday}` : '7')
+const plan = ref<any>(null)
+const planLoading = ref(false)
+const onlyBuy = ref(true)
+const planOpts = computed(() => [
+  { value: '7', label: 'Keyingi 7 kun' }, { value: '14', label: 'Keyingi 14 kun' },
+  ...(fc.value?.upcoming ?? []).filter((h: any) => !h.is_past).map((h: any) => ({ value: `h${h.id}`, label: `🎉 ${h.name.uz} — ${h.date.split('-').reverse().join('.')}` })),
+])
+async function loadPlan() {
+  planLoading.value = true
+  try {
+    const v = planSel.value
+    plan.value = await api.get('/forecast/plan', v.startsWith('h') ? { holiday_id: Number(v.slice(1)) } : { days: Number(v) })
+  } catch (e: any) { toast(e.detail ?? 'Xato', 'danger'); plan.value = null } finally { planLoading.value = false }
+}
+watch(planSel, () => { if (tab.value === 'plan') loadPlan() })
+function openPlan(id: number) { planSel.value = `h${id}`; if (tab.value !== 'plan') tab.value = 'plan'; else loadPlan() }
+const planLines = computed(() => (plan.value?.lines ?? []).filter((l: any) => !onlyBuy.value || l.buy > 0))
+const fmtD = (x: string) => x.split('-').reverse().join('.')
+const WD = ['Ya', 'Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh']
+const wd = (x: string) => WD[new Date(x + 'T00:00:00').getDay()]
+const num = (v: number) => String(+v.toFixed(2)).replace('.', ',')
+function toPurchase(supplierId?: number | null, all = true) {
+  const src = (plan.value?.lines ?? []).filter((l: any) => l.buy > 0 && (all || (l.supplier_id ?? null) === (supplierId ?? null)))
+  if (!src.length) return
+  pur.value = {
+    supplier_id: !all && supplierId ? String(supplierId) : '',
+    note: plan.value.holiday ? `${plan.value.holiday.name.uz} uchun xarid` : `Xarid rejasi ${fmtD(plan.value.start)}–${fmtD(plan.value.end)}`,
+    lines: src.map((l: any) => ({ ingredient_id: String(l.ingredient_id), qty: l.buy, unit_price: l.price })),
+  }
+  tab.value = 'purchase'
+  toast('Qatorlar kirim formasiga qo\'yildi — narxni tekshirib, «Kirimni o\'tkazish»ni bosing')
+}
+async function copyList() {
+  const lines = (plan.value?.lines ?? []).filter((l: any) => l.buy > 0)
+  const txt = [`🛒 Xarid ro'yxati${plan.value.holiday ? ` — ${plan.value.holiday.name.uz}` : ''} (${fmtD(plan.value.buy_by)} gacha)`,
+    ...lines.map((l: any) => `• ${t(l.name, ui.lang)} — ${num(l.buy)} ${UNIT[l.unit]}`)].join('\n')
+  try { await navigator.clipboard.writeText(txt); toast('Ro\'yxat nusxalandi — Telegram\'da ta\'minotchiga yuboring') } catch { toast('Nusxalab bo\'lmadi', 'danger') }
+}
 
 // ---- xomashyo
 const ingDrawer = ref(false)
@@ -110,15 +162,85 @@ const fmtDT = (s: string) => new Date(s).toLocaleString('uz-UZ', { day: '2-digit
       <div class="kpi" :class="{ warn: summary.products_without_recipe }"><b>{{ summary.products_without_recipe }}</b><span>Tex-kartasiz taom</span></div>
     </div>
 
+    <HolidayAlert v-for="al in (fc?.alerts ?? [])" :key="al.id" :a="al" @plan="openPlan" />
+
     <nav class="tabs">
+      <button v-if="hasFc" :class="{ on: tab === 'plan' }" @click="tab = 'plan'"><UiIcon name="calendar" :size="15" /> Xarid rejasi</button>
       <button :class="{ on: tab === 'recipes' }" @click="tab = 'recipes'"><UiIcon name="book" :size="15" /> Tex-karta va tannarx</button>
       <button :class="{ on: tab === 'ingredients' }" @click="tab = 'ingredients'"><UiIcon name="box" :size="15" /> Xomashyo va qoldiq</button>
       <button :class="{ on: tab === 'purchase' }" @click="tab = 'purchase'"><UiIcon name="truck" :size="15" /> Kirim (bozorlik)</button>
       <button :class="{ on: tab === 'movements' }" @click="tab = 'movements'"><UiIcon name="list" :size="15" /> Harakatlar</button>
     </nav>
 
+    <!-- XARID REJASI -->
+    <div v-if="tab === 'plan'" class="plan">
+      <div class="p-top">
+        <div class="seg-sel"><UiSelect v-model="planSel" :options="planOpts" /></div>
+        <p class="p-how">Prognoz: oxirgi {{ plan?.history.days ?? '…' }} kunlik savdo × hafta kuni × bayram × ob-havo → tex-karta bo'yicha xomashyo.</p>
+      </div>
+      <UiEmpty v-if="plan && !plan.history.enough" title="Savdo tarixi yetarli emas" text="Prognoz uchun kamida 7 kunlik savdo va tex-kartalar kerak. Hozircha faqat minimal qoldiqdan kam xomashyolar ko'rsatiladi." />
+      <template v-if="plan">
+        <div class="kpis p-k">
+          <div class="kpi"><b>{{ fmtD(plan.start) }} – {{ fmtD(plan.end) }}</b><span>{{ plan.days }} kun{{ plan.holiday ? ' · ' + plan.holiday.name.uz : '' }}</span></div>
+          <div class="kpi"><b>{{ money(plan.revenue_forecast) }}</b><span>Kutilayotgan savdo · odatdagidan {{ plan.revenue_normal ? ((plan.revenue_forecast >= plan.revenue_normal ? '+' : '') + Math.round(100 * (plan.revenue_forecast - plan.revenue_normal) / plan.revenue_normal)) : 0 }}%</span></div>
+          <div class="kpi" :class="{ warn: plan.short_count }"><b>{{ plan.short_count }}</b><span>Xomashyo xarid qilinadi</span></div>
+          <div class="kpi"><b>{{ money(plan.total_cost) }}</b><span>Taxminiy xarid summasi</span></div>
+          <div class="kpi"><b>{{ fmtD(plan.buy_by) }}</b><span>Qachongacha xarid qilish</span></div>
+        </div>
+        <div class="days">
+          <div v-for="d in plan.daily" :key="d.date" class="day" :class="{ hol: d.holiday }" :title="d.holiday ?? ''">
+            <small>{{ wd(d.date) }} {{ d.date.slice(8) }}</small>
+            <span class="e">{{ d.holiday ? '🎉' : (d.weather ?? '·') }}</span>
+            <b :class="d.factor > 1.05 ? 'up' : d.factor < 0.95 ? 'dn' : ''">{{ d.factor > 1 ? '+' : '' }}{{ Math.round((d.factor - 1) * 100) }}%</b>
+          </div>
+        </div>
+        <div class="split">
+          <UiCard title="Nima xarid qilish kerak" :subtitle="`Kerak = prognoz sarfi + minimal qoldiq − hozirgi qoldiq`" :padded="false">
+            <template #actions>
+              <button class="chip-btn" :class="{ on: onlyBuy }" @click="onlyBuy = !onlyBuy">Faqat xarid kerak</button>
+            </template>
+            <div class="lst">
+              <div class="l-h pl"><span>Xomashyo</span><span>Qoldiq</span><span>Kerak bo'ladi</span><span>Yetadi</span><span>Xarid</span><span>Summa</span></div>
+              <div v-for="l in planLines" :key="l.ingredient_id" class="l-r pl" :class="{ buy: l.buy > 0 }">
+                <span class="nm"><b>{{ t(l.name, ui.lang) }}</b><small>{{ l.supplier ?? 'bozor' }}{{ l.category ? ' · ' + l.category : '' }}</small></span>
+                <span>{{ num(l.stock) }} {{ UNIT[l.unit] }}</span>
+                <span class="mut">{{ num(l.need) }} {{ UNIT[l.unit] }}</span>
+                <span :class="{ danger: l.days_left != null && l.days_left < plan.days }">{{ l.days_left != null ? `${num(l.days_left)} kun` : '—' }}</span>
+                <span><b v-if="l.buy > 0" class="acc">{{ num(l.buy) }} {{ UNIT[l.unit] }}</b><span v-else class="ok">✓ yetarli</span></span>
+                <span>{{ l.cost ? money(l.cost) : '' }}</span>
+              </div>
+              <UiEmpty v-if="!planLines.length" title="Hammasi yetarli" text="Bu davr uchun ombordagi qoldiq yetadi." />
+            </div>
+          </UiCard>
+          <div class="side">
+            <UiCard title="Ta'minotchilar bo'yicha" subtitle="Har biriga alohida kirim ochish mumkin">
+              <ul class="sup">
+                <li v-for="sp in plan.suppliers" :key="sp.name">
+                  <span class="nm"><b>{{ sp.name }}</b><small>{{ sp.count }} ta xomashyo</small></span>
+                  <b>{{ money(sp.total) }}</b>
+                  <UiButton v-if="a.can('inventory.purchase')" size="s" variant="ghost" @click="toPurchase(sp.supplier_id, false)">Kirim</UiButton>
+                </li>
+              </ul>
+              <p v-if="!plan.suppliers.length" class="mut">Xarid kerak emas.</p>
+              <div v-if="plan.short_count" class="r-foot">
+                <UiButton variant="ghost" size="s" @click="copyList()">📋 Ro'yxatni nusxalash</UiButton>
+                <div class="sp"></div>
+                <UiButton v-if="a.can('inventory.purchase')" variant="brand" @click="toPurchase(null, true)">Hammasini kirimga</UiButton>
+              </div>
+            </UiCard>
+            <UiCard v-if="plan.products.length" :title="plan.holiday ? 'Bayram kunlari ko\'p ketadi' : 'Ko\'p ketadigan taomlar'" subtitle="Prognoz, porsiya">
+              <ul class="sup">
+                <li v-for="p in plan.products" :key="p.product_id"><span class="nm"><b>{{ t(p.name, ui.lang) }}</b></span><b>{{ p.qty }}</b><span class="mut">porsiya</span></li>
+              </ul>
+            </UiCard>
+          </div>
+        </div>
+      </template>
+      <p v-else-if="planLoading" class="mut">Hisoblanmoqda…</p>
+    </div>
+
     <!-- TEX-KARTA -->
-    <div v-if="tab === 'recipes'" class="split">
+    <div v-else-if="tab === 'recipes'" class="split">
       <UiCard title="Taomlar" subtitle="Bosing — tex-kartani oching. Food cost: ≤32% yaxshi · 33–40% e'tibor · >40% narx yoki retseptni ko'ring" :padded="false">
         <div class="lst">
           <div class="l-h"><span>Taom</span><span>Narx</span><span>Tannarx</span><span>Food cost</span><span>Marja</span></div>
@@ -309,7 +431,22 @@ button.l-r { cursor: pointer; } button.l-r:hover, .l-r.sel { background: var(--a
 .chip-btn { display: inline-flex; align-items: center; gap: 6px; min-height: var(--touch); padding: 0 12px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--surface); font-weight: 700; font-size: var(--fs-s); cursor: pointer; }
 .chip-btn.on { background: var(--danger-tint); color: var(--danger); border-color: var(--danger); }
 .tip { display: flex; gap: 6px; font-size: var(--fs-xs); color: var(--muted); background: var(--surface-2); border-radius: var(--radius); padding: 8px 10px; margin: 0; }
-@media (max-width: 1100px) { .split { grid-template-columns: 1fr; } .kpis { grid-template-columns: repeat(3, 1fr); } .cost-row { grid-template-columns: 1fr 1fr; } }
+.plan { display: flex; flex-direction: column; gap: 14px; }
+.p-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; } .seg-sel { min-width: 260px; } .p-how { margin: 0; font-size: var(--fs-xs); color: var(--muted); flex: 1; min-width: 200px; }
+.p-k .kpi b { font-size: var(--fs-l); }
+.days { display: grid; grid-template-columns: repeat(auto-fit, minmax(62px, 1fr)); gap: 6px; }
+.day { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); }
+.day.hol { background: var(--warn-tint); border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+.day small { font-size: 11px; color: var(--muted); font-weight: 700; } .day .e { font-size: 20px; } .day b { font-size: var(--fs-xs); }
+.day b.up { color: var(--ok); } .day b.dn { color: var(--danger); }
+.plan .split { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
+.l-r.pl, .l-h.pl { grid-template-columns: minmax(0, 2fr) 1fr 1fr .8fr 1fr 1fr; } .l-r.pl > span:not(.nm) { white-space: nowrap; }
+.chip-btn { white-space: nowrap; } .l-r.buy { background: color-mix(in srgb, var(--warn-tint) 60%, transparent); }
+.acc { color: var(--accent); }
+.side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.sup { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.sup li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line-2); font-size: var(--fs-s); } .sup li:last-child { border-bottom: 0; }
+@media (max-width: 1100px) { .plan .split { grid-template-columns: minmax(0, 1fr); } .split { grid-template-columns: 1fr; } .kpis { grid-template-columns: repeat(3, 1fr); } .cost-row { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 600px) {
   .kpis { grid-template-columns: 1fr 1fr; } .grid2 { grid-template-columns: 1fr; }
   /* telefon: har qator — nomi (to'liq kenglik) + qolgan qiymatlar ixcham qatorda, sarlavha yashirin */
@@ -319,6 +456,8 @@ button.l-r { cursor: pointer; } button.l-r:hover, .l-r.sel { background: var(--a
   .l-r > span:not(.nm):not(.acts) { font-size: var(--fs-xs); color: var(--ink-2); }
   .l-r > .acts { grid-column: 1 / -1; justify-content: flex-start; }
   .l-r.pur { grid-template-columns: 1fr auto !important; }
+  .l-r.pl { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  .seg-sel { min-width: 0; width: 100%; } .days { grid-template-columns: repeat(auto-fit, minmax(44px, 1fr)); gap: 4px; }
   .cost-row { grid-template-columns: 1fr 1fr; }
 }
 </style>

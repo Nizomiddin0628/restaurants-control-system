@@ -16,6 +16,7 @@ export const router = createRouter({
         { path: 'tables', name: 'tables', component: () => import('@/views/TablesView.vue'), meta: { module: 'tables' } },
         { path: 'reservations', name: 'reservations', component: () => import('@/views/ReservationsView.vue'), meta: { module: 'reservations' } },
         { path: 'inventory', name: 'inventory', component: () => import('@/views/InventoryView.vue'), meta: { module: 'inventory' } },
+        { path: 'forecast', name: 'forecast', component: () => import('@/views/ForecastView.vue'), meta: { module: 'forecast', title: 'Bayram va ob-havo' } },
         { path: 'hr', name: 'hr', component: () => import('@/views/HrView.vue'), meta: { module: 'hr' } },
         { path: 'hr/employee/:id', name: 'hr-employee', component: () => import('@/views/EmployeeProfileView.vue'), meta: { module: 'hr', title: 'Xodim profili' } },
         { path: 'recruiting', name: 'recruiting', component: () => import('@/views/RecruitView.vue'), meta: { module: 'hr', title: 'Ishga olish' } },

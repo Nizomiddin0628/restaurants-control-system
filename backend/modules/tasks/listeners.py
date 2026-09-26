@@ -38,6 +38,35 @@ def task_from_low_stock(payload: dict) -> None:
                 source=Source.SYSTEM)
 
 
+@on("forecast.holiday_soon")
+def task_from_holiday(payload: dict) -> None:
+    """Bayram yaqinlashdi — ta'minot vazifasi: nima va qachongacha xarid qilish kerak."""
+    from datetime import datetime, time
+
+    from django.utils import timezone
+
+    from .models import Source, TaskCategory
+    from .services import create_task
+
+    class _Req:
+        auth = None
+        tenant = None
+
+    due = None
+    try:
+        due = timezone.make_aware(datetime.combine(datetime.strptime(payload.get("buy_by", ""), "%d.%m.%Y").date(), time(18, 0)))
+    except ValueError:
+        pass
+    cost = f"{int(payload.get('total_cost') or 0):,}".replace(",", " ")
+    items = ", ".join(payload.get("items") or [])
+    desc = (f"{payload.get('name')} — {payload.get('date')}. " +
+            (f"{payload.get('short_count')} ta xomashyo yetmaydi ({items}…), taxminan {cost} so'm. "
+             if payload.get("short_count") else "Ombor yetarli, qoldiqlarni tekshiring. ") +
+            "To'liq ro'yxat: Ombor → Xarid rejasi.")
+    create_task(_Req(), title=f"Bayramga tayyorgarlik: {payload.get('name')}", description=desc, due_at=due,
+                category=TaskCategory.objects.filter(code="supply").first(), source=Source.SYSTEM)
+
+
 @on("tasks.overdue")
 def notify_overdue(payload: dict) -> None:
     """Kechikkan vazifa — hozircha log, Telegram moduli ulangach o'sha yerga ketadi."""

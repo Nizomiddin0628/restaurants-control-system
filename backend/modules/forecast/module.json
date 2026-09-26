@@ -1,0 +1,25 @@
+{
+  "code": "forecast",
+  "name": {"uz": "Bayram va ob-havo prognozi", "ru": "Прогноз: праздники и погода", "en": "Holidays & weather forecast"},
+  "version": "1.0.0", "phase": 10, "implemented": true, "order": 62,
+  "depends": ["inventory", "pos"],
+  "permissions": ["forecast.view", "forecast.edit", "forecast.*"],
+  "nav": [
+    {"route": "/forecast", "label": {"uz": "Bayram va ob-havo", "ru": "Праздники и погода", "en": "Holidays & weather"}, "icon": "sun", "order": 62, "perm": "forecast.view"}
+  ],
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "city": {"type": "string", "title": "Shahar (ob-havo uchun)", "enum": ["Toshkent", "Samarqand", "Buxoro", "Andijon", "Farg'ona", "Namangan", "Qarshi", "Nukus", "Urganch", "Jizzax", "Navoiy", "Termiz", "Guliston"], "default": "Toshkent", "description": "Filialda koordinata kiritilgan bo'lsa — o'sha ishlatiladi"},
+      "purchase_lead_days": {"type": "integer", "title": "Xaridni bayramdan necha kun oldin qilish", "default": 2},
+      "history_days": {"type": "integer", "title": "Sotuv tezligini necha kunlik savdodan hisoblash", "default": 28},
+      "hot_threshold": {"type": "integer", "title": "Issiq kun chegarasi (°C)", "default": 35},
+      "cold_threshold": {"type": "integer", "title": "Sovuq kun chegarasi (°C)", "default": 0},
+      "rain_probability": {"type": "integer", "title": "Yomg'ir ehtimoli chegarasi (%)", "default": 60},
+      "rain_effect": {"type": "integer", "title": "Yomg'irli kunda savdo o'zgarishi (%)", "default": -10},
+      "hot_effect": {"type": "integer", "title": "Issiq kunda savdo o'zgarishi (%)", "default": -5},
+      "cold_effect": {"type": "integer", "title": "Sovuq kunda savdo o'zgarishi (%)", "default": 0},
+      "create_task": {"type": "boolean", "title": "Bayramga tayyorgarlik vazifasini avtomatik ochish", "default": true}
+    }
+  }
+}

@@ -55,7 +55,9 @@ class Command(BaseCommand):
                 seed_demo_training()        # kurslar, testlar, standartlar, topshiriqlar
                 from modules.crm.demo import seed_demo_crm
                 seed_demo_crm(t)            # mijozlar, bonus tarixi, aksiyalar
+                from modules.forecast.demo import seed_demo_forecast
+                seed_demo_forecast(t)       # bayramlar + ob-havo
             from public.services import set_modules
-            set_modules(t, [*t.enabled_modules, "training", "crm"])
+            set_modules(t, [*t.enabled_modules, "training", "crm", "forecast"])
             self.stdout.write(self.style.SUCCESS("Demo tenant: http://lazzat.localhost:8000  (egasi: +998901234567, OTP dev rejimida javobda qaytadi)"))
         self.stdout.write(self.style.SUCCESS("Tayyor."))

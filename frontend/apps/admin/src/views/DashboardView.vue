@@ -10,6 +10,8 @@ import { RouterLink, useRouter } from 'vue-router'
 import { api } from '@restopos/api'
 import { UiAvatar, UiCard, UiChip, UiEmpty, UiIcon, money } from '@restopos/ui'
 import { useAuth } from '@/stores/auth'
+import HolidayAlert from '@/components/forecast/HolidayAlert.vue'
+import WeatherStrip from '@/components/forecast/WeatherStrip.vue'
 
 const a = useAuth(), router = useRouter()
 const D = ref<any>(null)
@@ -104,6 +106,8 @@ const QUICK = [
   { to: '/users', label: 'Xodim qo\'shish', icon: 'users', mod: '', perm: 'core.users.manage' },
 ]
 const quick = computed(() => QUICK.filter(q => (!q.mod || a.hasModule(q.mod)) && a.can(q.perm)).slice(0, 8))
+const F = computed(() => D.value?.forecast)
+const fmtD = (x: string) => x.split('-').reverse().join('.')
 const branchName = computed(() => D.value?.branches_list.find((b: any) => String(b.id) === branch.value)?.name)
 </script>
 
@@ -130,6 +134,22 @@ const branchName = computed(() => D.value?.branches_list.find((b: any) => String
       <UiIcon name="alert" :size="16" /> <b>Ishga tushirish: {{ (S?.checklist.length ?? 0) - setupLeft.length }}/{{ S?.checklist.length }} tayyor.</b>
       Keyingi qadam: {{ setupLeft[0].label }} <UiIcon name="chevron" :size="14" style="transform: rotate(-90deg)" />
     </RouterLink>
+
+    <!-- BAYRAM VA OB-HAVO -->
+    <section v-if="F && (F.alerts.length || F.weather.length || F.next)" class="r0" :class="{ solo: !F.weather.length }">
+      <div v-if="F.alerts.length" class="alerts">
+        <HolidayAlert v-for="al in F.alerts" :key="al.id" :a="al" :compact="F.alerts.length > 1" show-link />
+      </div>
+      <RouterLink v-else-if="F.next" :to="a.can('forecast.view') ? '/forecast' : '/'" class="nx">
+        <span class="nx-i">📅</span>
+        <span class="nx-b"><small>Keyingi bayram</small><b>{{ F.next.name.uz }}</b><span>{{ fmtD(F.next.date) }} · {{ F.next.days_left }} kun qoldi · savdo {{ F.next.uplift_percent >= 0 ? '+' : '' }}{{ F.next.uplift_percent }}%</span></span>
+        <small class="nx-n">{{ F.next.prep_days }} kun oldin xarid rejasi tayyorlanadi</small>
+      </RouterLink>
+      <UiCard v-if="F.weather.length" :title="`Ob-havo · ${F.location}`" subtitle="Savdoga ta'siri prognozda hisobga olinadi">
+        <template #actions><RouterLink v-if="a.can('forecast.view')" to="/forecast" class="lnk">Batafsil</RouterLink></template>
+        <WeatherStrip :days="F.weather" :hints="2" />
+      </UiCard>
+    </section>
 
     <!-- KPI -->
     <section v-if="D.kpis.length" class="kpis">
@@ -287,6 +307,13 @@ const branchName = computed(() => D.value?.branches_list.find((b: any) => String
 .seg.sm button { min-height: 28px; padding: 0 10px; font-size: var(--fs-xs); } .seg.sm button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
 .setup { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 12px; background: var(--warn-tint); color: var(--warn-ink); text-decoration: none; font-size: var(--fs-s); flex-wrap: wrap; }
 
+.r0 { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; align-items: stretch; } .r0.solo { grid-template-columns: minmax(0, 1fr); }
+.r0 > :deep(.ui-card) { min-width: 0; }
+.nx { display: flex; flex-direction: column; justify-content: center; gap: 10px; padding: 16px 18px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); color: var(--ink); text-decoration: none; min-width: 0; }
+.nx:hover { border-color: var(--accent); }
+.nx-i { font-size: 28px; } .nx-b { display: flex; flex-direction: column; gap: 2px; } .nx-b small, .nx-n { font-size: var(--fs-xs); color: var(--muted); font-weight: 700; }
+.nx-b b { font-family: var(--font-display); font-size: var(--fs-xl); font-weight: 800; } .nx-b span { font-size: var(--fs-s); color: var(--ink-2); }
+.alerts { display: flex; flex-direction: column; gap: 10px; min-width: 0; } .alerts > * { flex: 1; }
 .kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
 .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0; color: var(--ink); text-decoration: none; transition: border-color .15s, transform .15s; }
 a.kpi:hover { border-color: var(--accent); transform: translateY(-1px); }
@@ -365,7 +392,7 @@ a.kpi:hover { border-color: var(--accent); transform: translateY(-1px); }
 .at { flex: 1; min-width: 0; display: flex; flex-direction: column; } .at b { font-size: var(--fs-s); } .at small { color: var(--muted); font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 @media (max-width: 1400px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } .r1 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .r1 > :first-child { grid-column: 1 / -1; } }
-@media (max-width: 1100px) { .r2, .r3 { grid-template-columns: 1fr 1fr; } .r2 > :first-child, .r3 > :first-child { grid-column: 1 / -1; } }
+@media (max-width: 1100px) { .r0 { grid-template-columns: minmax(0, 1fr); } .r2, .r3 { grid-template-columns: 1fr 1fr; } .r2 > :first-child, .r3 > :first-child { grid-column: 1 / -1; } }
 @media (max-width: 720px) {
   .hi h1 { font-size: 22px; } .ctl { width: 100%; } .seg { width: 100%; overflow-x: auto; } .seg button { flex: 1; padding: 0 8px; } .sel { width: 100%; }
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .kv { font-size: 20px; } .kpi { padding: 12px; } .ki { width: 30px; height: 30px; } .sp { display: none; }

@@ -268,7 +268,7 @@ def build(domain: str = "namuna.localhost", log=print):
         raise RuntimeError("Namuna restoran allaqachon bor. Qaytadan yaratish uchun: --reset")
     t = create_tenant(name=NAME, slug=SLUG, owner_phone=OWNER_PHONE, preset="restaurant", owner_name="Bahodir Qodirov",
                       plan_code="pro", domain=domain, branch_name="Chilonzor filiali", trial_days=30)
-    set_modules(t, [*t.enabled_modules, "training", "crm"])
+    set_modules(t, [*t.enabled_modules, "training", "crm", "forecast"])
     log(f"Restoran yaratildi: {t.name} ({domain})")
     with schema_context(t.schema_name):
         connection.set_tenant(t)
@@ -500,6 +500,8 @@ def _crm_and_telegram(t, log):
     from modules.pos.models import Order
     from modules.telegram.models import Audience, BotUser, Broadcast, BroadcastStatus
     n = seed_demo_crm(t)
+    from modules.forecast.demo import seed_demo_forecast
+    seed_demo_forecast(t)
     Promo.objects.filter(code="LAZZAT10").update(name="NAVROZ10 promokod", code="NAVROZ10", description="Instagram va Telegram kanal obunachilari uchun")
     Promo.objects.filter(name__startswith="Happy hour").update(name="Tushlik vaqti −15%", description="Har kuni 12:00–15:00 butun menyuga", hour_from=12, hour_to=15)
     rnd = random.Random(9)
