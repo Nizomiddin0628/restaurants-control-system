@@ -1,0 +1,17 @@
+{
+  "code": "projects",
+  "name": {"uz": "Loyihalar", "ru": "Проекты", "en": "Projects"},
+  "version": "1.0.0", "phase": 9, "implemented": true, "order": 36,
+  "depends": [],
+  "permissions": ["projects.view", "projects.edit", "projects.*"],
+  "nav": [
+    {"route": "/projects", "label": {"uz": "Loyihalar", "ru": "Проекты", "en": "Projects"}, "icon": "flag", "order": 36, "perm": "projects.view"}
+  ],
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "notify_telegram": {"type": "boolean", "title": "Vazifa berilganda va muddat yaqinlashganda Telegramga xabar", "default": true},
+      "risk_gap": {"type": "integer", "title": "«Xavf ostida» chegarasi: vaqt o'tgani bajarilgandan necha foiz oldinda bo'lsa", "default": 25}
+    }
+  }
+}

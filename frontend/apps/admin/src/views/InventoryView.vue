@@ -9,10 +9,11 @@ import { api } from '@restopos/api'
 import { UiButton, UiCard, UiChip, UiDrawer, UiEmpty, UiIcon, UiInput, UiSelect, money, t, toast } from '@restopos/ui'
 import { useAuth } from '@/stores/auth'
 import { useUi } from '@/stores/ui'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import HolidayAlert from '@/components/forecast/HolidayAlert.vue'
 
-const a = useAuth(), ui = useUi(), route = useRoute()
+const a = useAuth(), ui = useUi(), route = useRoute(), router = useRouter()
+const hasProc = computed(() => a.hasModule('procurement'))
 type Tab = 'ingredients' | 'purchase' | 'recipes' | 'movements' | 'plan'
 const TAB_Q: Record<string, Tab> = { plan: 'plan', purchase: 'purchase', purchases: 'purchase', stock: 'ingredients', ingredients: 'ingredients', recipes: 'recipes', movements: 'movements' }
 const hasFc = computed(() => a.hasModule('forecast') && a.can('forecast.view'))
@@ -79,6 +80,17 @@ function toPurchase(supplierId?: number | null, all = true) {
   }
   tab.value = 'purchase'
   toast('Qatorlar kirim formasiga qo\'yildi — narxni tekshirib, «Kirimni o\'tkazish»ni bosing')
+}
+// Zakup: ta'minotchiga buyurtma yoki bozorchiga ro'yxat
+function toOrder(supplierId: number) {
+  const lines = (plan.value?.lines ?? []).filter((l: any) => l.buy > 0 && l.supplier_id === supplierId)
+    .map((l: any) => ({ ingredient_id: l.ingredient_id, qty: Math.ceil(l.buy * 10) / 10, price: 0 }))
+  const note = plan.value.holiday ? `${plan.value.holiday.name.uz} uchun` : ''
+  router.push({ path: '/procurement', query: { tab: 'orders', order: JSON.stringify({ supplier_id: supplierId, lines, note, expected_date: plan.value.buy_by }) } })
+}
+function toTrip() {
+  const lines = (plan.value?.lines ?? []).filter((l: any) => l.buy > 0).map((l: any) => ({ ingredient_id: l.ingredient_id, qty: Math.ceil(l.buy * 10) / 10 }))
+  router.push({ path: '/market', query: { plan: JSON.stringify(lines) } })
 }
 async function copyList() {
   const lines = (plan.value?.lines ?? []).filter((l: any) => l.buy > 0)
@@ -218,12 +230,14 @@ const fmtDT = (s: string) => new Date(s).toLocaleString('uz-UZ', { day: '2-digit
                 <li v-for="sp in plan.suppliers" :key="sp.name">
                   <span class="nm"><b>{{ sp.name }}</b><small>{{ sp.count }} ta xomashyo</small></span>
                   <b>{{ money(sp.total) }}</b>
+                  <UiButton v-if="hasProc && sp.supplier_id && a.can('procurement.edit')" size="s" variant="brand" @click="toOrder(sp.supplier_id)">Buyurtma</UiButton>
                   <UiButton v-if="a.can('inventory.purchase')" size="s" variant="ghost" @click="toPurchase(sp.supplier_id, false)">Kirim</UiButton>
                 </li>
               </ul>
               <p v-if="!plan.suppliers.length" class="mut">Xarid kerak emas.</p>
               <div v-if="plan.short_count" class="r-foot">
                 <UiButton variant="ghost" size="s" @click="copyList()">📋 Ro'yxatni nusxalash</UiButton>
+                <UiButton v-if="hasProc && a.can('procurement.buy')" variant="ghost" size="s" @click="toTrip()">🧺 Bozorlik ro'yxati</UiButton>
                 <div class="sp"></div>
                 <UiButton v-if="a.can('inventory.purchase')" variant="brand" @click="toPurchase(null, true)">Hammasini kirimga</UiButton>
               </div>
@@ -445,7 +459,7 @@ button.l-r { cursor: pointer; } button.l-r:hover, .l-r.sel { background: var(--a
 .acc { color: var(--accent); }
 .side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .sup { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.sup li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line-2); font-size: var(--fs-s); } .sup li:last-child { border-bottom: 0; }
+.sup li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line-2); font-size: var(--fs-s); } .sup li:last-child { border-bottom: 0; }
 @media (max-width: 1100px) { .plan .split { grid-template-columns: minmax(0, 1fr); } .split { grid-template-columns: 1fr; } .kpis { grid-template-columns: repeat(3, 1fr); } .cost-row { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 600px) {
   .kpis { grid-template-columns: 1fr 1fr; } .grid2 { grid-template-columns: 1fr; }

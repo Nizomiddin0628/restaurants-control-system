@@ -1,0 +1,20 @@
+{
+  "code": "procurement",
+  "name": {"uz": "Zakup (xarid)", "ru": "Закупки", "en": "Procurement"},
+  "version": "1.0.0", "phase": 9, "implemented": true, "order": 61,
+  "depends": ["inventory"],
+  "permissions": ["procurement.view", "procurement.edit", "procurement.buy", "procurement.pay", "procurement.*"],
+  "nav": [
+    {"route": "/procurement", "label": {"uz": "Zakup (xarid)", "ru": "Закупки", "en": "Procurement"}, "icon": "truck", "order": 61, "perm": "procurement.view"},
+    {"route": "/market", "label": {"uz": "Bozorlik va xarajat", "ru": "Рынок и расходы", "en": "Market runs"}, "icon": "receipt", "order": 62, "perm": "procurement.buy"}
+  ],
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "city": {"type": "string", "title": "Shahar (bozorlar ro'yxati uchun)", "default": "Toshkent"},
+      "overhead_to_cost": {"type": "boolean", "title": "Bozor xarajatini (taksi, hammol) mahsulot tannarxiga qo'shish", "default": true, "description": "Yoqiq: food cost aniqroq. O'chiq: Moliya bo'limida alohida xarajat bo'ladi"},
+      "trip_limit": {"type": "integer", "title": "Bitta bozorlik uchun avans limiti (so'm, 0 — cheksiz)", "default": 0},
+      "price_alert_percent": {"type": "integer", "title": "Narx necha foiz oshsa ogohlantirish", "default": 10}
+    }
+  }
+}

@@ -478,6 +478,8 @@ from modules.kds.api import router as kds_router  # noqa: E402
 from modules.ops.api import router as ops_router  # noqa: E402
 from modules.payments.api import router as payments_router  # noqa: E402
 from modules.pos.api import router as pos_router  # noqa: E402
+from modules.procurement.api import router as procurement_router  # noqa: E402
+from modules.projects.api import router as projects_router  # noqa: E402
 from modules.reservations.api import router as reservations_router  # noqa: E402
 from modules.tables.api import router as tables_router  # noqa: E402
 from modules.tasks.api import router as tasks_router  # noqa: E402
@@ -501,6 +503,8 @@ api.add_router("/bot", bot_router)
 api.add_router("/crm", crm_router)
 api.add_router("/forecast", forecast_router)
 api.add_router("/ops", ops_router)
+api.add_router("/procurement", procurement_router)
+api.add_router("/projects", projects_router)
 
 from api.platform_api import router as platform_router  # noqa: E402
 

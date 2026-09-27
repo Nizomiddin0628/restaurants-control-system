@@ -22,18 +22,23 @@ from .models import Domain, Plan, Tenant
 
 SYSTEM_ROLES = [
     ("owner", "Egasi", ["*"]),
-    ("manager", "Filial menejeri", ["catalog.*", "cms.view", "core.branches.manage", "core.settings.view", "finance.*", "pos.*", "kds.*", "inventory.*", "hr.*", "tasks.*", "tables.*", "reservations.*", "payments.view", "training.*", "telegram.*", "crm.*", "forecast.*", "ops.*"]),
-    ("cashier", "Kassir", ["crm.view", "pos.sell", "pos.shift", "catalog.view", "tasks.view", "tasks.create", "hr.view", "tables.view", "tables.serve", "reservations.view", "reservations.manage"]),
+    ("manager", "Filial menejeri", ["catalog.*", "cms.view", "core.branches.manage", "core.settings.view", "finance.*", "pos.*", "kds.*", "inventory.*", "hr.*", "tasks.*", "tables.*", "reservations.*", "payments.view", "training.*", "telegram.*", "crm.*", "forecast.*", "ops.*", "procurement.*", "projects.*"]),
+    ("cashier", "Kassir", ["procurement.buy", "procurement.pay", "crm.view", "pos.sell", "pos.shift", "catalog.view", "tasks.view", "tasks.create", "hr.view", "tables.view", "tables.serve", "reservations.view", "reservations.manage"]),
     ("waiter", "Ofitsiant", ["crm.view", "tables.view", "tables.serve", "reservations.view", "reservations.manage", "pos.sell", "catalog.view", "kds.view", "tasks.view", "tasks.create", "hr.view"]),
     ("cook", "Oshpaz", ["kds.view", "kds.cook", "catalog.view", "inventory.view", "forecast.view", "tasks.view", "tasks.create", "hr.view"]),
     ("courier", "Kuryer", ["delivery.courier", "tasks.view", "tasks.create", "hr.view"]),
-    ("accountant", "Buxgalter", ["finance.*", "inventory.*", "forecast.view", "ops.view", "hr.payroll", "hr.view", "core.settings.view", "tasks.view", "tasks.create", "payments.view"]),
-    ("marketer", "Marketolog", ["crm.*", "cms.*", "catalog.view", "tasks.view", "tasks.create", "tasks.edit", "telegram.view", "telegram.broadcast"]),
+    ("accountant", "Buxgalter", ["finance.*", "inventory.*", "forecast.view", "ops.view", "procurement.*", "projects.view", "hr.payroll", "hr.view", "core.settings.view", "tasks.view", "tasks.create", "payments.view"]),
+    ("buyer", "Bozorchi (zakupshik)", ["procurement.buy", "procurement.view", "inventory.view", "tasks.view", "tasks.create", "hr.view"]),
+    ("marketer", "Marketolog", ["projects.view", "crm.*", "cms.*", "catalog.view", "tasks.view", "tasks.create", "tasks.edit", "telegram.view", "telegram.broadcast"]),
 ]
 # O'qitish: har bir xodim o'z kurslari, topshiriqlari va standartlarini ko'radi
 for _code, _name, _perms in SYSTEM_ROLES:
     if _code not in ("owner", "manager"):
         _perms.append("training.view")
+# Loyihalar: har bir xodim o'zi ishtirok etgan loyiha va vazifalarni ko'radi
+for _code, _name, _perms in SYSTEM_ROLES:
+    if _code != "owner" and not any(p.startswith("projects.") for p in _perms):
+        _perms.append("projects.view")
 
 
 def slugify_schema(slug: str) -> str:
