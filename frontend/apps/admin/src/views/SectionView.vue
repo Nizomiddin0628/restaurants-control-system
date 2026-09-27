@@ -102,6 +102,7 @@ const updated = computed(() => { const d = new Date(); return `${String(d.getHou
 .ft { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; } .ft small { color: var(--muted); font-size: var(--fs-xs); }
 @media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } .hd { flex-wrap: wrap; } .per { width: 100%; } .per button { flex: 1; } }
 @media (max-width: 640px) {
+  .go { flex-wrap: wrap; overflow: visible; } .go a { flex: 1 1 calc(50% - 8px); min-width: 0; justify-content: flex-start; } .go a span { overflow: hidden; text-overflow: ellipsis; }
   .hd { padding: 12px; } .em { width: 44px; height: 44px; font-size: 24px; } h2 { font-size: 19px; }
   .kpis { grid-template-columns: 1fr 1fr; gap: 8px; } .kpi { padding: 10px; gap: 8px; } .ki { width: 32px; height: 32px; font-size: 16px; } .kt b { font-size: 16px; }
   .skel { grid-template-columns: 1fr; } .ft { flex-direction: column-reverse; align-items: stretch; } .ft small { text-align: center; }

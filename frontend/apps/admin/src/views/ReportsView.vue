@@ -4,6 +4,7 @@
  * menyu muhandisligi (Yulduz/Ot/Jumboq/It), to'lov usullari, filiallar; chiqimlar; to'lov sozlamalari; Excel.
  * Grafiklar: bitta o'lchov = bitta rang (--chart-bar); sinflar rang + yozuv bilan.
  */
+import AreaChart from '@/hq/charts/AreaChart.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { api, auth as apiAuth } from '@restopos/api'
 import { UiButton, UiCard, UiChip, UiDrawer, UiEmpty, UiIcon, UiInput, UiSelect, money, toast } from '@restopos/ui'
@@ -134,15 +135,8 @@ async function savePay() { try { await api.put('/payments/settings', pay.value);
 
     <!-- SAVDO -->
     <div v-else-if="tab === 'sales' && d" class="col">
-      <UiCard title="Kunlik savdo" subtitle="Ustun — kunlik daromad (so'm); kursorni olib boring">
-        <svg class="chart" :viewBox="`0 0 ${Math.max(600, daily.length * 24)} 220`" preserveAspectRatio="none" role="img" aria-label="Kunlik savdo">
-          <line v-for="g in [0.25, 0.5, 0.75, 1]" :key="g" x1="0" :x2="Math.max(600, daily.length * 24)" :y1="200 - 180 * g" :y2="200 - 180 * g" stroke="var(--chart-grid)" stroke-width="1" />
-          <g v-for="(x, i) in daily" :key="x.date">
-            <rect :x="i * (Math.max(600, daily.length * 24) / daily.length) + 3" :y="200 - 180 * x.revenue / maxDaily" :width="Math.max(600, daily.length * 24) / daily.length - 6" :height="180 * x.revenue / maxDaily" rx="3" fill="var(--chart-bar)">
-              <title>{{ fmtD(x.date) }}: {{ money(x.revenue) }} · {{ x.orders }} chek · tannarx {{ money(x.cogs) }}</title></rect>
-            <text v-if="daily.length <= 31 && (i % Math.ceil(daily.length / 15) === 0)" :x="i * (Math.max(600, daily.length * 24) / daily.length) + (Math.max(600, daily.length * 24) / daily.length) / 2" y="215" text-anchor="middle" class="ax">{{ fmtD(x.date) }}</text>
-          </g>
-        </svg>
+      <UiCard title="Kunlik savdo" subtitle="Ustun — kunlik daromad (so'm); ustunni bosing yoki kursorni olib boring">
+        <AreaChart :points="daily.map((x: any) => ({ label: fmtD(x.date).slice(0, 5), value: x.revenue }))" bars :height="240" color="var(--chart-bar)" />
         <div class="legend"><span><i class="sw"></i> Daromad</span><span class="mut">Eng yuqori kun: {{ short(maxDaily) }}</span></div>
       </UiCard>
       <div class="two">

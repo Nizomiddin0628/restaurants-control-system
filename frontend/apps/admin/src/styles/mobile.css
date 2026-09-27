@@ -1,0 +1,15 @@
+/* Telefon: gorizontal suriladigan tab / chip qatorlari ekran chetigacha (native ilovalardek),
+   birinchi element matn bilan bir chiziqda, oxirida yumshoq soya — «chetga yopishib qolgan» ko'rinmaydi. */
+@media (max-width: 600px) {
+  .content :is(.tabs, .tr-seg, .cats, .colnav):not(.panel *):not(.dr *) {
+    margin-inline: calc(-1 * var(--gutter)) !important;
+    padding-inline: var(--gutter) !important;
+    scroll-padding-inline: var(--gutter);
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 28px), transparent 100%);
+    mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 28px), transparent 100%);
+  }
+  .content :is(.tabs, .tr-seg, .cats, .colnav)::-webkit-scrollbar { display: none; }
+  /* kartalar ichidagi keng jadval — chetdan bir oz ichkarida suriladi */
+  .content :is(.tbl, .tw) { -webkit-overflow-scrolling: touch; }
+}

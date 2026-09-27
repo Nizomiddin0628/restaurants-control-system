@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /** Kurslar boshqaruvi: ro'yxat, yaratish/tahrirlash, har kurs bo'yicha kim tugatdi / kim boshlamadi. */
 import { onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import { api } from '@restopos/api'
 import { UiButton, UiChip, UiDrawer, UiEmpty, UiIcon, toast } from '@restopos/ui'
 import TrCourseEditor from './TrCourseEditor.vue'
@@ -37,8 +38,8 @@ void props
     </div>
     <div class="rows">
       <article v-for="c in list" :key="c.id" class="row">
-        <button type="button" class="cov" :style="c.cover ? { backgroundImage: `url(${c.cover})` } : {}" @click="openEdit(c.id)"><UiIcon v-if="!c.cover" name="book" :size="22" /></button>
-        <button type="button" class="cinfo" @click="openEdit(c.id)">
+        <RouterLink :to="`/training/course/${c.id}`" class="cov" :style="c.cover ? { backgroundImage: `url(${c.cover})` } : {}" title="Kursni ochish"><UiIcon :name="c.cover ? 'play' : 'book'" :size="22" class="pl" /></RouterLink>
+        <RouterLink :to="`/training/course/${c.id}`" class="cinfo" title="Kursni ochish — darslar va videolar">
           <b>{{ c.title }}</b>
           <small>{{ c.category || 'Bo\'limsiz' }} · {{ c.lessons_count }} dars · {{ c.quizzes_count }} test<template v-if="c.responsible"> · Mas'ul: {{ c.responsible.full_name }}</template></small>
           <span class="chips">
@@ -47,13 +48,14 @@ void props
             <UiChip v-if="c.everyone" tone="info">Hamma</UiChip>
             <UiChip v-for="r in c.roles" :key="r" tone="neutral">{{ meta.roles.find((x: any) => x.code === r)?.name ?? r }}</UiChip>
           </span>
-        </button>
+        </RouterLink>
         <button type="button" class="stat" @click="openRep(c)">
           <span class="big">{{ c.completed }}<small>/{{ c.enrolled }}</small></span><span>tugatgan</span>
           <div class="tr-bar"><i :style="{ width: (c.enrolled ? (100 * c.completed) / c.enrolled : 0) + '%' }"></i></div>
           <span v-if="c.overdue" class="late">{{ c.overdue }} kechikkan</span>
         </button>
         <div class="acts">
+          <UiButton size="s" variant="secondary" @click="openEdit(c.id)"><UiIcon name="edit" :size="15" /> Tahrirlash</UiButton>
           <UiButton v-if="!archived" size="s" variant="ghost" aria-label="Arxivga" @click="archive(c)"><UiIcon name="archive" :size="15" /></UiButton>
           <UiButton v-else size="s" variant="secondary" @click="unarchive(c)">Tiklash</UiButton>
         </div>
@@ -90,12 +92,15 @@ void props
 .arch { display: inline-flex; gap: 6px; align-items: center; font-weight: 700; color: var(--muted); font-size: 14px; }
 .rows { display: flex; flex-direction: column; gap: 10px; }
 .row { display: grid; grid-template-columns: 120px 1fr 160px auto; gap: 14px; align-items: center; padding: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
-.cov { aspect-ratio: 16/9; border-radius: 10px; border: 0; cursor: pointer; background: linear-gradient(135deg, #3a2f22, #8a6d3b) center / cover; color: #fff; display: grid; place-items: center; }
-.cinfo { text-align: left; border: 0; background: none; cursor: pointer; font: inherit; color: inherit; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cov { aspect-ratio: 16/9; border-radius: 10px; border: 0; cursor: pointer; text-decoration: none; background: linear-gradient(135deg, #3a2f22, #8a6d3b) center / cover; color: #fff; display: grid; place-items: center; }
+.cinfo { text-align: left; border: 0; background: none; cursor: pointer; font: inherit; color: inherit; text-decoration: none; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .cinfo b { font-size: 16px; } .cinfo small { color: var(--muted); }
 .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
 .stat { border: 0; background: var(--surface-2); border-radius: 12px; padding: 10px; cursor: pointer; font: inherit; color: inherit; display: flex; flex-direction: column; gap: 4px; text-align: left; }
 .stat .big { font-size: 20px; font-weight: 800; } .stat .big small { font-size: 13px; color: var(--muted); } .stat > span { font-size: 12px; color: var(--muted); }
+.pl { background: rgba(0, 0, 0, .45); border-radius: 50%; padding: 8px; box-sizing: content-box; }
+.cov:hover .pl { background: var(--brand); }
+.acts { display: flex; gap: 6px; align-items: center; }
 .stat .late { color: var(--danger); font-weight: 700; }
 .kp { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .kp div { background: var(--surface-2); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; } .kp b { font-size: 20px; } .kp span { font-size: 12px; color: var(--muted); } .kp .warn b { color: var(--danger); }

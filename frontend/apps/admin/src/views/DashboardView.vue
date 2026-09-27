@@ -12,6 +12,7 @@ import { UiAvatar, UiCard, UiChip, UiEmpty, UiIcon, money } from '@restopos/ui'
 import { useAuth } from '@/stores/auth'
 import { useUi } from '@/stores/ui'
 import { useNav, useSectionStats } from '@/nav/sections'
+import AreaChart from '@/hq/charts/AreaChart.vue'
 
 const a = useAuth(), ui = useUi(), router = useRouter()
 const { sections, sectionLink } = useNav()
@@ -81,6 +82,7 @@ const chart = computed(() => {
 })
 function niceStep(x: number) { const p = Math.pow(10, Math.floor(Math.log10(x || 1))); const n = x / p; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p }
 function short(v: number) { return metric.value === 'orders' ? String(v) : v >= 1e6 ? `${+(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${Math.round(v / 1e3)}k` : String(v) }
+const chartPts = computed(() => (D.value?.series?.points ?? []).map((p: any) => ({ label: p.label, value: p[metric.value] })))
 const hp = computed(() => (hover.value != null && chart.value ? chart.value.bars[hover.value] : null))
 const nowLabel = computed(() => `${String(new Date().getHours()).padStart(2, '0')}:00`)
 
@@ -168,19 +170,7 @@ const branchName = computed(() => D.value?.branches_list.find((b: any) => String
         <template #actions>
           <div class="seg sm"><button type="button" :class="{ on: metric === 'revenue' }" @click="metric = 'revenue'">Savdo</button><button type="button" :class="{ on: metric === 'orders' }" @click="metric = 'orders'">Buyurtmalar</button></div>
         </template>
-        <div v-if="chart" class="chart" @mouseleave="hover = null">
-          <svg :viewBox="`0 0 ${W} ${H}`" preserveAspectRatio="none" role="img" :aria-label="`${metric === 'revenue' ? 'Savdo' : 'Buyurtmalar'} dinamikasi`">
-            <g v-for="tk in chart.ticks" :key="tk.v"><line :x1="PL" :x2="W - 4" :y1="tk.y" :y2="tk.y" stroke="var(--line-2)" stroke-width="1" /><text :x="PL - 8" :y="tk.y + 4" text-anchor="end" class="ax">{{ short(tk.v) }}</text></g>
-            <g v-for="b in chart.bars" :key="b.i">
-              <rect :x="b.x" :y="b.y" :width="b.w" :height="b.h" rx="4" :fill="(period === 'today' && b.p.label === nowLabel) || hover === b.i ? 'var(--accent)' : 'color-mix(in srgb, var(--accent) 55%, var(--surface))'" />
-              <rect :x="PL + b.i * chart.bw" :y="PT" :width="chart.bw" :height="H - PB - PT" fill="transparent" @mouseenter="hover = b.i" @touchstart.passive="hover = b.i" />
-              <text v-if="b.i % chart.every === 0" :x="b.x + b.w / 2" :y="H - 8" text-anchor="middle" class="ax">{{ b.p.label }}</text>
-            </g>
-          </svg>
-          <div v-if="hp" class="tip" :style="{ left: `${((hp.x + hp.w / 2) / W) * 100}%`, top: `${(hp.y / H) * 100}%` }">
-            <b>{{ hp.p.label }}</b><span>{{ money(hp.p.revenue) }} so'm</span><span>{{ hp.p.orders }} ta buyurtma</span>
-          </div>
-        </div>
+        <AreaChart v-if="chartPts.length" :points="chartPts" bars :money="metric === 'revenue'" :unit="metric === 'orders' ? 'ta' : ''" :height="250" color="var(--accent)" />
         <UiEmpty v-else title="Bu davrda savdo yo'q" />
       </UiCard>
 

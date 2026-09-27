@@ -19,6 +19,9 @@ function openQuiz(q: any) {
   if (q.attempts_left === 0) { toast('Urinishlar tugadi', 'danger'); return }
   router.push(`/training/quiz/${q.id}`)
 }
+/** YouTube dars — kichik rasm (muqova), keyingi ochiq dars */
+const thumb = (l: any) => (l.video_media?.kind === 'youtube' && l.video_media.id ? `https://i.ytimg.com/vi/${l.video_media.id}/mqdefault.jpg` : l.image || null)
+const nextLesson = computed(() => c.value?.lessons.find((l: any) => !l.done && !l.locked) ?? null)
 </script>
 
 <template>
@@ -32,6 +35,7 @@ function openQuiz(q: any) {
       </div>
       <h2>{{ c.course.title }}</h2>
       <p v-if="c.course.description">{{ c.course.description }}</p>
+      <button v-if="nextLesson" type="button" class="go-btn" @click="openLesson(nextLesson)">▶ {{ c.lessons_done ? 'Davom ettirish' : 'Boshlash' }}: {{ nextLesson.title }}</button>
       <div class="prow"><div class="tr-bar"><i :style="{ width: c.progress + '%' }"></i></div><b>{{ c.progress }}%</b></div>
       <div class="facts">
         <span>{{ c.lessons_done }}/{{ c.lessons_total }} dars</span>
@@ -51,6 +55,7 @@ function openQuiz(q: any) {
           <svg v-else-if="l.locked" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
           <template v-else>{{ i + 1 }}</template>
         </span>
+        <span v-if="thumb(l)" class="lthumb" :style="{ backgroundImage: `url(${thumb(l)})` }"><i>▶</i></span>
         <span class="lt"><b>{{ l.title }}</b>
           <small>{{ l.has_video ? '🎬 Video' : '📄 Matn' }}<template v-if="l.duration_seconds"> · {{ fmtDur(l.duration_seconds) }}</template><template v-if="l.opened && !l.done && l.has_video"> · {{ l.percent }}% ko'rildi</template></small>
         </span>
@@ -75,7 +80,12 @@ function openQuiz(q: any) {
 
 <style scoped>
 .cv { display: flex; flex-direction: column; gap: 14px; max-width: 820px; width: 100%; margin: 0 auto; }
-.hero { border-radius: 18px; padding: 22px; color: #fff; background: linear-gradient(135deg, #3a2f22, #8a6d3b) center / cover no-repeat; display: flex; flex-direction: column; gap: 10px; min-height: 180px; justify-content: flex-end; }
+.hero { border-radius: 22px; padding: 26px; color: #fff; background: linear-gradient(135deg, #3a2f22, #8a6d3b) center / cover no-repeat; display: flex; flex-direction: column; gap: 10px; min-height: 280px; justify-content: flex-end; box-shadow: 0 18px 40px -24px rgba(0, 0, 0, .5); }
+.go-btn { align-self: flex-start; border: 0; border-radius: 14px; padding: 12px 18px; background: #fff; color: #111; font: inherit; font-weight: 800; cursor: pointer; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.go-btn:hover { background: var(--brand); color: var(--brand-ink); }
+.lthumb { width: 104px; aspect-ratio: 16 / 9; border-radius: 10px; background: var(--surface-3) center / cover; flex-shrink: 0; display: grid; place-items: center; }
+.lthumb i { font-style: normal; color: #fff; background: rgba(0, 0, 0, .55); width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; }
+.locked .lthumb { filter: grayscale(1); opacity: .6; }
 .hero h2 { margin: 0; font-family: var(--font-display); font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
 .hero p { margin: 0; opacity: .9; max-width: 60ch; }
 .chips { display: flex; gap: 6px; }
@@ -91,5 +101,5 @@ function openQuiz(q: any) {
 .ls.done .num { background: var(--tr-green); color: #fff; }
 .ls.locked { opacity: .55; } .ls.locked .num { background: var(--surface-3); color: var(--muted); }
 .lt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; } .lt b { font-size: 15px; } .lt small { color: var(--muted); font-size: 12px; }
-@media (max-width: 600px) { .hero { padding: 18px; } .hero h2 { font-size: 22px; } }
+@media (max-width: 600px) { .hero { padding: 18px; min-height: 230px; } .hero h2 { font-size: 22px; } .lthumb { width: 76px; } }
 </style>

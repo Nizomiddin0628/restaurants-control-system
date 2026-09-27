@@ -13,6 +13,7 @@ const a = useAuth(), router = useRouter(), route = useRoute()
 const LAST = 'restopos.phone'
 const saved = (() => { try { return localStorage.getItem(LAST) || '' } catch { return '' } })()
 const mode = ref<'password' | 'otp'>('password')
+const forgot = ref(false)
 const phone = ref(saved || '+998 '), password = ref(''), showPw = ref(false)
 const via = ref(''), code = ref(''), step = ref<'phone' | 'code'>('phone'), loading = ref(false), err = ref(''), devCode = ref('')
 
@@ -51,13 +52,9 @@ onMounted(async () => {
 <template>
   <div class="login">
     <UiCard class="box">
-      <div class="brand"><span class="logo">R</span><div><b>Boshqaruv paneli</b><p class="muted">Telefon raqam va parol bilan kiring</p></div></div>
+      <div class="brand"><span class="logo">R</span><div><b>Boshqaruv paneli</b><p class="muted">Login (telefon raqam) va parol bilan kiring</p></div></div>
       <p v-if="switching" class="sw">Restoranga o'tilmoqda…</p>
       <template v-else>
-        <div class="tabs" role="tablist">
-          <button type="button" role="tab" :aria-selected="mode === 'password'" :class="{ on: mode === 'password' }" @click="setMode('password')">🔑 Parol bilan</button>
-          <button type="button" role="tab" :aria-selected="mode === 'otp'" :class="{ on: mode === 'otp' }" @click="setMode('otp')">💬 SMS kod bilan</button>
-        </div>
 
         <form v-if="mode === 'password'" @submit.prevent="loginPw">
           <UiInput v-model="phone" label="Telefon" type="tel" placeholder="+998 90 123 45 67" autocomplete="username" />
@@ -66,19 +63,24 @@ onMounted(async () => {
             <button type="button" class="eye" :aria-label="showPw ? 'Parolni yashirish' : 'Parolni ko\'rsatish'" @click="showPw = !showPw">{{ showPw ? '🙈' : '👁' }}</button>
           </div>
           <UiButton type="submit" :loading="loading" :disabled="!password" block size="l">Kirish</UiButton>
-          <button type="button" class="lnk" @click="setMode('otp')">Parol yo'qmi yoki esdan chiqdimi? SMS kod bilan kiring</button>
+          <button type="button" class="lnk" @click="forgot = !forgot">Parolni unutdingizmi?</button>
+          <p v-if="forgot" class="fg"><span>Rahbaringiz (menejer) «Xodimlar» sahifasida sizga <b>yangi parol</b> berib yuboradi — unga ayting.</span>
+            <button type="button" class="lnk2" @click="setMode('otp')">Yoki telefon kodi bilan kirish →</button></p>
         </form>
 
-        <form v-else-if="step === 'phone'" @submit.prevent="sendOtp">
+        <template v-else>
+        <p class="otp-h"><button type="button" class="lnk2" @click="setMode('password')">← Parol bilan kirish</button> Telefon kodi bilan kirish</p>
+        <form v-if="step === 'phone'" @submit.prevent="sendOtp">
           <UiInput v-model="phone" label="Telefon" type="tel" placeholder="+998 90 123 45 67" :error="err" autocomplete="tel" />
           <UiButton type="submit" :loading="loading" block size="l">Kod olish</UiButton>
-          <p class="muted sm">Kirgandan keyin «Sozlamalar»da parol qo'ying — keyingi safar SMS kerak bo'lmaydi.</p>
+          <p class="muted sm">Kod restoran Telegram botiga (ulangan bo'lsangiz) yoki SMS bilan keladi.</p>
         </form>
         <form v-else @submit.prevent="verify">
           <UiInput v-model="code" label="SMS kod" inputmode="numeric" placeholder="123456" :error="err" :hint="hint" autocomplete="one-time-code" />
           <UiButton type="submit" :loading="loading" block size="l">Kirish</UiButton>
           <UiButton variant="ghost" block @click="step = 'phone'">Raqamni o'zgartirish</UiButton>
         </form>
+        </template>
       </template>
     </UiCard>
   </div>
@@ -96,5 +98,8 @@ form { display: flex; flex-direction: column; gap: 12px; }
 .pw { position: relative; }
 .eye { position: absolute; right: 8px; top: 28px; width: 36px; height: 36px; border: 0; background: transparent; cursor: pointer; font-size: 18px; border-radius: 8px; }
 .lnk { border: 0; background: transparent; color: var(--accent); font: inherit; font-size: var(--fs-s); font-weight: 600; cursor: pointer; padding: 4px; }
-.muted { color: var(--muted); } .sm { font-size: var(--fs-xs); margin: 0; text-align: center; }
+.muted { color: var(--muted); }
+.fg { margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); font-size: var(--fs-s); color: var(--ink-2); display: flex; flex-direction: column; gap: 6px; }
+.lnk2 { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: var(--fs-xs); font-weight: 700; cursor: pointer; padding: 2px 0; text-align: left; text-decoration: underline; }
+.otp-h { margin: 0; display: flex; flex-direction: column; gap: 4px; font-weight: 800; } .sm { font-size: var(--fs-xs); margin: 0; text-align: center; }
 </style>

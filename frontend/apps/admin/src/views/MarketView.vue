@@ -66,7 +66,7 @@ async function saveTrip() {
 
 // ---- mahsulot
 function buy(i?: any) {
-  it.value = i ? { id: i.qty ? i.id : null, plan_id: i.id, ingredient_id: i.ingredient_id ? String(i.ingredient_id) : '', name: i.name, unit: i.unit, qty: i.qty || i.planned_qty || '', mode: 'price', price: i.price || '', total: i.total || '', seller: i.seller }
+  it.value = i ? { id: i.qty ? i.id : null, plan_id: i.id, ingredient_id: i.ingredient_id ? String(i.ingredient_id) : '', name: i.name, unit: i.unit, qty: i.qty || i.planned_qty || '', mode: 'price', price: i.price || '', total: i.total || '', seller: i.seller, planned: Number(i.planned_qty) || 0 }
     : { id: null, ingredient_id: '', name: '', unit: 'kg', qty: '', mode: 'price', price: '', total: '', seller: '' }
   ex.value = null
 }
@@ -79,8 +79,14 @@ async function saveItem() {
     price: v.mode === 'price' ? Number(v.price) || 0 : 0, total: v.mode === 'total' ? Number(v.total) || 0 : 0, seller: v.seller }
   const url = v.id ? `/procurement/trips/${T.value.id}/items/${v.id}` : v.plan_id && !v.ingredient_id ? `/procurement/trips/${T.value.id}/items/${v.plan_id}` : `/procurement/trips/${T.value.id}/items`
   const method = v.id || (v.plan_id && !v.ingredient_id) ? api.put : api.post
-  if (await run(() => method(url, b), 'Yozildi')) it.value = null
+  if (await run(() => method(url, b))) {
+    it.value = null
+    const next = todo.value[0]
+    toast(next ? `Yozildi ✓ Keyingisi: ${next.name}` : 'Yozildi ✓ Ro\'yxat tugadi')
+  }
 }
+const stepOf = (u: string) => (/dona|ta|bog|pachka|quti/i.test(u) ? 1 : 0.5)
+function refPrice(i: any): number | null { const x = M.value?.ingredients.find((g: any) => g.id === i.ingredient_id); return x?.price ? Math.round(x.price) : null }
 async function delItem(i: any) { if (confirm(`«${i.name}» o'chirilsinmi?`)) run(() => api.del(`/procurement/trips/${T.value.id}/items/${i.id}`)) }
 async function photo(i: any, e: Event) {
   const f = (e.target as HTMLInputElement).files?.[0]
@@ -197,27 +203,11 @@ const kindMax = computed(() => Math.max(1, ...(S.value?.by_kind ?? []).map((k: a
         <!-- olish kerak -->
         <template v-if="todo.length">
           <h4>Olish kerak <small>{{ todo.length }}</small></h4>
-          <div v-for="i in todo" :key="i.id" class="row todo">
-            <span><b>{{ i.name }}</b><small>{{ i.planned_qty }} {{ i.unit }}</small></span>
-            <UiButton v-if="isOpen" size="s" variant="brand" @click="buy(i)">✓ Oldim</UiButton>
-          </div>
+          <component :is="isOpen ? 'button' : 'div'" v-for="i in todo" :key="i.id" type="button" class="todo2" @click="isOpen && buy(i)">
+            <span class="tn"><b>{{ i.name }}</b><small>{{ i.planned_qty }} {{ i.unit }}<template v-if="refPrice(i)"> · ~{{ money(refPrice(i)!) }} so'm/{{ i.unit }}</template></small></span>
+            <span v-if="isOpen" class="ob">✓ Oldim</span>
+          </component>
         </template>
-
-        <!-- mahsulot formasi -->
-        <div v-if="it" class="form mk-form">
-          <h4>{{ it.id ? 'Tahrirlash' : it.plan_id ? it.name : 'Mahsulot qo\'shish' }}</h4>
-          <template v-if="!it.plan_id">
-            <UiSelect v-model="it.ingredient_id" label="Mahsulot" :options="ingOpts" />
-            <div v-if="!it.ingredient_id" class="g2"><UiInput v-model="it.name" label="Nomi" placeholder="Masalan: shivit" /><UiInput v-model="it.unit" label="O'lchov" placeholder="kg / dona / bog'" /></div>
-          </template>
-          <UiInput v-model="it.qty" type="number" :label="`Miqdor (${itUnit})`" />
-          <div class="seg"><button :class="{ on: it.mode === 'price' }" @click="it.mode = 'price'">1 {{ itUnit }} narxi</button><button :class="{ on: it.mode === 'total' }" @click="it.mode = 'total'">Jami to'ladim</button></div>
-          <UiInput v-if="it.mode === 'price'" v-model="it.price" type="number" :label="`Narx (so'm / ${itUnit})`" :hint="itRef ? `Ombordagi o'rtacha: ${money(Math.round(itRef))}` : undefined" />
-          <UiInput v-else v-model="it.total" type="number" label="Jami summa (so'm)" />
-          <UiInput v-model="it.seller" label="Sotuvchi (ixtiyoriy)" placeholder="Ahmad aka, 12-qator" />
-          <p class="tot">Jami: <b>{{ money(itTotal) }} so'm</b></p>
-          <div class="fb"><UiButton variant="ghost" @click="it = null">Bekor</UiButton><UiButton variant="brand" :loading="busy" :disabled="!it.qty || !itTotal" @click="saveItem()">Saqlash</UiButton></div>
-        </div>
 
         <h4>Olindi <small>{{ got.length }}</small></h4>
         <div v-for="i in got" :key="i.id" class="row">
@@ -230,7 +220,7 @@ const kindMax = computed(() => Math.max(1, ...(S.value?.by_kind ?? []).map((k: a
           <span v-if="isOpen" class="ia"><button aria-label="Tahrirlash" @click="buy(i)"><UiIcon name="edit" :size="15" /></button><button aria-label="O'chirish" @click="delItem(i)"><UiIcon name="trash" :size="15" /></button></span>
         </div>
         <p v-if="!got.length" class="mut">Hali hech narsa olinmadi.</p>
-        <UiButton v-if="isOpen && !it" variant="ghost" style="margin-top: 8px" @click="buy()"><UiIcon name="plus" :size="14" /> Ro'yxatda yo'q mahsulot</UiButton>
+        <UiButton v-if="isOpen" variant="secondary" block style="margin-top: 10px" @click="buy()"><UiIcon name="plus" :size="14" /> Ro'yxatda yo'q mahsulot oldim</UiButton>
 
         <h4>Bozor xarajatlari <small>{{ money(T.expenses_sum) }}{{ T.overhead_percent != null ? ` · ${T.overhead_percent}%` : '' }}</small></h4>
         <div v-if="isOpen" class="ek"><button v-for="k in M.expense_kinds" :key="k.code" type="button" :class="{ on: ex?.kind === k.code }" @click="addExp(k.code)"><span>{{ EXP_ICON[k.code] }}</span>{{ k.label.split(' /')[0].split(',')[0] }}</button></div>
@@ -267,6 +257,34 @@ const kindMax = computed(() => Math.max(1, ...(S.value?.by_kind ?? []).map((k: a
           <UiButton v-if="canClose" variant="brand" :disabled="!got.length && !T.expenses.length" @click="startClose()">Hisobni yopish</UiButton>
           <span v-else class="mut">Qaytib kelgach, qolgan pulni kassirga topshiring — u hisobni yopadi.</span>
         </template>
+      </template>
+    </UiDrawer>
+
+    <!-- «OLDIM» — bozorda bitta qo'l bilan: miqdor, narx, saqlash -->
+    <UiDrawer :open="!!it" :title="it ? (it.id ? 'Tahrirlash' : it.plan_id ? `✓ ${it.name}` : 'Mahsulot oldim') : ''" width="460px" @close="it = null">
+      <div v-if="it" class="buy">
+        <template v-if="!it.plan_id">
+          <UiSelect v-model="it.ingredient_id" label="Mahsulot" :options="ingOpts" />
+          <div v-if="!it.ingredient_id" class="g2"><UiInput v-model="it.name" label="Nomi" placeholder="Masalan: shivit" /><UiInput v-model="it.unit" label="O'lchov" placeholder="kg / dona / bog'" /></div>
+        </template>
+        <label class="big-l">Qancha oldingiz? <small>{{ itUnit }}</small></label>
+        <div class="stepper">
+          <button type="button" aria-label="Kamaytirish" @click="it.qty = Math.max(0, +(Number(it.qty || 0) - stepOf(itUnit)).toFixed(2))">−</button>
+          <input v-model="it.qty" type="number" inputmode="decimal" step="any" min="0" aria-label="Miqdor" />
+          <button type="button" aria-label="Ko'paytirish" @click="it.qty = +(Number(it.qty || 0) + stepOf(itUnit)).toFixed(2)">+</button>
+        </div>
+        <div v-if="it.planned" class="qk"><button type="button" :class="{ on: Number(it.qty) === it.planned }" @click="it.qty = it.planned">Rejadagi: {{ it.planned }} {{ itUnit }}</button></div>
+        <div class="seg"><button type="button" :class="{ on: it.mode === 'price' }" @click="it.mode = 'price'">1 {{ itUnit }} narxi</button><button type="button" :class="{ on: it.mode === 'total' }" @click="it.mode = 'total'">Jami to'ladim</button></div>
+        <label class="big-l">{{ it.mode === 'price' ? `1 ${itUnit} narxi` : 'Jami to\'lagan summa' }} <small>so'm</small></label>
+        <input v-if="it.mode === 'price'" v-model="it.price" class="big-in" type="number" inputmode="numeric" min="0" :placeholder="itRef ? String(Math.round(itRef)) : '0'" aria-label="Narx" />
+        <input v-else v-model="it.total" class="big-in" type="number" inputmode="numeric" min="0" placeholder="0" aria-label="Jami summa" />
+        <div v-if="it.mode === 'price' && itRef" class="qk"><button type="button" @click="it.price = Math.round(itRef)">Ombordagi narx: {{ money(Math.round(itRef)) }}</button></div>
+        <div class="sum"><span>Jami</span><b>{{ money(itTotal) }} so'm</b></div>
+        <p v-if="it.mode === 'price' && itRef && Number(it.price) > itRef * 1.15" class="warn">⚠️ Odatdagidan {{ Math.round((100 * Number(it.price)) / itRef - 100) }}% qimmat</p>
+        <details class="more"><summary>Sotuvchi (ixtiyoriy)</summary><UiInput v-model="it.seller" placeholder="Ahmad aka, 12-qator" /></details>
+      </div>
+      <template #footer>
+        <UiButton variant="brand" size="l" block :loading="busy" :disabled="!Number(it?.qty) || !itTotal" @click="saveItem()">✓ Saqlash</UiButton>
       </template>
     </UiDrawer>
 
@@ -363,6 +381,19 @@ h4 { margin: 16px 0 6px; font-size: var(--fs-s); display: flex; gap: 6px; align-
 .pl:has(> :nth-child(4)) { grid-template-columns: minmax(0, 1fr) minmax(0, .8fr) 80px 32px; }
 .pl > button { border: 0; background: transparent; color: var(--muted); cursor: pointer; height: 40px; }
 .mut { color: var(--muted); font-size: var(--fs-s); }
+.todo2 { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 58px; padding: 10px 12px; margin-bottom: 8px; border: 1px solid color-mix(in srgb, var(--warn, #F59E0B) 35%, var(--line)); border-radius: 14px; background: var(--warn-tint); font: inherit; color: var(--ink); text-align: left; cursor: pointer; }
+.todo2:active { transform: scale(.99); }
+.tn { flex: 1; display: flex; flex-direction: column; min-width: 0; } .tn b { font-size: var(--fs-b); } .tn small { color: var(--ink-2); font-size: var(--fs-xs); }
+.ob { flex-shrink: 0; padding: 9px 14px; border-radius: 12px; background: var(--accent); color: var(--accent-ink); font-weight: 800; font-size: var(--fs-s); }
+.buy { display: flex; flex-direction: column; gap: 10px; }
+.big-l { font-weight: 800; font-size: var(--fs-s); display: flex; justify-content: space-between; margin-top: 4px; } .big-l small { color: var(--muted); font-weight: 700; }
+.stepper { display: grid; grid-template-columns: 64px 1fr 64px; gap: 8px; }
+.stepper button { height: 60px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface-2); font-size: 28px; font-weight: 700; cursor: pointer; color: var(--ink); }
+.stepper input, .big-in { height: 60px; border-radius: 14px; border: 2px solid var(--line); background: var(--surface); text-align: center; font: inherit; font-size: 26px; font-weight: 800; color: var(--ink); min-width: 0; width: 100%; box-sizing: border-box; font-variant-numeric: tabular-nums; }
+.stepper input:focus, .big-in:focus { border-color: var(--accent); outline: none; }
+.sum { display: flex; justify-content: space-between; align-items: baseline; padding: 12px 14px; border-radius: 14px; background: var(--surface-2); } .sum span { color: var(--muted); font-weight: 700; } .sum b { font-size: 24px; font-variant-numeric: tabular-nums; }
+.warn { margin: 0; color: var(--danger); font-weight: 700; font-size: var(--fs-s); }
+.more summary { cursor: pointer; color: var(--muted); font-weight: 700; font-size: var(--fs-s); padding: 6px 0; }
 .done { margin-top: 14px; padding: 12px; border-radius: 12px; background: var(--surface-2); font-size: var(--fs-s); } .done p { margin: 0 0 6px; }
 @media (max-width: 800px) { .two { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 640px) {

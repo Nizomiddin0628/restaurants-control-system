@@ -323,10 +323,11 @@ def my_course(request, cid: int):
     prog = {p.lesson_id: p for p in LessonProgress.objects.filter(user=u, lesson__course=c)}
     lessons = []
     locked_next = False
+    preview = _can(request, "training.manage")          # rahbar: hamma dars ochiq (ko'rib chiqish)
     for les in c.lessons.all():
         p = prog.get(les.pk)
         lessons.append({**_lesson_out(les, with_files=False), "percent": p.percent if p else 0,
-                        "done": les.pk in done, "locked": locked_next, "opened": p is not None})
+                        "done": les.pk in done, "locked": locked_next and not preview, "opened": p is not None})
         if les.pk not in done:
             locked_next = True
     quizzes = []
@@ -334,7 +335,7 @@ def my_course(request, cid: int):
         best = QuizAttempt.objects.filter(quiz=q, user=u, finished_at__isnull=False).order_by("-score").first()
         lesson_ready = (q.lesson_id in done) if q.lesson_id else len(done) >= len(lessons)
         quizzes.append({**_quiz_out(q), "best_score": best.score if best else None, "passed": bool(best and best.passed),
-                        "attempts_left": services.attempts_left(q, u), "locked": not lesson_ready})
+                        "attempts_left": services.attempts_left(q, u), "locked": not lesson_ready and not preview})
     return {**_enrollment_card(e, u), "lessons": lessons, "quizzes": quizzes}
 
 

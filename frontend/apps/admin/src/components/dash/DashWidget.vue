@@ -8,14 +8,24 @@ import Donut from '@/hq/charts/Donut.vue'
 const props = defineProps<{ w: any; color: string }>()
 const max = computed(() => Math.max(1, ...((props.w.rows ?? []).map((r: any) => Number(r.value) || 0))))
 const unit = computed(() => (props.w.title?.includes('%') ? '%' : ''))
+/** Grafik sarlavhasida jami (pul) yoki o'rtacha (%) — bir qarashda raqam */
+const headline = computed(() => {
+  if (props.w.type !== 'chart' || !props.w.points?.length) return ''
+  const vals = props.w.points.map((p: any) => Number(p.value) || 0)
+  if (unit.value) return `${(vals.reduce((a: number, b: number) => a + b, 0) / vals.length).toFixed(1)}%`
+  const s = vals.reduce((a: number, b: number) => a + b, 0)
+  if (!props.w.money) return String(s)
+  return s >= 1e6 ? `${(s / 1e6).toFixed(1).replace('.', ',')} mln` : s.toLocaleString('ru-RU').replace(/,/g, ' ')
+})
 </script>
 
 <template>
   <article class="dw" :class="{ wide: w.wide }" :style="{ '--sc': color }">
     <header>
-      <div><h3>{{ w.title }}</h3><small v-if="w.sub">{{ w.sub }}</small></div>
-      <RouterLink v-if="w.route" :to="w.route" class="more">Batafsil ›</RouterLink>
+      <div class="ht"><h3>{{ w.title }}</h3><small v-if="w.sub">{{ w.sub }}</small></div>
+      <RouterLink v-if="w.route" :to="w.route" class="more" :title="`${w.title} — batafsil`">Batafsil <span aria-hidden="true">→</span></RouterLink>
     </header>
+    <p v-if="headline" class="hl"><b>{{ headline }}</b><small v-if="w.money"> so'm</small><small v-else-if="unit"> o'rtacha</small><small v-else> jami</small></p>
 
     <AreaChart v-if="w.type === 'chart'" :points="w.points" :bars="w.kind === 'bars'" :money="w.money" :height="w.wide ? 220 : 190" :color="color" :unit="unit" />
 
@@ -49,17 +59,22 @@ const unit = computed(() => (props.w.title?.includes('%') ? '%' : ''))
 </template>
 
 <style scoped>
-.dw { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.dw { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 18px 18px 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 12px 32px -18px rgba(16, 24, 40, .18); transition: box-shadow .2s, border-color .2s; }
+.dw:hover { border-color: color-mix(in srgb, var(--sc) 30%, var(--line)); }
+.ht { min-width: 0; }
+.hl { margin: -4px 0 0; } .hl b { font-size: 26px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; } .hl small { color: var(--muted); font-weight: 600; font-size: var(--fs-s); }
 .dw.wide { grid-column: 1 / -1; }
 header { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
-h3 { margin: 0; font-size: var(--fs-m); } header small { color: var(--muted); font-size: var(--fs-xs); }
-.more { color: var(--sc); font-weight: 700; font-size: var(--fs-s); text-decoration: none; white-space: nowrap; }
+h3 { margin: 0; font-size: var(--fs-b); font-weight: 800; letter-spacing: -.01em; } header small { color: var(--muted); font-size: var(--fs-xs); font-weight: 600; }
+.more { color: var(--sc); font-weight: 700; font-size: var(--fs-xs); text-decoration: none; white-space: nowrap; padding: 5px 10px; border-radius: 99px; background: color-mix(in srgb, var(--sc) 10%, transparent); }
+.more:hover { background: color-mix(in srgb, var(--sc) 18%, transparent); }
 .rank, .list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .rank li { display: grid; grid-template-columns: 22px minmax(0, 1.2fr) minmax(60px, 1fr) auto; gap: 10px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--line-2); font-size: var(--fs-s); }
 .rank li:last-child { border-bottom: 0; }
-.n { width: 22px; height: 22px; border-radius: 7px; background: var(--surface-2); display: grid; place-items: center; font-size: 11px; font-weight: 800; color: var(--muted); }
+.n { width: 22px; height: 22px; border-radius: 7px; background: color-mix(in srgb, var(--sc) 10%, var(--surface-2)); display: grid; place-items: center; font-size: 11px; font-weight: 800; color: var(--muted); }
 .t { display: flex; flex-direction: column; min-width: 0; } .t b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; } .t small { color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bar { height: 8px; background: var(--surface-3); border-radius: 99px; overflow: hidden; } .bar i { display: block; height: 100%; background: var(--sc); border-radius: 99px; opacity: .8; }
+.bar { height: 8px; background: var(--surface-3); border-radius: 99px; overflow: hidden; } .bar i { display: block; height: 100%; background: linear-gradient(90deg, color-mix(in srgb, var(--sc) 55%, transparent), var(--sc)); border-radius: 99px; }
 .v { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .list li { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 9px 10px; border-radius: 10px; font-size: var(--fs-s); border-left: 3px solid transparent; }
 .list li:nth-child(odd) { background: var(--surface-2); }
