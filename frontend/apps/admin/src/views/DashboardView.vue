@@ -134,8 +134,21 @@ const branchName = computed(() => D.value?.branches_list.find((b: any) => String
       </div>
     </header>
 
-    <!-- faqat bayram kunlari -->
-    <RouterLink v-if="D.today?.holiday" :to="a.hasModule('forecast') ? '/forecast' : '/'" class="hol">
+    <!-- bayram yaqin: nima qilish kerak (faqat tayyorgarlik kunlari va bayramda) -->
+    <section v-if="D.today?.alerts?.length" class="prep">
+      <article v-for="al in D.today.alerts" :key="al.id" class="pc">
+        <header>
+          <span class="hol-i">🎉</span>
+          <div class="pc-t"><b>{{ al.name.uz || al.name }} <em>{{ al.is_now ? 'bugun' : al.days_left === 1 ? 'ertaga' : `${al.days_left} kun qoldi` }}</em></b>
+            <small>Kutilayotgan savdo {{ al.uplift_percent >= 0 ? '+' : '' }}{{ al.uplift_percent }}% · tayyorgarlik ro'yxati</small></div>
+          <RouterLink v-if="a.hasModule('forecast')" to="/forecast" class="pc-l">Prognoz →</RouterLink>
+        </header>
+        <ul>
+          <li v-for="(td, i) in al.todo" :key="i"><RouterLink :to="td.route" :class="{ done: td.done }"><span class="ti">{{ td.done ? '✅' : td.icon }}</span><span class="tt">{{ td.text }}</span><UiIcon name="chevron" :size="14" style="transform: rotate(-90deg)" /></RouterLink></li>
+        </ul>
+      </article>
+    </section>
+    <RouterLink v-else-if="D.today?.holiday" :to="a.hasModule('forecast') ? '/forecast' : '/'" class="hol">
       <span class="hol-i">🎉</span>
       <span class="hol-t"><b>Bugun: {{ D.today.holiday.name.uz || D.today.holiday.name }}</b>
         <small>Savdo odatdagidan {{ D.today.holiday.uplift_percent >= 0 ? '+' : '' }}{{ D.today.holiday.uplift_percent }}% kutilmoqda — xodimlar va xomashyoni tekshiring</small></span>
@@ -400,5 +413,14 @@ a.kpi:hover { border-color: var(--accent); transform: translateY(-1px); }
 .wx small { color: var(--muted); font-weight: 600; } .wx:hover { border-color: var(--accent); }
 .hol { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 14px; text-decoration: none; color: var(--ink);
   background: linear-gradient(90deg, color-mix(in srgb, #F59E0B 22%, var(--surface)), var(--surface)); border: 1px solid color-mix(in srgb, #F59E0B 40%, var(--line)); }
-.hol-i { font-size: 24px; } .hol-t { flex: 1; display: flex; flex-direction: column; min-width: 0; } .hol-t small { color: var(--ink-2); font-size: var(--fs-xs); }
+.hol-i { font-size: 24px; }
+.prep { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 12px; }
+.pc { border-radius: 18px; padding: 14px 16px; background: linear-gradient(135deg, color-mix(in srgb, #F59E0B 18%, var(--surface)), var(--surface) 70%); border: 1px solid color-mix(in srgb, #F59E0B 40%, var(--line)); display: flex; flex-direction: column; gap: 10px; }
+.pc header { display: flex; align-items: center; gap: 12px; } .pc-t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pc-t b { font-size: var(--fs-b); } .pc-t em { font-style: normal; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 99px; background: #F59E0B; color: #fff; margin-left: 6px; vertical-align: middle; }
+.pc-t small { color: var(--ink-2); font-size: var(--fs-xs); } .pc-l { color: var(--accent); font-weight: 700; font-size: var(--fs-s); text-decoration: none; white-space: nowrap; }
+.pc ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.pc li a { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--surface) 75%, transparent); color: var(--ink); text-decoration: none; font-size: var(--fs-s); font-weight: 600; }
+.pc li a:hover { background: var(--surface); } .pc li a.done { color: var(--muted); } .pc li a.done .tt { text-decoration: line-through; }
+.ti { font-size: 16px; width: 22px; text-align: center; } .tt { flex: 1; min-width: 0; } .hol-t { flex: 1; display: flex; flex-direction: column; min-width: 0; } .hol-t small { color: var(--ink-2); font-size: var(--fs-xs); }
 </style>

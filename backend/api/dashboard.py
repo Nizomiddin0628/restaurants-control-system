@@ -56,7 +56,7 @@ def overview(request, period: str = "today", branch_id: Optional[int] = None) ->
         "period": {"code": period, "label": PERIODS[period], "start": start.isoformat(), "end": end.isoformat(),
                    "periods": [{"code": k, "label": v} for k, v in PERIODS.items()]},
         "branches_list": [], "kpis": [], "series": None, "status": None, "top": None, "branches": None,
-        "recent": None, "stock": None, "tasks": None, "activity": [], "today": {"holiday": None, "weather": None},
+        "recent": None, "stock": None, "tasks": None, "activity": [], "today": {"holiday": None, "weather": None, "alerts": []},
     }
     from core.models import Branch
     out["branches_list"] = [{"id": b.pk, "name": b.name} for b in Branch.objects.filter(deleted_at__isnull=True, is_active=True)]
@@ -73,11 +73,33 @@ def overview(request, period: str = "today", branch_id: Optional[int] = None) ->
     return out
 
 
+def _holiday_todo(a: dict, t) -> list[dict]:
+    """Bayramga tayyorgarlik ro'yxati: har band — nima qilish, qayerda, bajarilganmi."""
+    from datetime import date as _date
+    on = set(t.enabled_modules or [])
+    buy_by = _date.fromisoformat(a["buy_by"]).strftime("%d.%m") if a.get("buy_by") else ""
+    up = a.get("uplift_percent") or 0
+    todo = [{"icon": "🛒", "text": (f"{a['short_count']} xil xomashyo xarid qiling — ~{a['total_cost']:,} so'm, {buy_by} gacha".replace(",", " ")
+                                     if a.get("short_count") else "Ombor yetarli — xarid shart emas"),
+             "done": not a.get("short_count"), "route": f"/inventory?tab=plan&holiday={a['id']}" if "inventory" in on else "/forecast"}]
+    if "hr" in on:
+        todo.append({"icon": "👥", "text": f"Smena jadvalini kuchaytiring — savdo {'+' if up >= 0 else ''}{up}% kutilmoqda", "done": False, "route": "/hr"})
+    if "catalog" in on:
+        todo.append({"icon": "🍽️", "text": "Menyu va stop-listni tekshiring, bayram taomlarini qo'shing", "done": False, "route": "/catalog"})
+    if "telegram" in on:
+        todo.append({"icon": "📣", "text": "Mijozlarga Telegram orqali tabrik va aksiya yuboring", "done": False, "route": "/telegram"})
+    if "tasks" in on:
+        todo.append({"icon": "📋", "text": "Bayram vazifalarini xodimlarga taqsimlang", "done": False, "route": "/tasks"})
+    return todo
+
+
 def _today(out, t):
     """Kichik blok: bugun bayram bo'lsa — bayram (faqat o'sha kunlari), va bugungi ob-havo (bir qator). Xato bo'lsa — chiqmaydi."""
     import logging
     try:
         from modules.forecast import services, weather
+        # bayram yaqin (tayyorgarlik oynasida) — nima qilish kerakligi bilan
+        out["today"]["alerts"] = [{**x, "todo": _holiday_todo(x, t)} for x in services.alerts(t)[:2]]
         h = next((x for x in services.upcoming(limit=6) if x.covers(timezone.localdate())), None)
         if h:
             ho = services.holiday_out(h)
