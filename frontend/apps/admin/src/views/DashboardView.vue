@@ -13,9 +13,15 @@ import { useAuth } from '@/stores/auth'
 import { useUi } from '@/stores/ui'
 import { useNav, useSectionStats } from '@/nav/sections'
 import AreaChart from '@/hq/charts/AreaChart.vue'
+import HolidayAlert from '@/components/forecast/HolidayAlert.vue'
 
 const a = useAuth(), ui = useUi(), router = useRouter()
 const { sections, sectionLink } = useNav()
+/** Bo'lim plitkalari qatorlarni teng to'ldirsin (9 ta → 3×3, 8 ta → 4×2, 10 ta → 5×2) — oxirgi qatorda yolg'iz plitka qolmasin. */
+const secCols = computed(() => {
+  const n = sections.value.length
+  return [5, 4, 3].find(c => n % c === 0) ?? [4, 5, 3].reduce((b, c) => (n % c > n % b ? c : b), 4)
+})
 const { stats: secStats, load: loadSec } = useSectionStats()
 const secKpi = (code: string) => secStats.value?.[code]?.[0]
 const D = ref<any>(null)
@@ -136,17 +142,14 @@ const branchName = computed(() => D.value?.branches_list.find((b: any) => String
 
     <!-- bayram yaqin: nima qilish kerak (faqat tayyorgarlik kunlari va bayramda) -->
     <section v-if="D.today?.alerts?.length" class="prep">
-      <article v-for="al in D.today.alerts" :key="al.id" class="pc">
-        <header>
-          <span class="hol-i">🎉</span>
-          <div class="pc-t"><b>{{ al.name.uz || al.name }} <em>{{ al.is_now ? 'bugun' : al.days_left === 1 ? 'ertaga' : `${al.days_left} kun qoldi` }}</em></b>
-            <small>Kutilayotgan savdo {{ al.uplift_percent >= 0 ? '+' : '' }}{{ al.uplift_percent }}% · tayyorgarlik ro'yxati</small></div>
+      <HolidayAlert v-for="al in D.today.alerts" :key="al.id" :a="al" :show-link="a.hasModule('inventory')" @plan="router.push('/forecast')">
+        <div class="pc-todo">
+          <span class="pc-h">Nima qilish kerak:</span>
+          <RouterLink v-for="(td, i) in al.todo.slice(1)" :key="i" :to="td.route" :title="td.text" :class="{ done: td.done }">
+            <span class="ti">{{ td.done ? '✅' : td.icon }}</span><span class="tt">{{ td.short || td.text }}</span></RouterLink>
           <RouterLink v-if="a.hasModule('forecast')" to="/forecast" class="pc-l">Prognoz →</RouterLink>
-        </header>
-        <ul>
-          <li v-for="(td, i) in al.todo" :key="i"><RouterLink :to="td.route" :class="{ done: td.done }"><span class="ti">{{ td.done ? '✅' : td.icon }}</span><span class="tt">{{ td.text }}</span><UiIcon name="chevron" :size="14" style="transform: rotate(-90deg)" /></RouterLink></li>
-        </ul>
-      </article>
+        </div>
+      </HolidayAlert>
     </section>
     <RouterLink v-else-if="D.today?.holiday" :to="a.hasModule('forecast') ? '/forecast' : '/'" class="hol">
       <span class="hol-i">🎉</span>
@@ -156,7 +159,7 @@ const branchName = computed(() => D.value?.branches_list.find((b: any) => String
     </RouterLink>
 
     <!-- BO'LIMLAR: asosiy sahifadan har bo'limga bir bosishda -->
-    <nav class="secs" aria-label="Bo'limlar">
+    <nav class="secs" aria-label="Bo'limlar" :style="{ '--cols': secCols }">
       <RouterLink v-for="sc in sections" :key="sc.code" :to="sectionLink(sc)" class="sec-t" :style="{ '--sc': sc.color }">
         <span class="sec-e">{{ sc.emoji }}</span>
         <span class="sec-x"><b>{{ sc.title }}</b>
@@ -303,13 +306,14 @@ const branchName = computed(() => D.value?.branches_list.find((b: any) => String
 </template>
 
 <style scoped>
-.secs { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.secs { display: grid; grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 1100px) { .secs { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .sec-t { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); text-decoration: none; color: var(--ink); min-width: 0; }
 .sec-t:hover { border-color: var(--sc); box-shadow: 0 4px 14px rgba(0,0,0,.05); }
 .sec-e { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; font-size: 22px; flex-shrink: 0; background: color-mix(in srgb, var(--sc) 13%, transparent); }
 .sec-x { display: flex; flex-direction: column; min-width: 0; } .sec-x b { font-size: var(--fs-s); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .sec-x small { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sec-x small strong { color: var(--ink); } .sec-x small.bad strong { color: var(--danger); } .sec-x small.warn strong { color: #B45309; }
-@media (max-width: 640px) { .secs { grid-template-columns: 1fr 1fr; gap: 8px; } .sec-t { padding: 10px; } .sec-x b { white-space: normal; line-height: 1.2; } .sec-e { width: 36px; height: 36px; font-size: 19px; } }
+@media (max-width: 640px) { .secs { grid-template-columns: 1fr 1fr; gap: 8px; } .sec-t:last-child:nth-child(odd) { grid-column: span 2; } .sec-t { padding: 10px; } .sec-x b { white-space: normal; line-height: 1.2; } .sec-e { width: 36px; height: 36px; font-size: 19px; } }
 
 .db { display: flex; flex-direction: column; gap: 16px; transition: opacity .2s; } .db.busy { opacity: .72; }
 .top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
@@ -414,13 +418,13 @@ a.kpi:hover { border-color: var(--accent); transform: translateY(-1px); }
 .hol { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 14px; text-decoration: none; color: var(--ink);
   background: linear-gradient(90deg, color-mix(in srgb, #F59E0B 22%, var(--surface)), var(--surface)); border: 1px solid color-mix(in srgb, #F59E0B 40%, var(--line)); }
 .hol-i { font-size: 24px; }
-.prep { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 12px; }
-.pc { border-radius: 18px; padding: 14px 16px; background: linear-gradient(135deg, color-mix(in srgb, #F59E0B 18%, var(--surface)), var(--surface) 70%); border: 1px solid color-mix(in srgb, #F59E0B 40%, var(--line)); display: flex; flex-direction: column; gap: 10px; }
-.pc header { display: flex; align-items: center; gap: 12px; } .pc-t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.pc-t b { font-size: var(--fs-b); } .pc-t em { font-style: normal; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 99px; background: #F59E0B; color: #fff; margin-left: 6px; vertical-align: middle; }
-.pc-t small { color: var(--ink-2); font-size: var(--fs-xs); } .pc-l { color: var(--accent); font-weight: 700; font-size: var(--fs-s); text-decoration: none; white-space: nowrap; }
-.pc ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.pc li a { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--surface) 75%, transparent); color: var(--ink); text-decoration: none; font-size: var(--fs-s); font-weight: 600; }
-.pc li a:hover { background: var(--surface); } .pc li a.done { color: var(--muted); } .pc li a.done .tt { text-decoration: line-through; }
+.prep { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 12px; }
+.pc-todo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pc-h { font-size: var(--fs-xs); font-weight: 800; color: var(--ink-2); margin-right: 2px; }
+.pc-todo a { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 99px; background: var(--surface); border: 1px solid var(--line); color: var(--ink); text-decoration: none; font-size: var(--fs-xs); font-weight: 700; white-space: nowrap; }
+.pc-todo a:hover { border-color: var(--accent); } .pc-todo a.done { color: var(--muted); } .pc-todo a.done .tt { text-decoration: line-through; }
+.pc-todo .ti { font-size: 14px; width: auto; }
+.pc-todo a.pc-l { margin-left: auto; background: transparent; border-color: transparent; color: var(--accent); }
+@media (max-width: 600px) { .pc-h { width: 100%; } .pc-todo a.pc-l { margin-left: 0; } }
 .ti { font-size: 16px; width: 22px; text-align: center; } .tt { flex: 1; min-width: 0; } .hol-t { flex: 1; display: flex; flex-direction: column; min-width: 0; } .hol-t small { color: var(--ink-2); font-size: var(--fs-xs); }
 </style>

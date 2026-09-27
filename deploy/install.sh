@@ -86,6 +86,7 @@ $PY migrate_schemas --shared -v 0
 $PY migrate_schemas -v 0
 $PY set_platform_domain "$BASE"
 $PY training_videos --all || true
+$PY refresh_demo || true          # demo: eskirgan ochiq buyurtma/stol/bron — bugungi vaqtga (haqiqiy restoranlarga tegmaydi)
 $PY collectstatic --noinput -v 0
 mkdir -p $APP/backend/media
 chown -R $USR:$USR $APP

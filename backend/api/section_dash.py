@@ -361,6 +361,20 @@ def section_dashboard(request, code: str, days: int = 7, branch_id: int | None =
                 return {"type": "list", "title": "Kechikkan vazifalar", "sub": "birinchi navbatda", "rows": rows, "empty": "Kechikkan vazifa yo'q ✓", "route": "/tasks"}
             add(overdue)
 
+            def people():
+                from modules.tasks.models import ColumnKind, Task
+                open_ = L(Task.objects.exclude(column__kind__in=[ColumnKind.DONE, ColumnKind.CANCELLED]))
+                by: dict = {}
+                for tk in open_.select_related("assignee"):
+                    k = tk.assignee.full_name if tk.assignee_id else "Tayinlanmagan"
+                    x = by.setdefault(k, [0, 0])
+                    x[0] += 1
+                    x[1] += bool(tk.due_at and tk.due_at < timezone.now())
+                rows = [{"label": k, "value": v[0], "display": f"{v[0]} ta", "sub": f"{v[1]} tasi kechikkan" if v[1] else "muddatida"}
+                        for k, v in sorted(by.items(), key=lambda x: (-x[1][1], -x[1][0]))[:8]]
+                return {"type": "rank", "title": "Kimda qancha ochiq vazifa", "sub": "mas'ullar bo'yicha · kechikkani oldinda", "rows": rows, "route": "/tasks"}
+            add(people)
+
             def flow():
                 from modules.tasks.models import Task
                 made = Counter(L(Task.objects.filter(created_at__date__gte=today - timedelta(days=13))).values_list("created_at__date", flat=True))

@@ -11,6 +11,8 @@ import { UiButton, UiEmpty, UiIcon, t } from '@restopos/ui'
 import { useUi } from '@/stores/ui'
 import { useNav, useSectionStats } from '@/nav/sections'
 import DashWidget from '@/components/dash/DashWidget.vue'
+import { widgetEmpty } from '@/components/dash/empty'
+import { useBalancedCols, useMasonry } from '@/composables/layout'
 
 const route = useRoute(), router = useRouter(), ui = useUi()
 const { sections } = useNav()
@@ -34,6 +36,16 @@ onBeforeUnmount(() => clearInterval(timer))
 watch(code, () => { D.value = null; refresh() })
 watch(() => ui.branch, () => refresh())
 watch(days, (v) => { try { localStorage.setItem('sec.days', String(v)) } catch { /* private */ } refresh() })
+/** Keng grafiklar tepada, qolganlari balandligiga qarab ustunlarga (masonry); bo'sh vidjetlar — bitta ixcham kartada */
+const full = computed(() => {
+  const ws = (D.value?.widgets ?? []) as any[]
+  const has = ws.filter(w => !widgetEmpty(w))
+  return [...has.filter(w => w.wide), ...has.filter(w => !w.wide)]
+})
+const empties = computed(() => ((D.value?.widgets ?? []) as any[]).filter(w => widgetEmpty(w)))
+const gridEl = ref<HTMLElement | null>(null), kpiEl = ref<HTMLElement | null>(null)
+useMasonry(gridEl, () => [full.value, empties.value])
+const kpiCols = useBalancedCols(kpiEl, () => kpis.value.length, 210, 10)
 const updated = computed(() => { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` })
 </script>
 
@@ -52,17 +64,25 @@ const updated = computed(() => { const d = new Date(); return `${String(d.getHou
         <RouterLink v-for="m in S.items" :key="m.route" :to="m.route" :title="m.desc"><UiIcon :name="m.icon" :size="18" /><span>{{ t(m.label, ui.lang) }}</span></RouterLink>
       </nav>
 
-      <section v-if="kpis.length" class="kpis" :style="{ '--sc': S.color }" aria-label="Asosiy ko'rsatkichlar">
-        <RouterLink v-for="k in kpis" :key="k.label" :to="k.route || '/'" class="kpi" :class="k.tone">
+      <section v-if="kpis.length" ref="kpiEl" class="kpis" :style="{ '--sc': S.color, '--cols': kpiCols }" aria-label="Asosiy ko'rsatkichlar">
+        <RouterLink v-for="k in kpis" :key="k.label" :to="k.route || '/'" class="kpi" :class="k.tone" :title="`${k.label}: ${k.value}${k.hint ? ' — ' + k.hint : ''}`">
           <span class="ki">{{ k.icon }}</span>
           <span class="kt"><small>{{ k.label }}</small><b>{{ k.value }}</b><em>{{ k.hint }}</em></span>
+          <UiIcon name="chevron" :size="14" class="kgo" />
         </RouterLink>
       </section>
 
-      <section v-if="D" class="grid" :class="{ busy: loading }">
-        <DashWidget v-for="(w, i) in D.widgets" :key="`${code}-${i}-${w.title}`" :w="w" :color="S.color" />
+      <section v-if="D && (full.length || empties.length)" ref="gridEl" class="grid" :class="{ busy: loading }">
+        <DashWidget v-for="(w, i) in full" :key="`${code}-${i}-${w.title}`" :w="w" :color="S.color" />
+        <article v-if="empties.length" class="nod" :style="{ '--sc': S.color }">
+          <h3>Hali ma'lumot yo'q</h3>
+          <RouterLink v-for="w in empties" :key="w.title" :to="w.route || '/'" class="nod-r">
+            <span><b>{{ w.title }}</b><small>{{ w.empty || w.sub || 'ma\'lumot tushishi bilan grafik paydo bo\'ladi' }}</small></span>
+            <UiIcon name="chevron" :size="14" style="transform: rotate(-90deg)" />
+          </RouterLink>
+        </article>
       </section>
-      <div v-else class="skel"><div v-for="i in 4" :key="i"></div></div>
+      <div v-else-if="!D" class="skel"><div v-for="i in 4" :key="i"></div></div>
       <UiEmpty v-if="D && !D.widgets.length" title="Bu bo'lim uchun hali ma'lumot yo'q" text="Modullardan foydalanishni boshlang — grafiklar o'zi to'ladi." />
 
       <footer class="ft">
@@ -88,24 +108,34 @@ const updated = computed(() => { const d = new Date(); return `${String(d.getHou
 .go a { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); color: var(--ink); text-decoration: none;
   font-weight: 700; font-size: var(--fs-s); white-space: nowrap; flex-shrink: 0; }
 .go a:hover { border-color: var(--sc); color: var(--sc); } .go a :deep(svg) { color: var(--sc); }
-.kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.kpis { display: flex; flex-wrap: wrap; gap: 10px; }
+.kpis > .kpi { flex: 1 1 calc(100% / var(--cols, 4) - 10px); }
 .kpi { display: flex; gap: 12px; align-items: center; padding: 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); text-decoration: none; color: var(--ink); min-width: 0; }
-.kpi:hover { border-color: var(--sc); }
+.kpi:hover { border-color: var(--sc); box-shadow: 0 6px 18px -10px rgba(16, 24, 40, .25); transform: translateY(-1px); }
+.kpi { position: relative; transition: transform .15s, box-shadow .15s, border-color .15s; }
+.kgo { position: absolute; right: 10px; top: 10px; transform: rotate(-90deg); color: var(--muted); opacity: .5; }
+.kpi:hover .kgo { opacity: 1; color: var(--sc); }
 .ki { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-size: 20px; flex-shrink: 0; background: color-mix(in srgb, var(--sc) 12%, transparent); }
-.kt { display: flex; flex-direction: column; min-width: 0; } .kt small { font-size: var(--fs-xs); font-weight: 700; color: var(--muted); }
+.kt { display: flex; flex-direction: column; min-width: 0; padding-right: 12px; } .kt small { font-size: var(--fs-xs); font-weight: 700; color: var(--muted); }
 .kt b { font-family: var(--font-display); font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kt em { font-style: normal; font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kpi.ok { border-left: 4px solid var(--ok); } .kpi.warn { border-left: 4px solid #F59E0B; } .kpi.bad { border-left: 4px solid var(--danger); } .kpi.bad b { color: var(--danger); }
-.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; transition: opacity .2s; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr)); grid-auto-rows: 2px; column-gap: 14px; row-gap: 0; align-items: start; transition: opacity .2s; }
+.grid > :deep(*) { margin-bottom: 14px; }
+.nod { background: var(--surface); border: 1px dashed color-mix(in srgb, var(--sc) 35%, var(--line)); border-radius: 20px; padding: 16px 18px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.nod h3 { margin: 0 0 4px; font-size: var(--fs-s); font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.nod-r { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: 12px; background: var(--surface-2); color: var(--ink); text-decoration: none; }
+.nod-r:hover { background: color-mix(in srgb, var(--sc) 8%, var(--surface-2)); }
+.nod-r span { display: flex; flex-direction: column; min-width: 0; } .nod-r b { font-size: var(--fs-s); } .nod-r small { color: var(--muted); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .grid.busy { opacity: .6; }
 .skel { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; } .skel div { height: 220px; border-radius: 16px; background: var(--surface-2); animation: pl 1.2s infinite alternate; }
 @keyframes pl { to { opacity: .5; } }
 .ft { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; } .ft small { color: var(--muted); font-size: var(--fs-xs); }
-@media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } .hd { flex-wrap: wrap; } .per { width: 100%; } .per button { flex: 1; } }
+@media (max-width: 900px) { .hd { flex-wrap: wrap; } .per { width: 100%; } .per button { flex: 1; } }
 @media (max-width: 640px) {
   .go { flex-wrap: wrap; overflow: visible; } .go a { flex: 1 1 calc(50% - 8px); min-width: 0; justify-content: flex-start; } .go a span { overflow: hidden; text-overflow: ellipsis; }
   .hd { padding: 12px; } .em { width: 44px; height: 44px; font-size: 24px; } h2 { font-size: 19px; }
-  .kpis { grid-template-columns: 1fr 1fr; gap: 8px; } .kpi { padding: 10px; gap: 8px; } .ki { width: 32px; height: 32px; font-size: 16px; } .kt b { font-size: 16px; }
+  .kpis { gap: 8px; } .kpis > .kpi { flex-basis: calc(50% - 8px); } .kpi { padding: 10px; gap: 8px; } .kgo { display: none; } .ki { width: 32px; height: 32px; font-size: 16px; } .kt b { font-size: 16px; }
   .skel { grid-template-columns: 1fr; } .ft { flex-direction: column-reverse; align-items: stretch; } .ft small { text-align: center; }
 }
 </style>

@@ -81,15 +81,15 @@ def _holiday_todo(a: dict, t) -> list[dict]:
     up = a.get("uplift_percent") or 0
     todo = [{"icon": "🛒", "text": (f"{a['short_count']} xil xomashyo xarid qiling — ~{a['total_cost']:,} so'm, {buy_by} gacha".replace(",", " ")
                                      if a.get("short_count") else "Ombor yetarli — xarid shart emas"),
-             "done": not a.get("short_count"), "route": f"/inventory?tab=plan&holiday={a['id']}" if "inventory" in on else "/forecast"}]
+             "short": "Xarid", "done": not a.get("short_count"), "route": f"/inventory?tab=plan&holiday={a['id']}" if "inventory" in on else "/forecast"}]
     if "hr" in on:
-        todo.append({"icon": "👥", "text": f"Smena jadvalini kuchaytiring — savdo {'+' if up >= 0 else ''}{up}% kutilmoqda", "done": False, "route": "/hr"})
+        todo.append({"icon": "👥", "text": f"Smena jadvalini kuchaytiring — savdo {'+' if up >= 0 else ''}{up}% kutilmoqda", "short": "Smenani kuchaytiring", "done": False, "route": "/hr"})
     if "catalog" in on:
-        todo.append({"icon": "🍽️", "text": "Menyu va stop-listni tekshiring, bayram taomlarini qo'shing", "done": False, "route": "/catalog"})
+        todo.append({"icon": "🍽️", "text": "Menyu va stop-listni tekshiring, bayram taomlarini qo'shing", "short": "Menyu va stop-list", "done": False, "route": "/catalog"})
     if "telegram" in on:
-        todo.append({"icon": "📣", "text": "Mijozlarga Telegram orqali tabrik va aksiya yuboring", "done": False, "route": "/telegram"})
+        todo.append({"icon": "📣", "text": "Mijozlarga Telegram orqali tabrik va aksiya yuboring", "short": "Telegram tabrik", "done": False, "route": "/telegram"})
     if "tasks" in on:
-        todo.append({"icon": "📋", "text": "Bayram vazifalarini xodimlarga taqsimlang", "done": False, "route": "/tasks"})
+        todo.append({"icon": "📋", "text": "Bayram vazifalarini xodimlarga taqsimlang", "short": "Vazifalarni taqsimlang", "done": False, "route": "/tasks"})
     return todo
 
 

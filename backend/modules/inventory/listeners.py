@@ -11,4 +11,6 @@ def deduct_on_sale(payload: dict) -> None:
 
     items = [{"product_id": i["product_id"], "qty": i["qty"]} for i in payload.get("items", []) if i.get("product_id")]
     if items:
-        consume_for_sale(items, branch=None, ref=f"Buyurtma #{payload.get('number')}", tenant=payload.get("_tenant"))
+        from core.models import Branch
+        branch = Branch.objects.filter(pk=payload.get("branch_id")).first() if payload.get("branch_id") else None
+        consume_for_sale(items, branch=branch, ref=f"Buyurtma #{payload.get('number')}", tenant=payload.get("_tenant"))

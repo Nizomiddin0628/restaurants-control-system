@@ -30,12 +30,13 @@ const up = computed(() => `${props.a.uplift_percent >= 0 ? '+' : ''}${props.a.up
         <div v-if="a.short_count"><span>Qachongacha</span><b>{{ fmt(a.buy_by) }}</b></div>
         <div v-if="!compact && a.revenue_holiday"><span>Bayram savdosi (prognoz)</span><b>{{ money(a.revenue_holiday) }} so'm</b></div>
       </div>
-      <p v-if="a.top_short?.length && !compact" class="ts">Birinchi navbatda: {{ a.top_short.join(', ') }}</p>
+      <p v-if="a.top_short?.length && !compact" class="ts">Birinchi navbatda: <b>{{ a.top_short.join(', ') }}</b></p>
     </div>
     <div class="ac">
       <RouterLink v-if="showLink" :to="`/inventory?tab=plan&holiday=${a.id}`" class="btn">Xarid rejasi <UiIcon name="chevron" :size="14" style="transform: rotate(-90deg)" /></RouterLink>
       <button v-else type="button" class="btn" @click="emit('plan', a.id)">Xarid rejasi <UiIcon name="chevron" :size="14" style="transform: rotate(-90deg)" /></button>
     </div>
+    <div v-if="$slots.default" class="ex"><slot /></div>
   </div>
 </template>
 
@@ -55,8 +56,11 @@ const up = computed(() => `${props.a.uplift_percent >= 0 ? '+' : ''}${props.a.up
 .btn { display: inline-flex; align-items: center; gap: 4px; min-height: var(--touch); padding: 0 14px; border-radius: 10px; border: 0; background: var(--ink); color: var(--surface);
   font: inherit; font-weight: 800; font-size: var(--fs-s); text-decoration: none; cursor: pointer; white-space: nowrap; }
 .compact { padding: 12px 14px; }
+.ex { grid-column: 1 / -1; min-width: 0; padding-top: 12px; border-top: 1px dashed color-mix(in srgb, var(--warn) 45%, var(--line)); }
+.now .ex { border-top-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
+.ha:not(.compact) .btn { min-height: 48px; padding: 0 22px; font-size: var(--fs-b); border-radius: 12px; }
 @media (max-width: 720px) {
-  .ha { grid-template-columns: 40px minmax(0, 1fr); } .ic { width: 40px; height: 40px; }
+  .ha { grid-template-columns: 40px minmax(0, 1fr); } .ic { width: 40px; height: 40px; align-self: start; }
   .ac { grid-column: 1 / -1; } .btn { width: 100%; justify-content: center; }
   .st { gap: 12px; }
 }

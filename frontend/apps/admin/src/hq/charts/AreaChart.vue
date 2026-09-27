@@ -30,7 +30,9 @@ const g = computed(() => {
   const PL = 44, PR = 8, PT = 12, PB = 26
   const max0 = Math.max(1, ...props.points.map(p => p.value))
   const p10 = Math.pow(10, Math.floor(Math.log10(max0 / 4 || 1)))
-  const st = [1, 2, 2.5, 5, 10].map(k => k * p10).find(k => k * 4 >= max0) ?? p10 * 10
+  const st0 = [1, 2, 2.5, 5, 10].map(k => k * p10).find(k => k * 4 >= max0) ?? p10 * 10
+  // so'm va dona — butun son: «0, 1, 1, 1» kabi takror belgilar chiqmasin
+  const st = props.unit ? st0 : Math.max(1, st0)
   const max = st * 4
   const iw = w - PL - PR, ih = H - PT - PB
   const bw = iw / Math.max(1, n)
