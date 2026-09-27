@@ -113,6 +113,13 @@ systemctl daemon-reload
 systemctl enable restopos >/dev/null
 systemctl restart restopos
 
+# restopos-manage — serverda Django buyruqlari (masalan: restopos-manage user_access --all --phone ... --password ... --role owner)
+cat > /usr/local/bin/restopos-manage <<'MNG'
+#!/usr/bin/env bash
+exec sudo -u restopos bash -c 'set -a; . /srv/restopos/.env; set +a; cd /srv/restopos/backend; exec /srv/restopos/.venv/bin/python manage.py "$@"' _ "$@"
+MNG
+chmod +x /usr/local/bin/restopos-manage
+
 say "8/9 Caddy + HTTPS (eski saytlarga tegmaydi)"
 # restopos-caddy — domenlar ro'yxatidan Caddy blokini yangilaydi (yangi restoran qo'shilganda ham shuni ishga tushiring)
 cat > /usr/local/bin/restopos-caddy <<'SYNC'
@@ -173,4 +180,5 @@ $(printf '\033[1;32m')TAYYOR!$(printf '\033[0m')  Kirish telefoni: +998901234567
   Platforma (HQ):   $SCH://$BASE/hq/
 Yangilash (GitHub'ga push qilgandan keyin) — xuddi shu buyruq. Yangi restoran qo'shilsa: restopos-caddy
 Log: journalctl -u restopos -f
+O'z raqamingizga parol: restopos-manage user_access --all --phone +998XXXXXXXXX --password 'Parol123' --role owner --name 'Ism'
 DONE

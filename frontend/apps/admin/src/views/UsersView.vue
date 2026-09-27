@@ -6,9 +6,9 @@ import { UiAvatar, UiButton, UiCard, UiChip, UiDrawer, UiIcon, UiInput, UiSelect
 import { useAuth } from '@/stores/auth'
 
 type Role = { id: number; code: string; name: string; permissions: string[]; is_system: boolean }
-type U = { id: string; phone: string; full_name: string; avatar: string | null; roles: string[]; branch_ids: number[]; is_active: boolean; last_seen_at: string | null }
+type U = { id: string; phone: string; full_name: string; avatar: string | null; roles: string[]; branch_ids: number[]; is_active: boolean; last_seen_at: string | null; has_password?: boolean }
 const users = ref<U[]>([]), roles = ref<Role[]>([]), perms = ref<string[]>([])
-const open = ref(false), u = ref({ phone: '+998 ', full_name: '', role_code: 'cashier' }), roleOpen = ref(false), r = ref<Role | null>(null)
+const open = ref(false), u = ref({ phone: '+998 ', full_name: '', role_code: 'cashier', password: '' }), roleOpen = ref(false), r = ref<Role | null>(null)
 const load = async () => { [users.value, roles.value, perms.value] = await Promise.all([api.get('/users'), api.get('/roles'), api.get('/permissions')]) }
 onMounted(load)
 const a = useAuth()
@@ -25,13 +25,22 @@ async function pickPhoto(e: Event) {
 }
 async function removePhoto(x: U) { Object.assign(x, await api.del<U>(`/users/${x.id}/avatar`)); if (x.id === a.me?.id) await a.load() }
 async function save() { try { await api.post('/users', u.value); open.value = false; await load(); toast('Xodim qo\'shildi — telefon raqami bilan kiradi') } catch (e: any) { toast(e.detail ?? 'Xato', 'danger') } }
+// parol qo'yish (rahbar xodimga): xodim keyin o'zi «Sozlamalar»da almashtiradi
+const pwFor = ref<U | null>(null), pwVal = ref(''), pwErr = ref('')
+function askPw(x: U) { pwFor.value = x; pwVal.value = ''; pwErr.value = '' }
+async function savePw() {
+  if (!pwFor.value) return
+  if (pwVal.value.length < 6) { pwErr.value = 'Kamida 6 ta belgi'; return }
+  try { Object.assign(pwFor.value, await api.post<U>(`/users/${pwFor.value.id}/password`, { password: pwVal.value })); toast(`Parol o'rnatildi: ${pwFor.value.full_name || pwFor.value.phone}`); pwFor.value = null }
+  catch (e: any) { pwErr.value = e.detail ?? 'Xato' }
+}
 async function deactivate(x: U) { if (!confirm(`${x.full_name || x.phone} ni o'chirasizmi?`)) return; try { await api.del(`/users/${x.id}`); await load() } catch (e: any) { toast(e.detail ?? 'Xato', 'danger') } }
 function togglePerm(p: string) { if (!r.value) return; r.value.permissions = r.value.permissions.includes(p) ? r.value.permissions.filter(x => x !== p) : [...r.value.permissions, p] }
 async function saveRole() { if (!r.value) return; try { r.value.id ? await api.put(`/roles/${r.value.id}`, r.value) : await api.post('/roles', r.value); roleOpen.value = false; await load(); toast('Rol saqlandi') } catch (e: any) { toast(e.detail ?? 'Xato', 'danger') } }
 </script>
 <template>
   <div class="wrap">
-    <UiCard title="Foydalanuvchilar" subtitle="Telefon raqam = login. Kod SMS/Telegram orqali keladi, parol kerak emas.">
+    <UiCard title="Foydalanuvchilar" subtitle="Login — telefon raqam. Kirish: parol bilan (🔑 tugmasi) yoki SMS kod bilan.">
       <template #actions><UiButton size="s" @click="open = true"><UiIcon name="plus" /> Xodim</UiButton></template>
       <div class="ul">
         <div v-for="x in users" :key="x.id" class="ur">
@@ -42,6 +51,7 @@ async function saveRole() { if (!r.value) return; try { r.value.id ? await api.p
           <span class="rl"><UiChip v-for="r in x.roles" :key="r" :tone="r === 'owner' ? 'accent' : 'neutral'">{{ roleName(r) }}</UiChip></span>
           <span class="ls">{{ seen(x.last_seen_at) }}</span>
           <span class="act">
+            <UiButton size="s" variant="ghost" :title="x.has_password ? 'Parolni almashtirish' : 'Parol qo\'yish'" @click="askPw(x)">🔑 {{ x.has_password ? 'Parol' : 'Parol qo\'yish' }}</UiButton>
             <UiButton v-if="x.avatar" size="s" variant="ghost" @click="removePhoto(x)">Rasmni o'chirish</UiButton>
             <UiButton v-if="x.id !== a.me?.id" size="s" variant="ghost" @click="deactivate(x)"><UiIcon name="trash" :size="14" /></UiButton>
           </span>
@@ -57,7 +67,13 @@ async function saveRole() { if (!r.value) return; try { r.value.id ? await api.p
     <UiDrawer :open="open" title="Yangi xodim" width="420px" @close="open = false">
       <UiInput v-model="u.phone" label="Telefon" type="tel" /><UiInput v-model="u.full_name" label="Ism familiya" />
       <UiSelect v-model="u.role_code" label="Rol" :options="roles.map(x => ({ value: x.code, label: x.name }))" />
+      <UiInput v-model="u.password" label="Parol (ixtiyoriy, kamida 6 belgi)" type="text" autocomplete="off" hint="Bo'sh qoldirsangiz — xodim SMS kod bilan kiradi va parolni o'zi qo'yadi" />
       <template #footer><UiButton @click="save()">Qo'shish</UiButton></template>
+    </UiDrawer>
+    <UiDrawer :open="!!pwFor" :title="`Parol: ${pwFor?.full_name || pwFor?.phone || ''}`" width="380px" @close="pwFor = null">
+      <p class="hint">Xodim telefon raqami <b>{{ pwFor?.phone }}</b> va shu parol bilan kiradi. Parolni unga ayting — keyin u «Sozlamalar»da o'zi almashtira oladi.</p>
+      <UiInput v-model="pwVal" label="Yangi parol (kamida 6 belgi)" type="text" autocomplete="off" :error="pwErr" @keyup.enter="savePw()" />
+      <template #footer><UiButton @click="savePw()">Saqlash</UiButton></template>
     </UiDrawer>
     <UiDrawer :open="roleOpen" :title="r?.id ? 'Rol: ' + r.name : 'Yangi rol'" @close="roleOpen = false">
       <template v-if="r">

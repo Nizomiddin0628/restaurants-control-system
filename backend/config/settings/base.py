@@ -172,7 +172,7 @@ MULTITENANT_RELATIVE_MEDIA_ROOT = "%s"  # media/<schema>/...
 
 # ------------------------------------------------------------------ auth / api
 JWT_SECRET = os.environ.get("JWT_SECRET", SECRET_KEY)
-JWT_ACCESS_MINUTES = int(os.environ.get("JWT_ACCESS_MINUTES", "720"))
+JWT_ACCESS_MINUTES = int(os.environ.get("JWT_ACCESS_MINUTES", "43200"))   # 30 kun — har kuni qayta kirish shart emas
 OTP_TTL_SECONDS = 300
 OTP_DEV_ECHO = False  # dev.py da True: OTP kodi javobda qaytariladi (SMS shart emas)
 

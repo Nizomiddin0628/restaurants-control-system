@@ -70,6 +70,71 @@ def verify_otp(request, data: OtpVerify):
     return {"token": issue_token(user, request.tenant.schema_name), "user": _me(request, user)}
 
 
+# ------------------------------------------------------------------ parol bilan kirish (SMS har safar shart emas)
+PW_MIN = 6
+
+
+def _has_pw(u) -> bool:
+    return bool(u.password) and u.has_usable_password()
+
+
+class PasswordLogin(Schema):
+    phone: str
+    password: str
+
+
+def _pw_guard(phone: str, ok: bool | None = None) -> None:
+    """Parolni taxmin qilishdan himoya: 15 daqiqada 8 ta xato urinish."""
+    from django.core.cache import cache
+    key = f"pwfail:{phone}"
+    if ok is None:
+        if (cache.get(key) or 0) >= 8:
+            raise HttpError(429, "Juda ko'p noto'g'ri urinish. 15 daqiqadan keyin qayta urining yoki SMS kod bilan kiring.")
+        return
+    if ok:
+        cache.delete(key)
+    else:
+        cache.set(key, (cache.get(key) or 0) + 1, 900)
+
+
+@api.post("/auth/login", response=TokenOut, tags=["auth"])
+def password_login(request, data: PasswordLogin):
+    phone = User.objects.normalize_phone(data.phone)
+    _pw_guard(phone)
+    user = User.objects.filter(phone=phone, is_active=True).first()
+    if user is None or not _has_pw(user) or not user.check_password(data.password):
+        _pw_guard(phone, False)
+        if user is not None and not _has_pw(user):
+            raise HttpError(400, "Bu raqam uchun parol hali o'rnatilmagan. SMS kod bilan kiring va «Sozlamalar»da parol qo'ying.")
+        raise HttpError(400, "Telefon yoki parol noto'g'ri")
+    _pw_guard(phone, True)
+    user.last_seen_at = timezone.now()
+    user.save(update_fields=["last_seen_at"])
+    return {"token": issue_token(user, request.tenant.schema_name), "user": _me(request, user)}
+
+
+class PasswordChange(Schema):
+    old_password: str = ""
+    new_password: str
+
+
+def _check_new_password(pw: str) -> None:
+    if len(pw or "") < PW_MIN:
+        raise HttpError(400, f"Parol kamida {PW_MIN} ta belgidan iborat bo'lsin")
+
+
+@api.post("/me/password", auth=auth, tags=["auth"])
+def change_my_password(request, data: PasswordChange):
+    u = request.auth
+    if _has_pw(u) and not u.check_password(data.old_password):
+        raise HttpError(400, "Joriy parol noto'g'ri")
+    _check_new_password(data.new_password)
+    u.set_password(data.new_password)
+    u.save(update_fields=["password"])
+    record(request, "update", u)
+    return {"ok": True}
+
+
 def _me(request, user: User) -> dict:
     tenant = request.tenant
     perms = sorted(user.tenant_permissions()) if not user.is_superuser else ["*"]
@@ -84,6 +149,7 @@ def _me(request, user: User) -> dict:
                    "trial_ends_at": tenant.trial_ends_at.isoformat() if tenant.trial_ends_at else None},
         "nav": [n for n in modreg.nav_for(tenant.enabled_modules) if user.has_perm_code(n.get("perm", "core.*"))],
         "branches": _my_branches(user),
+        "has_password": _has_pw(user),
     }
 
 
@@ -376,6 +442,7 @@ class UserIn(Schema):
     role_code: str
     branch_ids: list[int] = []
     language: str = "uz"
+    password: str = ""
 
 
 class UserOut(Schema):
@@ -388,6 +455,11 @@ class UserOut(Schema):
     roles: list[str]
     branch_ids: list[int]
     last_seen_at: Optional[str] = None
+    has_password: bool = False
+
+    @staticmethod
+    def resolve_has_password(obj):
+        return _has_pw(obj)
 
     @staticmethod
     def resolve_id(obj):
@@ -427,7 +499,30 @@ def create_user(request, data: UserIn):
     u, created = User.objects.get_or_create(phone=phone, defaults={"full_name": data.full_name, "language": data.language})
     m, _ = Membership.objects.get_or_create(user=u, role=role)
     m.branches.set(data.branch_ids)
+    if data.password:
+        _check_new_password(data.password)
+        u.set_password(data.password)
+        u.save(update_fields=["password"])
     record(request, "create" if created else "update", u)
+    return u
+
+
+class PasswordSet(Schema):
+    password: str
+
+
+@api.post("/users/{uid}/password", response=UserOut, auth=auth, tags=["users"])
+def set_user_password(request, uid: str, data: PasswordSet):
+    """Rahbar xodimga parol qo'yadi (xodim keyin o'zi «Sozlamalar»da almashtiradi)."""
+    require_perm(request, "core.users.manage")
+    u = get_object_or_404(User, pk=uid, is_active=True)
+    me = request.auth
+    if u.pk != me.pk and u.memberships.filter(role__code="owner").exists() and not me.memberships.filter(role__code="owner").exists():
+        raise HttpError(403, "Egasining parolini faqat egasining o'zi o'zgartira oladi")
+    _check_new_password(data.password)
+    u.set_password(data.password)
+    u.save(update_fields=["password"])
+    record(request, "update", u)
     return u
 
 

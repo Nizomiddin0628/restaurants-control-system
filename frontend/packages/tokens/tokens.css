@@ -68,7 +68,9 @@
 
 /* bazaviy */
 *, *::before, *::after { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; }
+html, body { margin: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body { min-height: 100%; overflow-x: hidden; }
 body { font-family: var(--font); font-size: var(--fs-b); line-height: 1.45; color: var(--ink); background: var(--bg); -webkit-font-smoothing: antialiased; }
 button, input, select, textarea { font: inherit; color: inherit; }
 a { color: var(--accent); }

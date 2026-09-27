@@ -4,6 +4,8 @@ Serverda domenlarni sozlash: platforma (HQ) va har restoran uchun <slug>.<domen>
     python manage.py set_platform_domain restopos.uz
 Yangi domen asosiy (primary) bo'ladi, eskilari (masalan *.localhost) ham ishlashda qoladi.
 """
+import os
+
 from django.core.management.base import BaseCommand
 
 from public.models import Domain, Tenant
@@ -17,6 +19,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **opts):
         base = opts["base"].strip().lower().strip(".")
+        sch = "https" if os.environ.get("HTTPS") == "1" else "http"
         for t in Tenant.objects.all().order_by("pk"):
             host = base if t.schema_name == "public" else f"{t.slug}.{base}"
             Domain.objects.filter(tenant=t).exclude(domain=host).update(is_primary=False)
@@ -29,5 +32,5 @@ class Command(BaseCommand):
             elif not d.is_primary:
                 d.is_primary = True
                 d.save(update_fields=["is_primary"])
-            self.stdout.write(f"  {t.name}: http://{host}/" + ("hq/" if t.schema_name == "public" else "admin/"))
+            self.stdout.write(f"  {t.name}: {sch}://{host}/" + ("hq/" if t.schema_name == "public" else "admin/"))
         self.stdout.write(self.style.SUCCESS("Domenlar tayyor."))
