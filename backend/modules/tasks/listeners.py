@@ -31,8 +31,13 @@ def task_from_low_stock(payload: dict) -> None:
         auth = None
         tenant = None
 
+    from .models import ColumnKind, Task
     name = payload.get("product_name") or "Mahsulot"
-    create_task(_Req(), title=f"Ta'minot: {name} tugayapti",
+    title = f"Ta'minot: {name} tugayapti"
+    # har savdoda qayta ochilmasin — shu mahsulot bo'yicha ochiq vazifa bo'lsa, yangisi kerak emas
+    if Task.objects.filter(title=title).exclude(column__kind__in=[ColumnKind.DONE, ColumnKind.CANCELLED]).exists():
+        return
+    create_task(_Req(), title=title,
                 description=f"Qoldiq: {payload.get('qty', '—')}. Zakaz berish kerak.",
                 category=TaskCategory.objects.filter(code="supply").first(),
                 source=Source.SYSTEM)

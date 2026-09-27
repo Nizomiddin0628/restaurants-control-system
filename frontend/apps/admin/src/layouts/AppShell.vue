@@ -28,12 +28,12 @@ function openRoot() { browse.value = ''; ui.sidebarOpen = true }
 const close = () => { ui.sidebarOpen = false }
 
 // telefon pastki paneli: Asosiy + eng ko'p ishlatiladigan 3 ta modul + «Bo'limlar»
-const PIN = ['/pos', '/tasks', '/training', '/market', '/projects', '/inventory', '/hr', '/reports']
+const PIN = ['/pos', '/tasks', '/training', '/market', '/projects', '/inventory', '/hr', '/reports']   // Kassa · Vazifalar · O'qitish (rolga qarab)
 const phoneNav = computed(() => PIN.map(r => items.value.find(i => i.route === r)).filter(Boolean).slice(0, 3) as typeof items.value)
 const title = computed(() => {
   if (route.path.startsWith('/s/') && current.value) return current.value.title
   const it = currentItem.value ?? items.value.find(i => matches(i.route, route.path))
-  return it ? t(it.label, ui.lang) : ((route.meta.title as string) ?? (route.path === '/' ? 'Asosiy sahifa' : ''))
+  return it ? t(it.label, ui.lang) : ((route.meta.title as string) ?? (route.path === '/' ? 'Boshqaruv paneli' : ''))
 })
 const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d) return null; return Math.max(0, Math.ceil((new Date(d).getTime() - Date.now()) / 86400000)) })
 </script>
@@ -46,7 +46,7 @@ const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d)
       </div>
       <!-- 1-daraja: asosiy menyu -->
       <nav v-if="!shown" class="nav">
-        <RouterLink to="/" class="item" :class="{ on: route.path === '/' }" @click="close"><UiIcon :name="HOME.icon" /><span class="lbl">Asosiy sahifa</span></RouterLink>
+        <RouterLink to="/" class="item" :class="{ on: route.path === '/' }" @click="close"><UiIcon :name="HOME.icon" /><span class="lbl">Boshqaruv paneli</span></RouterLink>
         <div class="grp">Bo'limlar</div>
         <RouterLink v-for="s in sections" :key="s.code" :to="sectionLink(s)" class="item sec" :style="{ '--sc': s.color }" :title="s.title" @click="s.items.length === 1 && close()">
           <span class="si"><UiIcon :name="s.icon" :size="18" /></span><span class="lbl">{{ s.title }}</span>
@@ -66,7 +66,7 @@ const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d)
       <div class="foot">
         <a class="item ponly" href="/" target="_blank" rel="noopener"><UiIcon name="globe" /><span class="lbl">Saytni ochish</span></a>
         <a class="item ponly" href="/tv/menu-board/" target="_blank" rel="noopener"><UiIcon name="tv" /><span class="lbl">TV menyu</span></a>
-        <div v-if="trialDays !== null" class="trial">Sinov: <b>{{ trialDays }} kun</b></div>
+        <div v-if="trialDays" class="trial">Sinov: <b>{{ trialDays }} kun</b></div>
         <button class="item" type="button" @click="ui.cycleTheme()"><UiIcon :name="ui.theme === 'dark' ? 'moon' : 'sun'" /><span class="lbl">{{ ui.theme === 'auto' ? 'Tema: avto' : ui.theme === 'dark' ? 'Tema: dark' : 'Tema: light' }}</span></button>
         <button class="item" type="button" @click="a.logout()"><UiIcon name="logout" /><span class="lbl">Chiqish</span></button>
       </div>
@@ -88,7 +88,7 @@ const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d)
       <div v-if="supportMode" class="sup">🛟 Platforma yordami rejimi — egasi bergan ruxsat bilan. Barcha harakatlar «O'zgarishlar tarixi»ga yoziladi. <button type="button" @click="a.logout()">Chiqish</button></div>
       <main class="content"><RouterView /></main>
       <nav class="tabbar">
-        <RouterLink to="/" class="tab" :class="{ on: route.path === '/' }"><UiIcon name="home" :size="22" /><span>Asosiy</span></RouterLink>
+        <RouterLink to="/" class="tab" :class="{ on: route.path === '/' }"><UiIcon name="home" :size="22" /><span>Panel</span></RouterLink>
         <RouterLink v-for="n in phoneNav" :key="n.route" :to="n.route" class="tab" :class="{ on: matches(n.route, route.path) }"><UiIcon :name="n.icon" :size="22" /><span>{{ t(n.label, ui.lang).split(' ')[0] }}</span></RouterLink>
         <button class="tab" type="button" @click="openRoot()"><UiIcon name="menu" :size="22" /><span>Bo'limlar</span></button>
       </nav>

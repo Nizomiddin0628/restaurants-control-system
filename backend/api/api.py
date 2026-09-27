@@ -86,8 +86,15 @@ def _me(request, user: User) -> dict:
     }
 
 
+def _live(request):
+    """Jonli demo (faqat namuna restoranlar): vaqt o'tgani sari savdo, ombor, zakup… o'zi davom etadi."""
+    from public.live import tick
+    tick(getattr(request, "tenant", None))
+
+
 @api.get("/me", auth=auth, tags=["auth"])
 def me(request):
+    _live(request)
     return _me(request, request.auth)
 
 
@@ -462,7 +469,16 @@ def dashboard_summary(request):
 def dashboard_overview(request, period: str = "today", branch_id: Optional[int] = None):
     """Menejer paneli: KPI, dinamika, holat, top, filiallar, so'nggi buyurtmalar, ombor, vazifalar, faoliyat."""
     from .dashboard import overview
+    _live(request)
     return overview(request, period, branch_id)
+
+
+@api.get("/dashboard/sections", auth=auth, tags=["dashboard"])
+def dashboard_sections(request):
+    """Har bo'lim uchun 3–5 ta asosiy ko'rsatkich (bo'lim sahifasi va asosiy sahifa plitkalari uchun)."""
+    from .sections import sections
+    _live(request)
+    return sections(request)
 
 
 # ------------------------------------------------------------------ modullar routerlari

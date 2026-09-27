@@ -3,7 +3,8 @@
  * Modullar menyusi backenddan (me.nav, rol va yoqilgan modullar bo'yicha) keladi; bu yerda faqat qaysi bo'limga tegishliligi.
  * Yangi modul qo'shilsa — `routes` ga yo'lini yozing (yozilmasa «Boshqa» bo'limiga tushadi).
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { api } from '@restopos/api'
 import { useRoute } from 'vue-router'
 import { useAuth } from '@/stores/auth'
 
@@ -18,8 +19,10 @@ export const SECTIONS: Section[] = [
     routes: ['/catalog', '/crm', '/telegram', '/site'] },
   { code: 'stock', title: 'Ombor va xarid', icon: 'box', emoji: '📦', color: '#2563EB', desc: 'Qoldiq va tannarx, zakup, bozorlik, bayram prognozi',
     routes: ['/inventory', '/procurement', '/market', '/forecast'] },
-  { code: 'team', title: 'Xodimlar', icon: 'users', emoji: '👥', color: '#059669', desc: "Xodimlar, ishga olish, KPI, o'qitish, tuzilma va lavozimlar",
-    routes: ['/hr', '/recruiting', '/kpi', '/training', '/org', '/positions'] },
+  { code: 'team', title: 'Xodimlar', icon: 'users', emoji: '👥', color: '#059669', desc: 'Xodimlar, smena va davomat, ishga olish, baholash va KPI',
+    routes: ['/hr', '/recruiting', '/kpi'] },
+  { code: 'training', title: "O'qitish va standartlar", icon: 'book', emoji: '🎓', color: '#CA8A04', desc: "Kurslar, testlar, standartlar, tashkiliy tuzilma va lavozim yo'riqnomalari",
+    routes: ['/training', '/org', '/positions'] },
   { code: 'work', title: 'Vazifa va loyihalar', icon: 'check', emoji: '✅', color: '#7C3AED', desc: 'Kundalik vazifalar, muammolar va katta loyihalar',
     routes: ['/tasks', '/projects'] },
   { code: 'finance', title: 'Moliya va hisobot', icon: 'chart', emoji: '📊', color: '#0891B2', desc: 'Savdo, foyda-zarar, food cost, menyu tahlili',
@@ -68,7 +71,7 @@ const TAIL: NavItem[] = [
   { route: '/support', label: { uz: 'Yordam', ru: 'Поддержка', en: 'Support' }, icon: 'headset', order: 97, perm: 'core.settings.view' },
   { route: '/audit', label: { uz: "O'zgarishlar tarixi", ru: 'Журнал изменений', en: 'Audit log' }, icon: 'clock', order: 98, perm: 'core.settings.view' },
 ]
-export const HOME: NavItem = { route: '/', label: { uz: 'Asosiy sahifa', ru: 'Главная', en: 'Home' }, icon: 'home', order: 0 }
+export const HOME: NavItem = { route: '/', label: { uz: 'Boshqaruv paneli', ru: 'Панель', en: 'Dashboard' }, icon: 'home', order: 0 }
 
 export const matches = (route: string, path: string) => (route === '/' ? path === '/' : path === route || path.startsWith(route + '/'))
 
@@ -96,4 +99,19 @@ export function useNav() {
   /** Bo'limga kirish: bitta modul bo'lsa — to'g'ridan-to'g'ri o'sha sahifaga */
   const sectionLink = (s: SectionView) => (s.items.length === 1 ? s.items[0].route : `/s/${s.code}`)
   return { items, sections, current, currentItem, sectionLink }
+}
+
+/** Bo'lim ko'rsatkichlari (/dashboard/sections) — bir marta yuklanadi, 60 soniyada yangilanadi, sahifalar o'rtasida ulashiladi */
+export type Kpi = { label: string; value: string | number; hint: string; tone: '' | 'ok' | 'warn' | 'bad'; route: string; icon: string }
+const stats = ref<Record<string, Kpi[]> | null>(null)
+let loadedAt = 0
+let pending: Promise<void> | null = null
+export function useSectionStats() {
+  async function load(force = false) {
+    if (!force && stats.value && Date.now() - loadedAt < 60_000) return
+    if (pending) return pending
+    pending = api.get<Record<string, Kpi[]>>('/dashboard/sections').then((r) => { stats.value = r; loadedAt = Date.now() }).catch(() => { /* ko'rsatkichsiz ham ishlaydi */ }).finally(() => { pending = null })
+    return pending
+  }
+  return { stats, load }
 }

@@ -24,6 +24,8 @@ onMounted(async () => {
   meta.value = await api.get('/training/meta')
   if (meta.value.can.manage) courses.value = await api.get('/training/courses')
   if (tab.value !== 'my' && !meta.value.can.review) tab.value = 'my'
+  // rahbar uchun ochilganda — jamoa hisobotidan boshlanadi (o'zining kursi bo'lmasa «Mening o'qishim» bo'sh ko'rinadi)
+  else if (!route.query.tab && meta.value.can.review) tab.value = 'report'
 })
 </script>
 

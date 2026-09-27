@@ -269,6 +269,8 @@ def build(domain: str = "namuna.localhost", log=print):
     t = create_tenant(name=NAME, slug=SLUG, owner_phone=OWNER_PHONE, preset="restaurant", owner_name="Bahodir Qodirov",
                       plan_code="pro", domain=domain, branch_name="Chilonzor filiali", trial_days=30)
     set_modules(t, [*t.enabled_modules, "training", "crm", "forecast", "ops", "procurement", "projects"])
+    t.settings = {**(t.settings or {}), "demo_live": True}          # jonli demo (public/live.py)
+    t.save(update_fields=["settings"])
     log(f"Restoran yaratildi: {t.name} ({domain})")
     with schema_context(t.schema_name):
         connection.set_tenant(t)
