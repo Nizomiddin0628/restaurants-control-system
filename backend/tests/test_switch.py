@@ -48,3 +48,16 @@ def test_switch_denied_without_membership(api):
     cache.clear()
     assert api.post("/api/v1/me/switch", {"slug": "chopar"}).status_code == 404
     assert [r["slug"] for r in api.get("/api/v1/me/restaurants").json()] == ["lazzat"]
+
+
+@pytest.mark.django_db
+def test_set_platform_domain():
+    from django.core.management import call_command
+
+    from public.models import Domain
+    call_command("set_platform_domain", "demo.example.uz")
+    assert Domain.objects.get(domain="lazzat.demo.example.uz").is_primary
+    assert Domain.objects.get(domain="demo.example.uz").tenant.schema_name == "public"
+    assert not Domain.objects.get(domain="lazzat.testserver").is_primary
+    call_command("set_platform_domain", "demo.example.uz")       # qayta ishga tushirsa ham xato yo'q
+    assert Domain.objects.filter(domain="lazzat.demo.example.uz").count() == 1

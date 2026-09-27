@@ -10,9 +10,10 @@ ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "*").split(",")
 CSRF_TRUSTED_ORIGINS = os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if os.environ.get("CSRF_TRUSTED_ORIGINS") else []
 CORS_ALLOWED_ORIGIN_REGEXES = [r"^https://([a-z0-9-]+\.)?" + os.environ.get("PLATFORM_DOMAIN", "restopos.uz").replace(".", r"\.") + "$"]
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
-SECURE_HSTS_SECONDS = 31536000
+SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = os.environ.get("HTTPS", "0") == "1"
+SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "0"))   # https domen ulangach 31536000
+# SMS ulanmaguncha (sinov serveri): kirish kodi ekranda ko'rsatiladi. SMS_PROVIDER=eskiz bo'lganda 0 qiling.
+OTP_DEV_ECHO = os.environ.get("OTP_DEV_ECHO") == "1"
 
 # Media: S3-mos ombor (MinIO / UzCloud object storage)
 if os.environ.get("AWS_STORAGE_BUCKET_NAME"):
