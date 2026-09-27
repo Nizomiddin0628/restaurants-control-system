@@ -28,8 +28,8 @@ export const SECTIONS: Section[] = [
     routes: ['/training'] },
   { code: 'work', title: 'Vazifa va loyihalar', icon: 'check', emoji: '✅', color: '#7C3AED', desc: 'Kundalik vazifalar, muammolar va katta loyihalar',
     routes: ['/tasks', '/projects'] },
-  { code: 'finance', title: 'Moliya va hisobot', icon: 'chart', emoji: '📊', color: '#0891B2', desc: 'Savdo, foyda-zarar, food cost, menyu tahlili',
-    routes: ['/reports'] },
+  { code: 'finance', title: 'Moliya va hisobot', icon: 'chart', emoji: '📊', color: '#0891B2', desc: 'Savdo, foyda-zarar, food cost, AI Kotib',
+    routes: ['/reports', '/ai'] },
   { code: 'settings', title: 'Sozlamalar', icon: 'sliders', emoji: '⚙️', color: '#64748B', desc: 'Filiallar, modullar, restoran sozlamalari, yordam',
     routes: ['/branches', '/modules', '/settings', '/support', '/audit'] },
 ]
@@ -58,6 +58,7 @@ export const DESC: Record<string, string> = {
   '/tasks': 'Kundalik vazifalar, muammolar, nazorat',
   '/projects': "Filial ochish, yangi menyu, ta'mir — katta ishlar",
   '/reports': 'Savdo, foyda-zarar, food cost, menyu tahlili',
+  '/ai': "Ertalabki hisobot va ovozli buyruqlar — Telegram'da rahbar kotibi",
   '/branches': "Filiallar, manzil, ish vaqti",
   '/users': 'Kim tizimga kiradi: login, parol, rollar va ruxsatlar',
   '/modules': "Modullarni yoqish va o'chirish",

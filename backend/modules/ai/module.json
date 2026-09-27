@@ -1,0 +1,20 @@
+{
+  "code": "ai",
+  "name": {"uz": "AI Kotib", "ru": "AI-секретарь", "en": "AI secretary"},
+  "version": "1.0.0", "phase": 11, "implemented": true, "order": 72,
+  "depends": ["pos"],
+  "permissions": ["ai.use", "ai.manage", "ai.*"],
+  "nav": [
+    {"route": "/ai", "label": {"uz": "AI Kotib", "ru": "AI-секретарь", "en": "AI secretary"}, "icon": "spark", "order": 72, "perm": "ai.use"}
+  ],
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "morning_enabled": {"type": "boolean", "title": "Har kuni ertalab hisobot yuborish", "default": true},
+      "morning_time": {"type": "string", "title": "Ertalabki hisobot vaqti (SS:DD)", "default": "08:30"},
+      "api_key": {"type": "string", "title": "Gemini API kaliti (bo'sh bo'lsa — server kaliti)", "default": ""},
+      "model": {"type": "string", "title": "Model (bo'sh — avtomatik)", "default": ""},
+      "daily_limit": {"type": "integer", "title": "Kunlik AI so'rovlar chegarasi", "default": 60}
+    }
+  }
+}

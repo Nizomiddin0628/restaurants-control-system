@@ -50,6 +50,14 @@ def webhook(request):
 def process_update(tenant, upd: dict, base_url: str | None = None) -> None:
     """Bitta Telegram xabarini qayta ishlaydi — webhook ham, polling (telegram_polling) ham shuni chaqiradi."""
 
+    # AI Kotib (rahbar/menejer): «🤖 AI Kotib», «📊 Bugungi hisobot», ovozli buyruq va tasdiq tugmalari
+    try:
+        from modules.ai.tg import maybe_handle
+        if maybe_handle(tenant, upd, base_url):
+            return
+    except Exception:
+        log.exception("AI Kotib xato")
+
     if tenant.module_enabled("telegram"):
         try:
             from modules.telegram.services import handle_update
@@ -125,5 +133,12 @@ def process_update(tenant, upd: dict, base_url: str | None = None) -> None:
             send_message(chat_id, "Davomat moduli yoqilmagan yoki siz xodim sifatida ro'yxatda yo'qsiz.")
         return
 
-    send_message(chat_id, "Buyruqlar: /vazifalar · /keldim · /ketdim")
+    ai_kb = None
+    try:
+        from modules.ai.tg import eligible, keyboard_row
+        if eligible(tenant, user):
+            ai_kb = {"keyboard": [keyboard_row()], "resize_keyboard": True}
+    except Exception:
+        pass
+    send_message(chat_id, "Buyruqlar: /vazifalar · /keldim · /ketdim" + (" · 🤖 AI Kotib" if ai_kb else ""), reply_markup=ai_kb)
     return

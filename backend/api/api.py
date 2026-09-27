@@ -715,6 +715,7 @@ def dashboard_section(request, code: str, days: int = 7, branch_id: Optional[int
 
 # ------------------------------------------------------------------ modullar routerlari
 from integrations.telegram.api import router as telegram_router  # noqa: E402
+from modules.ai.api import router as ai_router  # noqa: E402
 from modules.catalog.api import router as catalog_router  # noqa: E402
 from modules.cms.api import router as cms_router  # noqa: E402
 from modules.crm.api import router as crm_router  # noqa: E402
@@ -750,6 +751,7 @@ api.add_router("/training", training_router)
 api.add_router("/bot", bot_router)
 api.add_router("/crm", crm_router)
 api.add_router("/forecast", forecast_router)
+api.add_router("/ai", ai_router)
 api.add_router("/ops", ops_router)
 api.add_router("/procurement", procurement_router)
 api.add_router("/projects", projects_router)

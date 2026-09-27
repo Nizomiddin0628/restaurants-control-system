@@ -29,6 +29,7 @@ export const router = createRouter({
         { path: 'recruiting', name: 'recruiting', component: () => import('@/views/RecruitView.vue'), meta: { module: 'hr', title: 'Ishga olish' } },
         { path: 'kpi', name: 'kpi', component: () => import('@/views/KpiView.vue'), meta: { module: 'hr', title: 'Baholash va KPI' } },
         { path: 'reports', name: 'reports', component: () => import('@/views/ReportsView.vue'), meta: { module: 'finance' } },
+        { path: 'ai', name: 'ai', component: () => import('@/views/AiView.vue'), meta: { module: 'ai', title: 'AI Kotib' } },
         { path: 'training', name: 'training', component: () => import('@/views/TrainingView.vue'), meta: { module: 'training' } },
         { path: 'training/course/:id', name: 'training-course', component: () => import('@/views/TrainingCourseView.vue'), meta: { module: 'training' } },
         { path: 'training/lesson/:id', name: 'training-lesson', component: () => import('@/views/TrainingLessonView.vue'), meta: { module: 'training' } },

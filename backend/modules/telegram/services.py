@@ -62,6 +62,13 @@ def main_keyboard(tenant, bu: BotUser, base_url: str | None) -> dict:
     cfg = conf(tenant)
     url = miniapp_url(base_url)
     rows = [[{"text": BTN_MENU, "web_app": {"url": url}} if url else {"text": BTN_MENU}]]
+    if bu.staff_id:                           # rahbar/menejer — «🤖 AI Kotib» va «📊 Bugungi hisobot» eng tepada
+        try:
+            from modules.ai.tg import eligible, keyboard_row
+            if eligible(tenant, bu.staff):
+                rows.insert(0, keyboard_row())
+        except Exception:
+            log.exception("AI tugmalari")
     second = []
     if cfg.get("enable_booking") and tenant.module_enabled("reservations"):
         second.append({"text": BTN_BOOK})
@@ -81,6 +88,14 @@ def main_keyboard(tenant, bu: BotUser, base_url: str | None) -> dict:
 
 
 # ------------------------------------------------------------------ yordamchilar
+def _ai_ok(tenant, user) -> bool:
+    try:
+        from modules.ai.tg import eligible
+        return eligible(tenant, user)
+    except Exception:
+        return False
+
+
 def normalize(phone: str) -> str:
     return User.objects.normalize_phone(phone) if phone else ""
 
@@ -152,7 +167,8 @@ def handle_update(tenant, update: dict, base_url: str | None = None) -> bool:
         bu.save()
         if staff:
             say(tenant, bu.chat_id, f"✅ <b>{staff.full_name or bu.phone}</b>, siz <b>{tenant.name}</b> xodimi sifatida ulandingiz.\n"
-                                    "Vazifalar, o'qitish va tasdiqlar shu yerga keladi.\n/vazifalar · /keldim · /ketdim",
+                                    "Vazifalar, o'qitish va tasdiqlar shu yerga keladi.\n/vazifalar · /keldim · /ketdim"
+                                    + ("\n\n🤖 <b>AI Kotib</b> — ovozli buyruq bering, har kuni ertalab hisobot shu yerga keladi." if _ai_ok(tenant, staff) else ""),
                 main_keyboard(tenant, bu, base_url))
         else:
             say(tenant, bu.chat_id, "✅ Rahmat! Raqamingiz saqlandi — endi buyurtmalaringiz va bonuslaringiz shu yerda.",

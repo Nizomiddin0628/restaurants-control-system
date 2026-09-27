@@ -86,6 +86,7 @@ $PY migrate_schemas --shared -v 0
 $PY migrate_schemas -v 0
 $PY set_platform_domain "$BASE"
 $PY training_videos --all || true
+[ -f $APP/.ai_seeded ] || { $PY seed_ai && touch $APP/.ai_seeded; } || true   # AI Kotib modulini bir marta yoqish (keyin egasi o'zi boshqaradi)
 $PY refresh_demo || true          # demo: eskirgan ochiq buyurtma/stol/bron — bugungi vaqtga (haqiqiy restoranlarga tegmaydi)
 $PY collectstatic --noinput -v 0
 mkdir -p $APP/backend/media
@@ -110,9 +111,36 @@ RestartSec=3
 [Install]
 WantedBy=multi-user.target
 UNIT
+# AI Kotib navbatchisi: har 5 daqiqada — ertalabki hisobot vaqti kelganda Telegram'ga yuboradi
+cat > /etc/systemd/system/restopos-ai.service <<UNIT
+[Unit]
+Description=RestoPOS AI Kotib (ertalabki hisobot)
+After=network.target postgresql.service
+
+[Service]
+Type=oneshot
+User=$USR
+Group=$USR
+WorkingDirectory=$APP/backend
+EnvironmentFile=$ENVF
+ExecStart=$APP/.venv/bin/python manage.py ai_tick
+TimeoutStartSec=900
+UNIT
+cat > /etc/systemd/system/restopos-ai.timer <<UNIT
+[Unit]
+Description=RestoPOS AI Kotib — har 5 daqiqada
+
+[Timer]
+OnCalendar=*:0/5
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target
+UNIT
 systemctl daemon-reload
 systemctl enable restopos >/dev/null
 systemctl restart restopos
+systemctl enable --now restopos-ai.timer >/dev/null 2>&1 || true
 
 # restopos-manage — serverda Django buyruqlari (masalan: restopos-manage user_access --all --phone ... --password ... --role owner)
 cat > /usr/local/bin/restopos-manage <<'MNG'

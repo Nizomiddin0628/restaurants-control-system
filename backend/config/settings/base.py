@@ -66,6 +66,7 @@ TENANT_APPS = [
     "modules.ops",
     "modules.procurement",
     "modules.projects",
+    "modules.ai",
 ]
 
 INSTALLED_APPS = SHARED_APPS + [a for a in TENANT_APPS if a not in SHARED_APPS]
