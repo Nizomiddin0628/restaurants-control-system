@@ -21,6 +21,7 @@ from .models import (
     Submission,
     SubmissionStatus,
 )
+from .videos import VIDEOS
 
 COURSES = [
     {
@@ -91,8 +92,6 @@ STANDARDS = [
     ("Kassa yopish tartibi", "Kassa", "Smena oxirida naqd pul sanaladi, farq bo'lsa menejerga darhol xabar beriladi.", False, ["cashier", "manager"]),
 ]
 
-# Haqiqiy ochiq video (JSST — qo'l yuvish, YouTube): demo darsda video nazorati qanday ishlashini ko'rsatish uchun
-DEMO_VIDEOS = {"Qo'lni to'g'ri yuvish": "https://www.youtube.com/watch?v=3PmVJQUCm4E"}
 
 
 def seed_demo_training(owner: User | None = None, courses: list | None = None,
@@ -112,7 +111,7 @@ def seed_demo_training(owner: User | None = None, courses: list | None = None,
             created_by=owner, sort_order=ci)
         for li, (title, body, checklist) in enumerate(c["lessons"]):
             Lesson.objects.create(course=course, title=title, body=body, checklist=checklist, sort_order=li,
-                                  video_url=DEMO_VIDEOS.get(title, ""))
+                                  video_url=VIDEOS.get(title, ""))
         qt, limit, qs = c["quiz"]
         quiz = Quiz.objects.create(course=course, title=qt, time_limit_seconds=limit)
         for qi, (text, opts, correct, expl) in enumerate(qs):

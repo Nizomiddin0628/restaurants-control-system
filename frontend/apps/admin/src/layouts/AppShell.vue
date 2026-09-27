@@ -12,6 +12,7 @@ import { t } from '@restopos/ui'
 import { useAuth } from '@/stores/auth'
 import { useUi } from '@/stores/ui'
 import { HOME, matches, useNav } from '@/nav/sections'
+import AccountSwitcher from '@/components/shell/AccountSwitcher.vue'
 
 const a = useAuth(), ui = useUi(), route = useRoute(), router = useRouter()
 const { items, sections, current, currentItem, sectionLink } = useNav()
@@ -40,10 +41,7 @@ const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d)
 <template>
   <div class="shell">
     <aside class="side" :class="{ open: ui.sidebarOpen }">
-      <div class="brand">
-        <span class="logo">{{ (a.me?.tenant.name ?? 'R').slice(0, 1) }}</span>
-        <div class="bt"><b>{{ a.me?.tenant.name }}</b><span>{{ a.me?.roles.includes('owner') ? 'Egasi · superadmin' : (a.me?.role_names?.length ? a.me.role_names : a.me?.roles ?? []).join(', ') }}</span></div>
-      </div>
+      <AccountSwitcher />
       <!-- 1-daraja: asosiy menyu -->
       <nav v-if="!shown" class="nav">
         <RouterLink to="/" class="item" :class="{ on: route.path === '/' }" @click="close"><UiIcon :name="HOME.icon" /><span class="lbl">Boshqaruv paneli</span></RouterLink>
@@ -82,6 +80,7 @@ const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d)
           <h1>{{ title }}</h1>
         </div>
         <div class="sp"></div>
+        <AccountSwitcher variant="chip" />
         <a class="link" :href="`/`" target="_blank" rel="noopener"><UiIcon name="globe" /><span class="hp">Sayt</span></a>
         <a class="link" :href="`/tv/menu-board/`" target="_blank" rel="noopener"><UiIcon name="tv" /><span class="hp">TV</span></a>
         <RouterLink to="/settings" class="me" :title="`${a.me?.full_name ?? ''} · ${a.me?.phone ?? ''} — profil`"><UiAvatar :name="a.me?.full_name || a.me?.phone" :src="a.me?.avatar" :size="36" /></RouterLink>
@@ -101,9 +100,6 @@ const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d)
 .sup button { border: 1px solid rgba(255,255,255,.6); background: transparent; color: #fff; border-radius: 8px; padding: 4px 10px; font: inherit; cursor: pointer; }
 .shell { display: flex; min-height: 100vh; }
 .side { width: var(--sidebar-w); flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 16px 12px; gap: 4px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
-.brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 14px; }
-.logo { width: 34px; height: 34px; border-radius: 10px; background: var(--brand); color: var(--brand-ink); display: grid; place-items: center; font-family: var(--font-display); font-weight: 800; flex-shrink: 0; }
-.bt { display: flex; flex-direction: column; min-width: 0; } .bt b { font-size: var(--fs-b); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .bt span { font-size: var(--fs-xs); color: var(--muted); }
 .nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
 .grp { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 14px 12px 4px; }
 .si { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; flex-shrink: 0; background: color-mix(in srgb, var(--sc) 14%, transparent); color: var(--sc); }
@@ -139,7 +135,7 @@ const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d)
 .tabbar { display: none; }
 .scrim { display: none; }
 /* planshet: tor ikonkali menyu */
-@media (min-width: 601px) and (max-width: 1024px) { .side { padding: 12px 8px; } .lbl, .sh .lbl, .bt, .trial, .grp, .cnt, .chev, .crumb { display: none; } .sh { border: 0; background: transparent; } .item, .sh { justify-content: center; padding: 0; } .sh { min-height: var(--touch); } .brand { justify-content: center; padding-bottom: 10px; } }
+@media (min-width: 601px) and (max-width: 1024px) { .side { padding: 12px 8px; } .lbl, .sh .lbl, .trial, .grp, .cnt, .chev, .crumb { display: none; } .sh { border: 0; background: transparent; } .item, .sh { justify-content: center; padding: 0; } .sh { min-height: var(--touch); } }
 /* telefon: drawer + tab-bar */
 @media (max-width: 600px) {
   .side { position: fixed; left: 0; top: 0; z-index: 40; width: min(300px, 86vw); transform: translateX(-100%); transition: transform .2s; box-shadow: var(--shadow); }

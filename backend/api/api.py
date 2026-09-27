@@ -83,18 +83,113 @@ def _me(request, user: User) -> dict:
                    "enabled_modules": tenant.enabled_modules, "settings": tenant.settings,
                    "trial_ends_at": tenant.trial_ends_at.isoformat() if tenant.trial_ends_at else None},
         "nav": [n for n in modreg.nav_for(tenant.enabled_modules) if user.has_perm_code(n.get("perm", "core.*"))],
+        "branches": _my_branches(user),
     }
 
 
-def _live(request):
-    """Jonli demo (faqat namuna restoranlar): vaqt o'tgani sari savdo, ombor, zakup… o'zi davom etadi."""
-    from public.live import tick
-    tick(getattr(request, "tenant", None))
+def _my_branches(user: User) -> list[dict]:
+    """Foydalanuvchi ko'ra oladigan filiallar: egasi / filial boshqaruvchisi yoki cheklanmagan a'zolik — hammasi."""
+    qs = Branch.objects.filter(deleted_at__isnull=True, is_active=True).order_by("id")
+    ms = list(user.memberships.filter(is_active=True).prefetch_related("branches"))
+    if not user.is_superuser and not user.has_perm_code("core.branches.manage") and ms and all(m.branches.exists() for m in ms):
+        ids = {b.pk for m in ms for b in m.branches.all()}
+        qs = qs.filter(pk__in=ids)
+    return [{"id": b.pk, "name": b.name, "address": b.address} for b in qs]
+
+
+# ------------------------------------------------------------------ restoranlar orasida o'tish (Telegram akkauntlari kabi)
+SWITCH_SALT = "restopos.switch"
+
+
+def _admin_url(request, tenant) -> str | None:
+    from public.models import Domain
+    d = Domain.objects.filter(tenant=tenant).order_by("-is_primary", "id").first()
+    if d is None:
+        return None
+    port = request.get_port()
+    host = d.domain + (f":{port}" if port and str(port) not in ("80", "443") else "")
+    return f"{request.scheme}://{host}/admin/"
+
+
+def _my_restaurants(phone: str) -> list:
+    """Shu telefon raqami a'zo bo'lgan barcha faol restoranlar (5 daqiqa keshlanadi)."""
+    from django.core.cache import cache
+    from django_tenants.utils import schema_context
+
+    from public.models import Tenant
+    key = f"myrest:{phone}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    out = []
+    for t in Tenant.objects.filter(is_active=True).exclude(schema_name="public").order_by("name"):
+        with schema_context(t.schema_name):
+            ok = User.objects.filter(phone=phone, is_active=True, memberships__is_active=True).exists()
+        if ok:
+            out.append(t.pk)
+    cache.set(key, out, 300)
+    return out
+
+
+@api.get("/me/restaurants", auth=auth, tags=["auth"])
+def my_restaurants(request):
+    from public.models import Tenant
+    ids = _my_restaurants(request.auth.phone)
+    cur = request.tenant
+    rows = []
+    for t in Tenant.objects.filter(pk__in=ids).order_by("name"):
+        rows.append({"slug": t.slug, "name": t.name, "current": t.pk == cur.pk, "url": _admin_url(request, t)})
+    if not any(r["current"] for r in rows):
+        rows.append({"slug": cur.slug, "name": cur.name, "current": True, "url": _admin_url(request, cur)})
+    return sorted(rows, key=lambda r: not r["current"])     # joriy restoran — birinchi
+
+
+class SwitchIn(Schema):
+    slug: str
+
+
+@api.post("/me/switch", auth=auth, tags=["auth"])
+def switch_restaurant(request, data: SwitchIn):
+    """Boshqa restoranga qayta kod so'ramasdan o'tish: 2 daqiqalik bir martalik imzolangan havola."""
+    import secrets
+
+    from django.core import signing
+
+    from public.models import Tenant
+    t = Tenant.objects.filter(slug=data.slug, is_active=True).first()
+    if t is None or t.pk not in _my_restaurants(request.auth.phone):
+        raise HttpError(404, "Bu restoranda sizning hisobingiz yo'q")
+    url = _admin_url(request, t)
+    if not url:
+        raise HttpError(400, "Restoran domeni sozlanmagan")
+    code = signing.dumps({"s": t.slug, "p": request.auth.phone, "n": secrets.token_hex(6)}, salt=SWITCH_SALT, compress=True)
+    return {"url": f"{url}login?switch={code}", "name": t.name}
+
+
+class SwitchCode(Schema):
+    code: str
+
+
+@api.post("/auth/switch", response=TokenOut, tags=["auth"])
+def auth_switch(request, data: SwitchCode):
+    from django.core import signing
+    from django.core.cache import cache
+    try:
+        p = signing.loads(data.code, salt=SWITCH_SALT, max_age=120)
+    except signing.BadSignature:
+        raise HttpError(400, "Havola eskirgan — qaytadan urinib ko'ring") from None
+    if p.get("s") != request.tenant.slug or not cache.add(f"switch:{p.get('n')}", 1, 300):
+        raise HttpError(400, "Havola yaroqsiz")
+    user = User.objects.filter(phone=p.get("p"), is_active=True, memberships__is_active=True).distinct().first()
+    if user is None:
+        raise HttpError(404, "Bu restoranda sizning hisobingiz yo'q")
+    user.last_seen_at = timezone.now()
+    user.save(update_fields=["last_seen_at"])
+    return {"token": issue_token(user, request.tenant.schema_name), "user": _me(request, user)}
 
 
 @api.get("/me", auth=auth, tags=["auth"])
 def me(request):
-    _live(request)
     return _me(request, request.auth)
 
 
@@ -469,24 +564,21 @@ def dashboard_summary(request):
 def dashboard_overview(request, period: str = "today", branch_id: Optional[int] = None):
     """Menejer paneli: KPI, dinamika, holat, top, filiallar, so'nggi buyurtmalar, ombor, vazifalar, faoliyat."""
     from .dashboard import overview
-    _live(request)
     return overview(request, period, branch_id)
 
 
 @api.get("/dashboard/sections", auth=auth, tags=["dashboard"])
-def dashboard_sections(request):
+def dashboard_sections(request, branch_id: Optional[int] = None):
     """Har bo'lim uchun 3–5 ta asosiy ko'rsatkich (bo'lim sahifasi va asosiy sahifa plitkalari uchun)."""
     from .sections import sections
-    _live(request)
-    return sections(request)
+    return sections(request, branch_id)
 
 
 @api.get("/dashboard/section/{code}", auth=auth, tags=["dashboard"])
-def dashboard_section(request, code: str, days: int = 7):
+def dashboard_section(request, code: str, days: int = 7, branch_id: Optional[int] = None):
     """Bo'lim dashboardi: shu bo'limning grafiklari va ro'yxatlari (vidjetlar)."""
     from .section_dash import section_dashboard
-    _live(request)
-    return section_dashboard(request, code, days)
+    return section_dashboard(request, code, days, branch_id)
 
 
 # ------------------------------------------------------------------ modullar routerlari

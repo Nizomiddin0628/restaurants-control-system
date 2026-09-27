@@ -65,8 +65,6 @@ class Command(BaseCommand):
                 seed_demo_projects(t)       # loyihalar: filial ochish, menyu, ta'mir, aksiya
             from public.services import set_modules
             set_modules(t, [*t.enabled_modules, "training", "crm", "forecast", "ops", "procurement", "projects"])
-            t.settings = {**(t.settings or {}), "demo_live": True}      # jonli demo: savdo va boshqalar vaqt o'tgani sari davom etadi
-            t.save(update_fields=["settings"])
             self.stdout.write(self.style.SUCCESS("Demo tenant: http://lazzat.localhost:8000  (egasi: +998901234567, OTP dev rejimida javobda qaytadi)"))
         call_command("seed_hq", "--demo", verbosity=0)   # RESTROOS HQ: http://localhost:8000/hq/ (+998901234567)
         self.stdout.write(self.style.SUCCESS("HQ: http://localhost:8000/hq/  (+998901234567)"))

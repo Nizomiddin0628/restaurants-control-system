@@ -25,5 +25,12 @@ def test_sections_and_widgets(api, tenant, caplog):
             assert body["code"] == code and isinstance(body["widgets"], list)
             for w in body["widgets"]:
                 assert w["type"] in {"chart", "rank", "list", "donut", "table"} and w["title"]
+    # filial bo'yicha filtr ham xatosiz ishlaydi
+    from core.models import Branch
+    with schema_context("lazzat"):
+        bid = Branch.objects.first().pk
+    assert api.get(f"/api/v1/dashboard/sections?branch_id={bid}").status_code == 200
+    for code in CODES:
+        assert api.get(f"/api/v1/dashboard/section/{code}?days=7&branch_id={bid}").status_code == 200, code
     errs = [r for r in caplog.records if r.levelno >= logging.ERROR and ("bo'lim" in r.getMessage())]
     assert not errs, [e.getMessage() for e in errs]

@@ -162,8 +162,6 @@ def test_weather_fetch_hints_factor_and_offline(api, fc, monkeypatch):
 def test_dashboard_block_validation_and_module_off(api, fc, tenant):
     with schema_context("lazzat"):
         _holiday(2)
-    d = api.get("/api/v1/dashboard/overview").json()
-    assert d["forecast"]["alerts"][0]["name"]["uz"] == "Test bayram"
     assert api.post("/api/v1/forecast/holidays", {"name": {"uz": " "}, "date": "2026-12-01"}).status_code == 400
     assert api.post("/api/v1/forecast/holidays", {"name": {"uz": "Ok"}, "date": "2026-12-01", "uplift_percent": 500}).status_code == 400
     r = api.post("/api/v1/forecast/holidays", {"name": {"uz": "Filial yubileyi"}, "date": "2026-12-01", "uplift_percent": 25})
@@ -173,4 +171,3 @@ def test_dashboard_block_validation_and_module_off(api, fc, tenant):
     with schema_context("public"):
         set_modules(tenant, [m for m in tenant.enabled_modules if m != "forecast"])
     assert api.get("/api/v1/forecast/overview").status_code == 404
-    assert api.get("/api/v1/dashboard/overview").json()["forecast"] is None

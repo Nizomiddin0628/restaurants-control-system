@@ -190,16 +190,6 @@ PHOTOS = {
 }
 
 # O'qitish videolari (YouTube, ochiq): dars nomi → havola
-VIDEOS = {
-    "Zirvak": "https://www.youtube.com/watch?v=nPCynUmy-uA",
-    "Guruch solish va damlash": "https://www.youtube.com/watch?v=CEXa3aEiTJU",
-    "Forma va tashqi ko'rinish": "https://www.youtube.com/watch?v=FOM3SUFY030",
-    "Mahsulotlarni saqlash": "https://www.youtube.com/watch?v=wxFj4_TBjeg",
-    "Kutib olish": "https://www.youtube.com/watch?v=jBe8e69ypcc",
-    "Shikoyat bilan ishlash": "https://www.youtube.com/watch?v=zrnL0FUYz4M",
-    "Pichoq bilan xavfsiz ishlash": "https://www.youtube.com/watch?v=oLTaMPjAgLo",
-    "O't o'chirgich (PASS usuli)": "https://www.youtube.com/watch?v=heVKavoFhKA",
-}
 LESSON_LINKS = {
     "Qo'lni to'g'ri yuvish": [("JSST: qo'l yuvish plakati (PDF)", "https://www.who.int/docs/default-source/patient-safety/how-to-handwash-poster.pdf")],
 }
@@ -269,8 +259,6 @@ def build(domain: str = "namuna.localhost", log=print):
     t = create_tenant(name=NAME, slug=SLUG, owner_phone=OWNER_PHONE, preset="restaurant", owner_name="Bahodir Qodirov",
                       plan_code="pro", domain=domain, branch_name="Chilonzor filiali", trial_days=30)
     set_modules(t, [*t.enabled_modules, "training", "crm", "forecast", "ops", "procurement", "projects"])
-    t.settings = {**(t.settings or {}), "demo_live": True}          # jonli demo (public/live.py)
-    t.save(update_fields=["settings"])
     log(f"Restoran yaratildi: {t.name} ({domain})")
     with schema_context(t.schema_name):
         connection.set_tenant(t)
@@ -486,8 +474,8 @@ def _training(t, log):
     n = seed_demo_training(courses=[OSH_COURSE, COURSES[1], COURSES[2], SAFETY_COURSE],
                            cook_task=("Oshni standart bo'yicha damlang", "Bitta qozon oshni darsdagi tartibda damlab, laganda porsiya rasmini yuboring."))
     from modules.training.models import Lesson, LessonFile
-    for title, url in VIDEOS.items():
-        Lesson.objects.filter(title=title, video_url="").update(video_url=url)
+    from modules.training.videos import apply_videos
+    apply_videos()
     for title, links in LESSON_LINKS.items():
         for les in Lesson.objects.filter(title=title):
             for lt, url in links:

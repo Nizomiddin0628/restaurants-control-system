@@ -24,13 +24,14 @@ const loading = ref(false)
 
 async function loadDash() {
   loading.value = true
-  try { D.value = await api.get(`/dashboard/section/${code.value}`, { days: days.value }) } catch { D.value = { widgets: [] } } finally { loading.value = false }
+  try { D.value = await api.get(`/dashboard/section/${code.value}`, { days: days.value, ...(ui.branch ? { branch_id: ui.branch } : {}) }) } catch { D.value = { widgets: [] } } finally { loading.value = false }
 }
 function refresh() { load(true); loadDash() }
 let timer: number | undefined
 onMounted(() => { refresh(); timer = window.setInterval(() => { if (!document.hidden) refresh() }, 60_000) })
 onBeforeUnmount(() => clearInterval(timer))
 watch(code, () => { D.value = null; refresh() })
+watch(() => ui.branch, () => refresh())
 watch(days, (v) => { try { localStorage.setItem('sec.days', String(v)) } catch { /* private */ } loadDash() })
 const updated = computed(() => { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` })
 </script>

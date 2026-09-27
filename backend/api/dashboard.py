@@ -56,7 +56,7 @@ def overview(request, period: str = "today", branch_id: Optional[int] = None) ->
         "period": {"code": period, "label": PERIODS[period], "start": start.isoformat(), "end": end.isoformat(),
                    "periods": [{"code": k, "label": v} for k, v in PERIODS.items()]},
         "branches_list": [], "kpis": [], "series": None, "status": None, "top": None, "branches": None,
-        "recent": None, "stock": None, "tasks": None, "activity": [], "forecast": None,
+        "recent": None, "stock": None, "tasks": None, "activity": [],
     }
     from core.models import Branch
     out["branches_list"] = [{"id": b.pk, "name": b.name} for b in Branch.objects.filter(deleted_at__isnull=True, is_active=True)]
@@ -67,8 +67,6 @@ def overview(request, period: str = "today", branch_id: Optional[int] = None) ->
         _stock(out)
     if t.module_enabled("tasks"):
         _tasks(out, now)
-    if t.module_enabled("forecast"):
-        _forecast(out, t)
     _activity(out, t, branch_id)
     return out
 
@@ -231,23 +229,6 @@ def _stock(out):
     rows.sort(key=lambda r: r["ratio"])
     out["stock"] = {"count": sum(1 for r in rows if r["level"] != "watch"), "items": rows[:5]}
 
-
-# ------------------------------------------------------------------ bayram va ob-havo
-def _forecast(out, t):
-    """Yaqin bayram ogohlantirishi (xarid rejasi qisqachasi) + 7 kunlik ob-havo. Xato bo'lsa — blok chiqmaydi."""
-    import logging
-
-    try:
-        from modules.forecast import services, weather
-        alerts = services.alerts(t)
-        ids = {a["id"] for a in alerts}
-        nxt = next((services.holiday_out(h) for h in services.upcoming(limit=4) if h.pk not in ids), None)
-        weather.refresh(t)
-        out["forecast"] = {"alerts": alerts[:2], "next": nxt, "weather": [weather.day_out(w, t) for w in weather.forecast_days(t)],
-                           "location": weather.location(t)["name"]}
-    except Exception:
-        logging.getLogger("dashboard").exception("forecast bloki")
-        out["forecast"] = None
 
 
 # ------------------------------------------------------------------ vazifalar

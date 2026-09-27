@@ -7,6 +7,7 @@ import { computed, ref } from 'vue'
 import { api } from '@restopos/api'
 import { useRoute } from 'vue-router'
 import { useAuth } from '@/stores/auth'
+import { useUi } from '@/stores/ui'
 
 export type NavItem = { route: string; label: { uz?: string; ru?: string; en?: string }; icon: string; order: number; perm?: string }
 export type Section = { code: string; title: string; icon: string; emoji: string; color: string; desc: string; routes: string[] }
@@ -105,12 +106,15 @@ export function useNav() {
 export type Kpi = { label: string; value: string | number; hint: string; tone: '' | 'ok' | 'warn' | 'bad'; route: string; icon: string }
 const stats = ref<Record<string, Kpi[]> | null>(null)
 let loadedAt = 0
+let loadedFor = ''
 let pending: Promise<void> | null = null
 export function useSectionStats() {
   async function load(force = false) {
-    if (!force && stats.value && Date.now() - loadedAt < 60_000) return
     if (pending) return pending
-    pending = api.get<Record<string, Kpi[]>>('/dashboard/sections').then((r) => { stats.value = r; loadedAt = Date.now() }).catch(() => { /* ko'rsatkichsiz ham ishlaydi */ }).finally(() => { pending = null })
+    const ui = useUi(), b = ui.branch
+    if (b !== loadedFor) force = true
+    if (!force && stats.value && Date.now() - loadedAt < 60_000) return
+    pending = api.get<Record<string, Kpi[]>>('/dashboard/sections', b ? { branch_id: b } : undefined).then((r) => { stats.value = r; loadedAt = Date.now(); loadedFor = b }).catch(() => { /* ko'rsatkichsiz ham ishlaydi */ }).finally(() => { pending = null })
     return pending
   }
   return { stats, load }

@@ -17,6 +17,7 @@ export const useAuth = defineStore('auth', {
     async load() { if (!tokenStore.token) throw new Error('no token'); this.me = await api.get<Me>('/me') },
     async requestOtp(phone: string) { return api.post<{ ok: boolean; dev_code?: string }>('/auth/otp', { phone }) },
     async verify(phone: string, code: string) { const r = await api.post<{ token: string; user: Me }>('/auth/verify', { phone, code }); tokenStore.set(r.token); this.me = r.user },
+    async switchIn(code: string) { const r = await api.post<{ token: string; user: Me }>('/auth/switch', { code }); tokenStore.set(r.token); this.me = r.user },
     logout() { tokenStore.set(null); this.me = null; location.href = '/admin/login' },
   },
 })

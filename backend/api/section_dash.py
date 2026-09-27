@@ -40,8 +40,10 @@ def _days(today, n):
     return [today - timedelta(days=i) for i in range(n - 1, -1, -1)]
 
 
-def section_dashboard(request, code: str, days: int = 7) -> dict:
+def section_dashboard(request, code: str, days: int = 7, branch_id: int | None = None) -> dict:
+    from .branchf import make
     t, u = request.tenant, request.auth
+    S, L = make(branch_id)
     on = set(t.enabled_modules or [])
     can = u.has_perm_code
     today = timezone.localdate()
@@ -61,7 +63,7 @@ def section_dashboard(request, code: str, days: int = 7) -> dict:
 
     def paid():
         from modules.pos.models import Order
-        return Order.objects.filter(status="paid")
+        return S(Order.objects.filter(status="paid"))
 
     def daily_revenue(n=14):
         qs = paid().filter(paid_at__date__gte=today - timedelta(days=n - 1)).values("paid_at__date").annotate(s=Sum("total"))
@@ -100,7 +102,7 @@ def section_dashboard(request, code: str, days: int = 7) -> dict:
                 from core.models import Branch
                 q = {r["branch_id"]: r for r in paid().filter(paid_at__date__gte=since).values("branch_id").annotate(s=Sum("total"), n=Count("id"), c=Sum("cost_total"))}
                 rows = []
-                for b in Branch.objects.filter(deleted_at__isnull=True, is_active=True):
+                for b in Branch.objects.filter(deleted_at__isnull=True, is_active=True, **({"pk": branch_id} if branch_id else {})):
                     r = q.get(b.pk, {"s": 0, "n": 0, "c": 0})
                     s, n = int(r["s"] or 0), r["n"] or 0
                     rows.append([b.name, _m(s), n, _m(s // n if n else 0), f"{round(100 * (r['c'] or 0) / s, 1) if s else 0}%"])
@@ -111,7 +113,7 @@ def section_dashboard(request, code: str, days: int = 7) -> dict:
                 from modules.kds.models import Ticket
                 lab = {"new": ("Yangi", "warn"), "cooking": ("Tayyorlanmoqda", ""), "ready": ("Tayyor — olib chiqing", "ok")}
                 rows = []
-                for tk in Ticket.objects.exclude(status__in=["served", "cancelled"]).select_related("order").order_by("created_at")[:8]:
+                for tk in S(Ticket.objects.exclude(status__in=["served", "cancelled"]), "order__branch").select_related("order").order_by("created_at")[:8]:
                     mins = int((now - tk.created_at).total_seconds() // 60)
                     o = tk.order
                     where = f"Stol {o.table_no}" if o.table_no else {"takeaway": "Olib ketish", "delivery": "Yetkazish"}.get(o.type, "")
@@ -125,7 +127,7 @@ def section_dashboard(request, code: str, days: int = 7) -> dict:
                 rows = [{"title": f"{timezone.localtime(r.starts_at):%H:%M} · {r.guest_name}", "sub": f"{r.guests} kishi" + (f" · {r.occasion}" if r.occasion else ""),
                          "right": f"Stol {r.table.number}" if r.table_id else "—", "tone": {"confirmed": "ok", "new": "warn", "seated": "ok"}.get(r.status, ""),
                          "badge": {"new": "Yangi", "confirmed": "Tasdiqlangan", "seated": "O'tirdi", "done": "Tugadi"}.get(r.status, r.status)}
-                        for r in Reservation.objects.filter(starts_at__date=today).exclude(status__in=["cancelled", "no_show"]).select_related("table").order_by("starts_at")[:8]]
+                        for r in L(Reservation.objects.filter(starts_at__date=today).exclude(status__in=["cancelled", "no_show"])).select_related("table").order_by("starts_at")[:8]]
                 return {"type": "list", "title": "Bugungi bronlar", "sub": "vaqt bo'yicha", "rows": rows, "empty": "Bugun bron yo'q", "route": "/reservations"}
             add(bookings)
 
@@ -134,7 +136,7 @@ def section_dashboard(request, code: str, days: int = 7) -> dict:
         if "pos" in on:
             def top():
                 from modules.pos.models import OrderItem
-                q = (OrderItem.objects.filter(order__status="paid", order__paid_at__date__gte=since).values("name")
+                q = (S(OrderItem.objects.filter(order__status="paid", order__paid_at__date__gte=since), "order__branch").values("name")
                      .annotate(q=Sum("qty"), s=Sum(F("qty") * F("price")), c=Sum(F("qty") * F("cost"))).order_by("-s")[:10])
                 rows = [{"label": r["name"], "value": int(r["s"] or 0), "display": _m(r["s"]),
                          "sub": f"{r['q']} porsiya · marja {round(100 * (1 - (r['c'] or 0) / r['s'])) if r['s'] else 0}%"} for r in q]
@@ -144,7 +146,7 @@ def section_dashboard(request, code: str, days: int = 7) -> dict:
             def low():
                 from modules.catalog.models import Product
                 from modules.pos.models import OrderItem
-                sold = dict(OrderItem.objects.filter(order__status="paid", order__paid_at__date__gte=today - timedelta(days=29))
+                sold = dict(S(OrderItem.objects.filter(order__status="paid", order__paid_at__date__gte=today - timedelta(days=29)), "order__branch")
                             .values_list("product_id").annotate(q=Sum("qty")).values_list("product_id", "q"))
                 ps = sorted(Product.objects.filter(deleted_at__isnull=True, is_active=True, in_stop_list=False), key=lambda p: sold.get(p.pk, 0))[:6]
                 rows = [{"title": p.name.get("uz") or str(p), "sub": f"{_m(p.price)} so'm", "right": f"{sold.get(p.pk, 0)} ta / 30 kun",
@@ -198,14 +200,14 @@ def section_dashboard(request, code: str, days: int = 7) -> dict:
 
             def purchases():
                 from modules.inventory.models import Purchase
-                by = {r["date"]: int(r["s"] or 0) for r in Purchase.objects.filter(date__gte=today - timedelta(days=13)).values("date").annotate(s=Sum("total"))}
+                by = {r["date"]: int(r["s"] or 0) for r in L(Purchase.objects.filter(date__gte=today - timedelta(days=13))).values("date").annotate(s=Sum("total"))}
                 return {"type": "chart", "kind": "bars", "money": True, "title": "Kirim (xarid) — 14 kun", "sub": "kunlik summa",
                         "points": [{"label": f"{WD[d.weekday()]} {d:%d}", "value": by.get(d, 0)} for d in _days(today, 14)], "route": "/inventory", "wide": True}
             add(purchases)
 
             def usage():
                 from modules.inventory.models import StockMovement
-                q = (StockMovement.objects.filter(kind="sale", at__date__gte=since).values("ingredient__name", "ingredient__unit")
+                q = (L(StockMovement.objects.filter(kind="sale", at__date__gte=since)).values("ingredient__name", "ingredient__unit")
                      .annotate(q=Sum("qty"), v=Sum(F("qty") * F("unit_price"))).order_by("v")[:8])
                 rows = [{"label": (r["ingredient__name"] or {}).get("uz", "—"), "value": -int(r["v"] or 0), "display": _m(-(r["v"] or 0)),
                          "sub": f"{-float(r['q'] or 0):.1f} {r['ingredient__unit']}"} for r in q]
@@ -217,7 +219,7 @@ def section_dashboard(request, code: str, days: int = 7) -> dict:
                 lab = {"draft": "Qoralama", "sent": "Yuborildi", "confirmed": "Tasdiqlandi"}
                 rows = [{"title": f"#{o.number} · {o.supplier.name}", "sub": f"kerak: {o.expected_date:%d.%m}" if o.expected_date else "",
                          "right": f"{_m(o.total)}", "badge": lab.get(o.status, o.status), "tone": "ok" if o.status == "confirmed" else ""}
-                        for o in PO.objects.filter(status__in=["draft", "sent", "confirmed"]).select_related("supplier").order_by("expected_date")[:6]]
+                        for o in L(PO.objects.filter(status__in=["draft", "sent", "confirmed"])).select_related("supplier").order_by("expected_date")[:6]]
                 return {"type": "list", "title": "Yo'ldagi buyurtmalar", "sub": "ta'minotchilardan", "rows": rows, "empty": "Ochiq buyurtma yo'q", "route": "/procurement?tab=orders"}
             add(orders)
 
@@ -247,20 +249,20 @@ def section_dashboard(request, code: str, days: int = 7) -> dict:
                          "right": f"{timezone.localtime(a.check_in):%H:%M}" + (f" → {timezone.localtime(a.check_out):%H:%M}" if a.check_out else ""),
                          "badge": f"{a.late_minutes} daq kechikdi" if a.late_minutes else ("ishda" if not a.check_out else "ketdi"),
                          "tone": "warn" if a.late_minutes else ("ok" if not a.check_out else "")}
-                        for a in Attendance.objects.filter(check_in__date=today).select_related("employee__user", "employee__position").order_by("check_in")[:12]]
+                        for a in L(Attendance.objects.filter(check_in__date=today)).select_related("employee__user", "employee__position").order_by("check_in")[:12]]
                 return {"type": "list", "title": "Bugun ishda", "sub": "davomat", "rows": rows, "empty": "Hali hech kim kelmagan", "route": "/hr"}
             add(onshift)
 
             def att():
                 from modules.hr.models import Attendance
-                by = Counter(Attendance.objects.filter(check_in__date__gte=today - timedelta(days=13)).values_list("check_in__date", flat=True))
+                by = Counter(L(Attendance.objects.filter(check_in__date__gte=today - timedelta(days=13))).values_list("check_in__date", flat=True))
                 return {"type": "chart", "kind": "bars", "money": False, "title": "Davomat — 14 kun", "sub": "kunlik kelgan xodimlar",
                         "points": [{"label": f"{WD[d.weekday()]} {d:%d}", "value": by.get(d, 0)} for d in _days(today, 14)], "route": "/hr", "wide": True}
             add(att)
 
             def lates():
                 from modules.hr.models import Attendance
-                q = (Attendance.objects.filter(check_in__date__gte=today - timedelta(days=29), late_minutes__gt=0)
+                q = (L(Attendance.objects.filter(check_in__date__gte=today - timedelta(days=29), late_minutes__gt=0))
                      .values("employee__user__full_name").annotate(n=Count("id"), m=Sum("late_minutes")).order_by("-m")[:7])
                 rows = [{"label": r["employee__user__full_name"] or "—", "value": r["m"], "display": f"{r['m']} daq", "sub": f"{r['n']} marta"} for r in q]
                 return {"type": "rank", "title": "Ko'p kechikkanlar", "sub": "30 kun", "rows": rows, "route": "/hr"}
@@ -268,7 +270,7 @@ def section_dashboard(request, code: str, days: int = 7) -> dict:
 
             def payroll():
                 from modules.hr.models import Payslip
-                q = (Payslip.objects.filter(period=today.replace(day=1)).values("employee__position__name").annotate(s=Sum("total"), n=Count("id")).order_by("-s"))
+                q = (L(Payslip.objects.filter(period=today.replace(day=1)), "employee__branch").values("employee__position__name").annotate(s=Sum("total"), n=Count("id")).order_by("-s"))
                 rows = [{"label": r["employee__position__name"] or "—", "value": int(r["s"] or 0), "display": _m(r["s"]), "sub": f"{r['n']} kishi"} for r in q]
                 return {"type": "rank", "title": "Oylik fondi (shu oy)", "sub": "lavozimlar bo'yicha", "rows": rows, "route": "/hr"} if can("hr.payroll") or can("hr.*") else None
             add(payroll)
@@ -332,7 +334,7 @@ def section_dashboard(request, code: str, days: int = 7) -> dict:
         if "tasks" in on and can("tasks.view"):
             def cols():
                 from modules.tasks.models import Task, TaskColumn
-                c = Counter(Task.objects.values_list("column_id", flat=True))
+                c = Counter(L(Task.objects.all()).values_list("column_id", flat=True))
                 items = [{"key": str(col.pk), "label": (col.name or {}).get("uz", col.code), "value": c.get(col.pk, 0), "color": COLORS[i % 8]}
                          for i, col in enumerate(TaskColumn.objects.order_by("sort_order")) if col.kind != "cancelled"]
                 return {"type": "donut", "title": "Vazifalar holati", "sub": "hammasi", "items": items, "route": "/tasks"}
@@ -342,13 +344,13 @@ def section_dashboard(request, code: str, days: int = 7) -> dict:
                 from modules.tasks.models import ColumnKind, Task
                 rows = [{"title": tk.title, "sub": (tk.assignee.full_name if tk.assignee_id else "tayinlanmagan"),
                          "right": f"{timezone.localtime(tk.due_at):%d.%m %H:%M}", "tone": "bad", "badge": "kechikdi"}
-                        for tk in Task.objects.exclude(column__kind__in=[ColumnKind.DONE, ColumnKind.CANCELLED]).filter(due_at__lt=timezone.now()).select_related("assignee").order_by("due_at")[:8]]
+                        for tk in L(Task.objects.exclude(column__kind__in=[ColumnKind.DONE, ColumnKind.CANCELLED]).filter(due_at__lt=timezone.now())).select_related("assignee").order_by("due_at")[:8]]
                 return {"type": "list", "title": "Kechikkan vazifalar", "sub": "birinchi navbatda", "rows": rows, "empty": "Kechikkan vazifa yo'q ✓", "route": "/tasks"}
             add(overdue)
 
             def flow():
                 from modules.tasks.models import Task
-                made = Counter(Task.objects.filter(created_at__date__gte=today - timedelta(days=13)).values_list("created_at__date", flat=True))
+                made = Counter(L(Task.objects.filter(created_at__date__gte=today - timedelta(days=13))).values_list("created_at__date", flat=True))
                 return {"type": "chart", "kind": "bars", "money": False, "title": "Yangi vazifalar — 14 kun", "sub": "kunlik tushgan muammo va vazifalar",
                         "points": [{"label": f"{WD[d.weekday()]} {d:%d}", "value": made.get(d, 0)} for d in _days(today, 14)], "route": "/tasks", "wide": True}
             add(flow)
@@ -356,7 +358,7 @@ def section_dashboard(request, code: str, days: int = 7) -> dict:
             def projects():
                 from modules.projects import services as ps
                 rows = []
-                for p in ps.visible_projects(u).filter(status__in=["plan", "active", "paused"]).prefetch_related("tasks"):
+                for p in L(ps.visible_projects(u)).filter(status__in=["plan", "active", "paused"]).prefetch_related("tasks"):
                     tasks = list(p.tasks.all())
                     pr = ps.progress(tasks, p.status)
                     rows.append({"label": p.title, "value": pr, "display": f"{pr}%", "sub": f"{p.code} · muddat {p.due:%d.%m}" if p.due else p.code})
@@ -374,8 +376,8 @@ def section_dashboard(request, code: str, days: int = 7) -> dict:
                 from modules.hr.models import Payslip
                 agg = paid().filter(paid_at__date__gte=ms).aggregate(s=Sum("total"), c=Sum("cost_total"))
                 rev, cost = int(agg["s"] or 0), int(agg["c"] or 0)
-                exp = int(Expense.objects.filter(date__gte=ms).aggregate(s=Sum("amount"))["s"] or 0)
-                pay = int(Payslip.objects.filter(period=ms).aggregate(s=Sum("total"))["s"] or 0)
+                exp = int(L(Expense.objects.filter(date__gte=ms)).aggregate(s=Sum("amount"))["s"] or 0)
+                pay = int(L(Payslip.objects.filter(period=ms), "employee__branch").aggregate(s=Sum("total"))["s"] or 0)
                 net = rev - cost - exp - pay
                 pct = lambda v: f"{round(100 * v / rev, 1) if rev else 0}%"  # noqa: E731
                 return {"type": "table", "title": "Foyda va zarar (shu oy)", "sub": f"{ms:%d.%m} — {today:%d.%m}", "route": "/reports",
@@ -386,7 +388,7 @@ def section_dashboard(request, code: str, days: int = 7) -> dict:
 
             def exp_cats():
                 from modules.finance.models import Expense
-                q = Expense.objects.filter(date__gte=ms).values("category__name").annotate(s=Sum("amount")).order_by("-s")
+                q = L(Expense.objects.filter(date__gte=ms)).values("category__name").annotate(s=Sum("amount")).order_by("-s")
                 return {"type": "rank", "title": "Xarajatlar turlari", "sub": "shu oy", "route": "/reports",
                         "rows": [{"label": r["category__name"], "value": int(r["s"] or 0), "display": _m(r["s"])} for r in q]}
             add(exp_cats)
