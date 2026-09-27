@@ -26,14 +26,38 @@ def _k(label, value, hint="", tone="", route="", icon=""):
     return {"label": label, "value": value, "hint": hint, "tone": tone, "route": route, "icon": icon}
 
 
-def sections(request, branch_id: int | None = None) -> dict:
+PERIODS = {"today": "Bugun", "yesterday": "Kecha", "week": "7 kun", "month": "Shu oy", "year": "Shu yil"}
+
+
+def _range(period: str, today):
+    """Davr → (boshi, oxiri, yorliq, o'tgan davr boshi, oxiri)."""
+    if period == "yesterday":
+        d = today - timedelta(days=1)
+        return d, d, "Kecha", d - timedelta(days=1), d - timedelta(days=1)
+    if period == "week":
+        a = today - timedelta(days=6)
+        return a, today, "7 kun", a - timedelta(days=7), a - timedelta(days=1)
+    if period == "month":
+        a = today.replace(day=1)
+        pe = a - timedelta(days=1)
+        return a, today, "Shu oy", pe.replace(day=1), pe.replace(day=min(today.day, pe.day))
+    if period == "year":
+        a = today.replace(month=1, day=1)
+        return a, today, "Shu yil", a.replace(year=a.year - 1), today.replace(year=today.year - 1)
+    return today, today, "Bugun", today - timedelta(days=7), today - timedelta(days=7)
+
+
+def sections(request, branch_id: int | None = None, period: str = "today") -> dict:
     from .branchf import make
     t, u = request.tenant, request.auth
     S, L = make(branch_id)
     on = set(t.enabled_modules or [])
     can = u.has_perm_code
     today = timezone.localdate()
-    ms = today.replace(day=1)
+    period = period if period in PERIODS else "today"
+    d0, d1, plabel, p0, p1 = _range(period, today)
+    ms = d0 if period != "today" else today.replace(day=1)
+    mlabel = plabel if period != "today" else "shu oy"
     out: dict[str, list] = {}
 
     def block(code, fn):
@@ -49,13 +73,15 @@ def sections(request, branch_id: int | None = None) -> dict:
         from modules.pos.models import Order
         rows = []
         if "pos" in on and (can("pos.sell") or can("finance.view")):
-            q = S(Order.objects.filter(status="paid", paid_at__date=today))
+            q = S(Order.objects.filter(status="paid", paid_at__date__gte=d0, paid_at__date__lte=d1))
             s = int(q.aggregate(s=Sum("total"))["s"] or 0)
             n = q.count()
-            y = int(S(Order.objects.filter(status="paid", paid_at__date=today - timedelta(days=7),
-                                           paid_at__time__lte=timezone.localtime().time())).aggregate(s=Sum("total"))["s"] or 0)
+            pq = S(Order.objects.filter(status="paid", paid_at__date__gte=p0, paid_at__date__lte=p1))
+            if period == "today":
+                pq = pq.filter(paid_at__time__lte=timezone.localtime().time())
+            y = int(pq.aggregate(s=Sum("total"))["s"] or 0)
             d = round(100 * (s - y) / y) if y else None
-            rows += [_k("Bugungi savdo", _m(s), f"{n} ta chek" + (f" · o'tgan haftaga {d:+d}%" if d is not None else ""), "ok" if (d or 0) >= 0 else "warn", "/pos", "💰"),
+            rows += [_k(f"Savdo · {plabel.lower()}", _m(s), f"{n} ta chek" + (f" · o'tgan davrga {d:+d}%" if d is not None else ""), "ok" if (d or 0) >= 0 else "warn", "/pos", "💰"),
                      _k("O'rtacha chek", _m(s // n if n else 0), "so'm", "", "/reports", "🧾")]
         if "kds" in on:
             from modules.kds.models import Ticket
@@ -84,10 +110,17 @@ def sections(request, branch_id: int | None = None) -> dict:
             rows.append(_k("Taomlar", ps.count(), f"{stop} tasi stop-listda" if stop else "hammasi sotuvda", "warn" if stop else "", "/catalog", "🍽️"))
         if "pos" in on:
             from modules.pos.models import OrderItem
-            top = (S(OrderItem.objects.filter(order__status="paid", order__paid_at__date__gte=today - timedelta(days=6)), "order__branch")
+            top = (S(OrderItem.objects.filter(order__status="paid", order__paid_at__date__gte=d0 if period != "today" else today - timedelta(days=6),
+                                              order__paid_at__date__lte=d1), "order__branch")
                    .values("name").annotate(q=Sum("qty")).order_by("-q").first())
             if top:
-                rows.append(_k("Hafta xiti", top["name"], f"{top['q']} porsiya (7 kun)", "", "/reports", "🔥"))
+                rows.append(_k("Eng ko'p sotilgan", top["name"], f"{top['q']} porsiya · {plabel.lower() if period != 'today' else '7 kun'}", "", "/reports", "🔥"))
+        return rows
+    block("menu", menu)
+
+    # ---------- Mijozlar va marketing
+    def clients():
+        rows = []
         if "crm" in on and can("crm.view"):
             from modules.crm.models import Customer
             new = Customer.objects.filter(created_at__date__gte=today - timedelta(days=29)).count()
@@ -96,7 +129,7 @@ def sections(request, branch_id: int | None = None) -> dict:
             from modules.telegram.models import BotUser
             rows.append(_k("Telegram obunachilar", BotUser.objects.filter(is_blocked=False).count(), "botdagi mijozlar", "", "/telegram", "✈️"))
         return rows
-    block("menu", menu)
+    block("clients", clients)
 
     # ---------- Ombor va xarid
     def stock():
@@ -109,8 +142,8 @@ def sections(request, branch_id: int | None = None) -> dict:
             rows.append(_k("Ombor qiymati", _m(val), f"{len(ings)} xil xomashyo", "", "/inventory", "📦"))
             rows.append(_k("Kam qolgan", len(low), ", ".join(str(i) for i in low[:3]) or "hammasi yetarli", "bad" if len(low) > 3 else "warn" if low else "ok",
                            "/inventory", "⚠️"))
-            mp = int(L(Purchase.objects.filter(date__gte=ms)).aggregate(s=Sum("total"))["s"] or 0)
-            rows.append(_k("Shu oy xarid", _m(mp), "kirimlar jami", "", "/procurement" if "procurement" in on else "/inventory", "🛒"))
+            mp = int(L(Purchase.objects.filter(date__gte=ms, date__lte=d1)).aggregate(s=Sum("total"))["s"] or 0)
+            rows.append(_k(f"Xarid · {mlabel.lower()}", _m(mp), "kirimlar jami", "", "/procurement" if "procurement" in on else "/inventory", "🛒"))
         if "procurement" in on and can("procurement.view"):
             from modules.procurement.models import Order as PO
             from modules.procurement.models import Trip
@@ -142,6 +175,14 @@ def sections(request, branch_id: int | None = None) -> dict:
                 vac = L(Vacancy.objects.filter(status="open")).count()
                 apps = Application.objects.exclude(stage__in=["hired", "rejected"]).count()
                 rows.append(_k("Ishga olish", f"{vac} vakansiya", f"{apps} nomzod jarayonda", "", "/recruiting", "📣"))
+        if can("core.users.manage"):
+            from core.models import Membership, User
+            ids = Membership.objects.filter(is_active=True).values("user")
+            nopw = sum(1 for x in User.objects.filter(pk__in=ids, is_active=True).only("password") if not x.password or not x.has_usable_password())
+            rows.append(_k("Parolsiz xodimlar", nopw, "kirish uchun parol bering" if nopw else "hammasida parol bor", "warn" if nopw else "ok", "/users", "🔑"))
+        if "ops" in on and can("ops.view"):
+            from modules.ops.models import PositionProfile
+            rows.append(_k("Lavozim yo'riqnomalari", PositionProfile.objects.count(), "tashkiliy tuzilmada", "", "/positions", "🗂️"))
         return rows
     block("team", team)
 
@@ -162,9 +203,6 @@ def sections(request, branch_id: int | None = None) -> dict:
             stds = Standard.objects.count()
             if stds:
                 rows.append(_k("Standartlar", stds, f"{StandardAck.objects.count()} ta imzo", "", "/training?tab=standards", "🛡️"))
-        if "ops" in on and can("ops.view"):
-            from modules.ops.models import PositionProfile
-            rows.append(_k("Lavozim yo'riqnomalari", PositionProfile.objects.count(), "tashkiliy tuzilmada", "", "/positions", "🗂️"))
         return rows
     block("training", training)
 
@@ -176,8 +214,8 @@ def sections(request, branch_id: int | None = None) -> dict:
             op = L(Task.objects.exclude(column__kind__in=[ColumnKind.DONE, ColumnKind.CANCELLED]))
             over = op.filter(due_at__lt=timezone.now()).count()
             rows.append(_k("Ochiq vazifalar", op.count(), f"{over} tasi kechikkan" if over else "kechikkan yo'q", "bad" if over else "ok", "/tasks", "📋"))
-            done = L(Task.objects.filter(done_at__date=today)).count()
-            rows.append(_k("Bugun bajarildi", done, "vazifa", "ok" if done else "", "/tasks", "✔️"))
+            done = L(Task.objects.filter(done_at__date__gte=d0, done_at__date__lte=d1)).count()
+            rows.append(_k(f"Bajarildi · {plabel.lower()}", done, "vazifa", "ok" if done else "", "/tasks", "✔️"))
         if "projects" in on and can("projects.view"):
             from modules.projects import services as ps
             live = [p for p in L(ps.visible_projects(u)).filter(status__in=["plan", "active"]).prefetch_related("tasks")]
@@ -197,25 +235,23 @@ def sections(request, branch_id: int | None = None) -> dict:
         rows = []
         if "finance" in on and can("finance.view") and "pos" in on:
             from modules.pos.models import Order
-            q = S(Order.objects.filter(status="paid", paid_at__date__gte=ms))
+            q = S(Order.objects.filter(status="paid", paid_at__date__gte=ms, paid_at__date__lte=d1))
             agg = q.aggregate(s=Sum("total"), c=Sum("cost_total"))
             rev, cost = int(agg["s"] or 0), int(agg["c"] or 0)
             from modules.finance.models import Expense
-            exp = int(L(Expense.objects.filter(date__gte=ms)).aggregate(s=Sum("amount"))["s"] or 0)
+            exp = int(L(Expense.objects.filter(date__gte=ms, date__lte=d1)).aggregate(s=Sum("amount"))["s"] or 0)
             fc = round(100 * cost / rev, 1) if rev else 0
-            rows.append(_k("Shu oy savdo", _m(rev), f"{q.count()} ta chek", "", "/reports", "📈"))
+            rows.append(_k(f"Savdo · {mlabel.lower()}", _m(rev), f"{q.count()} ta chek", "", "/reports", "📈"))
             rows.append(_k("Food cost", f"{fc}%", "me'yor 28–35%", "ok" if 0 < fc <= 35 else "warn", "/reports", "🥘"))
-            rows.append(_k("Xarajatlar (oy)", _m(exp), "ijara, kommunal, soliq…", "", "/reports", "💸"))
+            rows.append(_k(f"Xarajatlar · {mlabel.lower()}", _m(exp), "ijara, kommunal, soliq…", "", "/reports", "💸"))
             rows.append(_k("Yalpi foyda", _m(rev - cost - exp), "savdo − tannarx − xarajat", "ok" if rev - cost - exp > 0 else "bad", "/reports", "💵"))
         return rows
     block("finance", finance)
 
     # ---------- Sozlamalar
     def settings_():
-        from core.models import Branch, Membership
+        from core.models import Branch
         rows = [_k("Filiallar", Branch.objects.filter(deleted_at__isnull=True, is_active=True).count(), "faol", "", "/branches", "🏪")]
-        if can("core.users.manage"):
-            rows.append(_k("Foydalanuvchilar", Membership.objects.filter(is_active=True).values("user").distinct().count(), "tizimga kira oladi", "", "/users", "👤"))
         rows.append(_k("Yoqilgan modullar", len(on), "tarifingiz bo'yicha", "", "/modules", "🧩"))
         if t.trial_ends_at and t.trial_ends_at > timezone.now():
             left = timezone.localtime(t.trial_ends_at).date() - today

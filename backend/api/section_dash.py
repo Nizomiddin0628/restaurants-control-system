@@ -154,6 +154,18 @@ def section_dashboard(request, code: str, days: int = 7, branch_id: int | None =
                 return {"type": "list", "title": "Kam sotilayotgan taomlar", "sub": "menyudan olib tashlash yoki aksiya qilishni o'ylang", "rows": rows, "route": "/catalog"}
             add(low)
 
+        if "catalog" in on:
+            def stop():
+                from modules.catalog.models import Product
+                rows = [{"title": p.name.get("uz") or str(p), "sub": "stop-listda — sotilmayapti", "right": f"{_m(p.price)}", "tone": "bad"}
+                        for p in Product.objects.filter(deleted_at__isnull=True, in_stop_list=True)[:6]]
+                return {"type": "list", "title": "Stop-list", "sub": "hozir sotuvda yo'q", "rows": rows, "empty": "Hamma taom sotuvda", "route": "/catalog"}
+            add(stop)
+
+
+    # ================================================================== MIJOZLAR VA MARKETING
+    elif code == "clients":
+        if "pos" in on:
             def sources():
                 lab = {"pos": "Kassa", "telegram": "Telegram", "site": "Sayt", "app": "Ilova"}
                 q = paid().filter(paid_at__date__gte=since).values("source").annotate(n=Count("id")).order_by("-n")
@@ -174,13 +186,6 @@ def section_dashboard(request, code: str, days: int = 7, branch_id: int | None =
                          "tone": "ok"} for c in Customer.objects.order_by("-spent_total")[:7]]
                 return {"type": "list", "title": "Eng yaxshi mijozlar", "sub": "jami xarid bo'yicha", "rows": rows, "route": "/crm"}
             add(vip)
-        if "catalog" in on:
-            def stop():
-                from modules.catalog.models import Product
-                rows = [{"title": p.name.get("uz") or str(p), "sub": "stop-listda — sotilmayapti", "right": f"{_m(p.price)}", "tone": "bad"}
-                        for p in Product.objects.filter(deleted_at__isnull=True, in_stop_list=True)[:6]]
-                return {"type": "list", "title": "Stop-list", "sub": "hozir sotuvda yo'q", "rows": rows, "empty": "Hamma taom sotuvda", "route": "/catalog"}
-            add(stop)
 
     # ================================================================== OMBOR VA XARID
     elif code == "stock":
@@ -281,6 +286,14 @@ def section_dashboard(request, code: str, days: int = 7, branch_id: int | None =
                     rows = [{"label": s.label, "value": c.get(s.value, 0), "display": str(c.get(s.value, 0))} for s in Stage if s.value != "rejected"]
                     return {"type": "rank", "title": "Ishga olish voronkasi", "sub": "nomzodlar bosqichlar bo'yicha", "rows": rows, "route": "/recruiting"}
                 add(funnel)
+
+        if can("core.users.manage"):
+            def roles():
+                from core.models import Membership
+                q = Membership.objects.filter(is_active=True).values("role__name").annotate(n=Count("id")).order_by("-n")
+                return {"type": "rank", "title": "Foydalanuvchilar rollar bo'yicha", "sub": "kim tizimga kira oladi",
+                        "rows": [{"label": r["role__name"], "value": r["n"], "display": str(r["n"])} for r in q], "route": "/users"}
+            add(roles)
 
     # ================================================================== O'QITISH VA STANDARTLAR
     elif code == "training":
@@ -412,14 +425,6 @@ def section_dashboard(request, code: str, days: int = 7, branch_id: int | None =
                     for b in Branch.objects.filter(deleted_at__isnull=True)]
             return {"type": "list", "title": "Filiallar", "sub": "bugungi savdo bilan", "rows": rows, "route": "/branches"}
         add(branches)
-
-        def roles():
-            from core.models import Membership
-            q = Membership.objects.filter(is_active=True).values("role__name").annotate(n=Count("id")).order_by("-n")
-            return {"type": "rank", "title": "Foydalanuvchilar rollar bo'yicha", "sub": "kim tizimga kira oladi",
-                    "rows": [{"label": r["role__name"], "value": r["n"], "display": str(r["n"])} for r in q], "route": "/users"}
-        if can("core.users.manage"):
-            add(roles)
 
         def audit():
             from core.models import AuditLog

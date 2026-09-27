@@ -38,11 +38,11 @@ async function load() {
 onMounted(async () => {
   await load()
   S.value = await api.get('/dashboard/summary').catch(() => null)
-  loadSec(true)
-  timer = window.setInterval(() => { if (period.value === 'today' && !document.hidden) { load(); loadSec(true) } }, 60000)
+  loadSec(true, period.value)
+  timer = window.setInterval(() => { if (period.value === 'today' && !document.hidden) { load(); loadSec(true, period.value) } }, 60000)
 })
 onBeforeUnmount(() => clearInterval(timer))
-watch([period, branch], () => { try { localStorage.setItem('dash.period', period.value) } catch { /* private */ } load(); loadSec() })
+watch([period, branch], () => { try { localStorage.setItem('dash.period', period.value) } catch { /* private */ } load(); loadSec(false, period.value) })
 
 const hello = computed(() => { const h = new Date().getHours(); return h < 5 ? 'Xayrli tun' : h < 11 ? 'Xayrli tong' : h < 18 ? 'Xayrli kun' : 'Xayrli kech' })
 const setupLeft = computed(() => (S.value?.checklist ?? []).filter((c: any) => !c.done))
@@ -123,7 +123,9 @@ const branchName = computed(() => D.value?.branches_list.find((b: any) => String
     <header class="top">
       <div class="hi">
         <h1>{{ hello }}, {{ D.user.first_name || 'hurmatli rahbar' }}! 👋</h1>
-        <p>{{ D.tenant.name }} · {{ today }}, {{ dateLabel }}<template v-if="branchName"> · {{ branchName }}</template></p>
+        <p>{{ D.tenant.name }} · {{ today }}, {{ dateLabel }}<template v-if="branchName"> · {{ branchName }}</template>
+          <RouterLink v-if="D.today?.weather" :to="a.hasModule('forecast') ? '/forecast' : '/'" class="wx" :title="`${D.today.weather.label}${D.today.weather.effect ? ` · savdoga ta'siri ${D.today.weather.effect > 0 ? '+' : ''}${D.today.weather.effect}%` : ''}`">
+            {{ D.today.weather.icon }} {{ D.today.weather.t_max }}°<small>/{{ D.today.weather.t_min }}°</small> {{ D.today.weather.city }}</RouterLink></p>
       </div>
       <div class="ctl">
         <div class="seg" role="tablist" aria-label="Davr">
@@ -131,6 +133,14 @@ const branchName = computed(() => D.value?.branches_list.find((b: any) => String
         </div>
       </div>
     </header>
+
+    <!-- faqat bayram kunlari -->
+    <RouterLink v-if="D.today?.holiday" :to="a.hasModule('forecast') ? '/forecast' : '/'" class="hol">
+      <span class="hol-i">🎉</span>
+      <span class="hol-t"><b>Bugun: {{ D.today.holiday.name.uz || D.today.holiday.name }}</b>
+        <small>Savdo odatdagidan {{ D.today.holiday.uplift_percent >= 0 ? '+' : '' }}{{ D.today.holiday.uplift_percent }}% kutilmoqda — xodimlar va xomashyoni tekshiring</small></span>
+      <UiIcon name="chevron" :size="16" style="transform: rotate(-90deg)" />
+    </RouterLink>
 
     <!-- BO'LIMLAR: asosiy sahifadan har bo'limga bir bosishda -->
     <nav class="secs" aria-label="Bo'limlar">
@@ -386,4 +396,9 @@ a.kpi:hover { border-color: var(--accent); transform: translateY(-1px); }
   .r1, .r2, .r3 { grid-template-columns: 1fr; } .r1 > :first-child { grid-column: auto; } .r2 > :first-child, .r3 > :first-child { grid-column: auto; }
   .chart svg { height: 200px; } .qa { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; } .qb { min-height: 76px; font-size: 11px; }
 }
+.wx { display: inline-flex; align-items: center; gap: 3px; margin-left: 8px; padding: 2px 10px; border-radius: 99px; background: var(--surface); border: 1px solid var(--line); color: var(--ink-2); text-decoration: none; font-weight: 700; font-size: var(--fs-xs); white-space: nowrap; vertical-align: middle; }
+.wx small { color: var(--muted); font-weight: 600; } .wx:hover { border-color: var(--accent); }
+.hol { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 14px; text-decoration: none; color: var(--ink);
+  background: linear-gradient(90deg, color-mix(in srgb, #F59E0B 22%, var(--surface)), var(--surface)); border: 1px solid color-mix(in srgb, #F59E0B 40%, var(--line)); }
+.hol-i { font-size: 24px; } .hol-t { flex: 1; display: flex; flex-direction: column; min-width: 0; } .hol-t small { color: var(--ink-2); font-size: var(--fs-xs); }
 </style>

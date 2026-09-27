@@ -3,7 +3,7 @@ import logging
 
 import pytest
 
-CODES = ["sales", "menu", "stock", "team", "training", "work", "finance", "settings"]
+CODES = ["sales", "menu", "clients", "stock", "team", "training", "work", "finance", "settings"]
 
 
 @pytest.mark.django_db
@@ -30,6 +30,8 @@ def test_sections_and_widgets(api, tenant, caplog):
     with schema_context("lazzat"):
         bid = Branch.objects.first().pk
     assert api.get(f"/api/v1/dashboard/sections?branch_id={bid}").status_code == 200
+    for per in ("today", "yesterday", "week", "month", "year"):
+        assert api.get(f"/api/v1/dashboard/sections?period={per}").status_code == 200, per
     for code in CODES:
         assert api.get(f"/api/v1/dashboard/section/{code}?days=7&branch_id={bid}").status_code == 200, code
     errs = [r for r in caplog.records if r.levelno >= logging.ERROR and ("bo'lim" in r.getMessage())]

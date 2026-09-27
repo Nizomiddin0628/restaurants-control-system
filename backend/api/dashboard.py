@@ -56,7 +56,7 @@ def overview(request, period: str = "today", branch_id: Optional[int] = None) ->
         "period": {"code": period, "label": PERIODS[period], "start": start.isoformat(), "end": end.isoformat(),
                    "periods": [{"code": k, "label": v} for k, v in PERIODS.items()]},
         "branches_list": [], "kpis": [], "series": None, "status": None, "top": None, "branches": None,
-        "recent": None, "stock": None, "tasks": None, "activity": [],
+        "recent": None, "stock": None, "tasks": None, "activity": [], "today": {"holiday": None, "weather": None},
     }
     from core.models import Branch
     out["branches_list"] = [{"id": b.pk, "name": b.name} for b in Branch.objects.filter(deleted_at__isnull=True, is_active=True)]
@@ -68,7 +68,28 @@ def overview(request, period: str = "today", branch_id: Optional[int] = None) ->
     if t.module_enabled("tasks"):
         _tasks(out, now)
     _activity(out, t, branch_id)
+    if t.module_enabled("forecast"):
+        _today(out, t)
     return out
+
+
+def _today(out, t):
+    """Kichik blok: bugun bayram bo'lsa — bayram (faqat o'sha kunlari), va bugungi ob-havo (bir qator). Xato bo'lsa — chiqmaydi."""
+    import logging
+    try:
+        from modules.forecast import services, weather
+        h = next((x for x in services.upcoming(limit=6) if x.covers(timezone.localdate())), None)
+        if h:
+            ho = services.holiday_out(h)
+            out["today"]["holiday"] = {"name": ho["name"], "uplift_percent": ho["uplift_percent"], "end": ho["end"], "days": ho["days"]}
+        weather.refresh(t)
+        days = weather.forecast_days(t, 1)
+        if days:
+            w = weather.day_out(days[0], t)
+            out["today"]["weather"] = {"icon": w["icon"], "label": w["label"], "t_max": w["t_max"], "t_min": w["t_min"],
+                                       "effect": w["effect"], "city": weather.location(t)["name"]}
+    except Exception:
+        logging.getLogger("dashboard").exception("bugungi bayram/ob-havo")
 
 
 # ------------------------------------------------------------------ savdo

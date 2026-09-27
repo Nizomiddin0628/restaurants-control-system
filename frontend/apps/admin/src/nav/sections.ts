@@ -16,20 +16,22 @@ export type SectionView = Section & { items: (NavItem & { desc: string })[] }
 export const SECTIONS: Section[] = [
   { code: 'sales', title: 'Savdo va xizmat', icon: 'receipt', emoji: '💳', color: '#EA580C', desc: 'Kassa, oshxona ekrani, zal va bron',
     routes: ['/pos', '/kds', '/tables', '/reservations', '/delivery'] },
-  { code: 'menu', title: 'Menyu va mijozlar', icon: 'book', emoji: '🍽️', color: '#DB2777', desc: 'Taomnoma, mijozlar va bonus, Telegram bot, sayt',
-    routes: ['/catalog', '/crm', '/telegram', '/site'] },
+  { code: 'menu', title: 'Menyu', icon: 'book', emoji: '🍽️', color: '#DB2777', desc: 'Taomlar, narxlar, stop-list, eng ko\'p sotilganlar',
+    routes: ['/catalog'] },
+  { code: 'clients', title: 'Mijozlar va marketing', icon: 'star', emoji: '❤️', color: '#E11D48', desc: 'Mijozlar va bonus, Telegram bot, sayt',
+    routes: ['/crm', '/telegram', '/site'] },
   { code: 'stock', title: 'Ombor va xarid', icon: 'box', emoji: '📦', color: '#2563EB', desc: 'Qoldiq va tannarx, zakup, bozorlik, bayram prognozi',
     routes: ['/inventory', '/procurement', '/market', '/forecast'] },
-  { code: 'team', title: 'Xodimlar', icon: 'users', emoji: '👥', color: '#059669', desc: 'Xodimlar, smena va davomat, ishga olish, baholash va KPI',
-    routes: ['/hr', '/recruiting', '/kpi'] },
-  { code: 'training', title: "O'qitish va standartlar", icon: 'book', emoji: '🎓', color: '#CA8A04', desc: "Kurslar, testlar, standartlar, tashkiliy tuzilma va lavozim yo'riqnomalari",
-    routes: ['/training', '/org', '/positions'] },
+  { code: 'team', title: 'Xodimlar', icon: 'users', emoji: '👥', color: '#059669', desc: 'Xodimlar va kirish (login/parol), smena, davomat, ishga olish, KPI, tuzilma',
+    routes: ['/hr', '/users', '/recruiting', '/kpi', '/org', '/positions'] },
+  { code: 'training', title: "O'qitish", icon: 'book', emoji: '🎓', color: '#CA8A04', desc: 'Kurslar, video darslar, testlar, standartlar',
+    routes: ['/training'] },
   { code: 'work', title: 'Vazifa va loyihalar', icon: 'check', emoji: '✅', color: '#7C3AED', desc: 'Kundalik vazifalar, muammolar va katta loyihalar',
     routes: ['/tasks', '/projects'] },
   { code: 'finance', title: 'Moliya va hisobot', icon: 'chart', emoji: '📊', color: '#0891B2', desc: 'Savdo, foyda-zarar, food cost, menyu tahlili',
     routes: ['/reports'] },
-  { code: 'settings', title: 'Sozlamalar', icon: 'sliders', emoji: '⚙️', color: '#64748B', desc: 'Filiallar, foydalanuvchilar, modullar, yordam',
-    routes: ['/branches', '/users', '/modules', '/settings', '/support', '/audit'] },
+  { code: 'settings', title: 'Sozlamalar', icon: 'sliders', emoji: '⚙️', color: '#64748B', desc: 'Filiallar, modullar, restoran sozlamalari, yordam',
+    routes: ['/branches', '/modules', '/settings', '/support', '/audit'] },
 ]
 
 /** Har modul kartasi uchun bir qatorli tushuntirish (bo'lim sahifasida) */
@@ -57,7 +59,7 @@ export const DESC: Record<string, string> = {
   '/projects': "Filial ochish, yangi menyu, ta'mir — katta ishlar",
   '/reports': 'Savdo, foyda-zarar, food cost, menyu tahlili',
   '/branches': "Filiallar, manzil, ish vaqti",
-  '/users': 'Foydalanuvchilar va rollar (ruxsatlar)',
+  '/users': 'Kim tizimga kiradi: login, parol, rollar va ruxsatlar',
   '/modules': "Modullarni yoqish va o'chirish",
   '/settings': 'Restoran va profil sozlamalari',
   '/support': 'Texnik yordam va platforma bilan aloqa',
@@ -66,7 +68,7 @@ export const DESC: Record<string, string> = {
 
 const TAIL: NavItem[] = [
   { route: '/branches', label: { uz: 'Filiallar', ru: 'Филиалы', en: 'Branches' }, icon: 'store', order: 80, perm: 'core.branches.manage' },
-  { route: '/users', label: { uz: 'Foydalanuvchilar', ru: 'Пользователи', en: 'Users' }, icon: 'users', order: 85, perm: 'core.users.manage' },
+  { route: '/users', label: { uz: 'Kirish va rollar', ru: 'Доступ и роли', en: 'Access & roles' }, icon: 'users', order: 85, perm: 'core.users.manage' },
   { route: '/modules', label: { uz: 'Modullar', ru: 'Модули', en: 'Modules' }, icon: 'sliders', order: 95, perm: 'core.modules.manage' },
   { route: '/settings', label: { uz: 'Sozlamalar', ru: 'Настройки', en: 'Settings' }, icon: 'bars', order: 96, perm: 'core.settings.view' },
   { route: '/support', label: { uz: 'Yordam', ru: 'Поддержка', en: 'Support' }, icon: 'headset', order: 97, perm: 'core.settings.view' },
@@ -109,12 +111,14 @@ let loadedAt = 0
 let loadedFor = ''
 let pending: Promise<void> | null = null
 export function useSectionStats() {
-  async function load(force = false) {
-    if (pending) return pending
-    const ui = useUi(), b = ui.branch
-    if (b !== loadedFor) force = true
+  /** period: today | yesterday | week | month | year — plitkalardagi raqamlar shu davr bo'yicha */
+  async function load(force = false, period = 'today'): Promise<void> {
+    if (pending) await pending
+    const ui = useUi(), b = ui.branch, key = `${b}|${period}`
+    if (key !== loadedFor) force = true
     if (!force && stats.value && Date.now() - loadedAt < 60_000) return
-    pending = api.get<Record<string, Kpi[]>>('/dashboard/sections', b ? { branch_id: b } : undefined).then((r) => { stats.value = r; loadedAt = Date.now(); loadedFor = b }).catch(() => { /* ko'rsatkichsiz ham ishlaydi */ }).finally(() => { pending = null })
+    pending = api.get<Record<string, Kpi[]>>('/dashboard/sections', { ...(b ? { branch_id: b } : {}), period })
+      .then((r) => { stats.value = r; loadedAt = Date.now(); loadedFor = key }).catch(() => { /* ko'rsatkichsiz ham ishlaydi */ }).finally(() => { pending = null })
     return pending
   }
   return { stats, load }

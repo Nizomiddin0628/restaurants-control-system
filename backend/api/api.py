@@ -700,10 +700,10 @@ def dashboard_overview(request, period: str = "today", branch_id: Optional[int] 
 
 
 @api.get("/dashboard/sections", auth=auth, tags=["dashboard"])
-def dashboard_sections(request, branch_id: Optional[int] = None):
-    """Har bo'lim uchun 3–5 ta asosiy ko'rsatkich (bo'lim sahifasi va asosiy sahifa plitkalari uchun)."""
+def dashboard_sections(request, branch_id: Optional[int] = None, period: str = "today"):
+    """Har bo'lim uchun 3–5 ta asosiy ko'rsatkich (plitkalar). period: today|yesterday|week|month|year — asosiy sahifadagi davr."""
     from .sections import sections
-    return sections(request, branch_id)
+    return sections(request, branch_id, period)
 
 
 @api.get("/dashboard/section/{code}", auth=auth, tags=["dashboard"])
