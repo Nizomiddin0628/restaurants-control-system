@@ -111,20 +111,24 @@ button, input, select { font: inherit; }
 /* ---- kompyuter */
 @media (min-width: 1025px) {
   :root { --gutter: clamp(32px, 3vw, 48px); }
-  .nav { display: flex; }
   .hero { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: center; }
   .brand { flex: 0 1 auto; } .brand > span:last-child { -webkit-line-clamp: 1; white-space: nowrap; }
-  .burger, .mnav { display: none !important; }
   .grid { grid-template-columns: repeat(4, 1fr); }
   .two { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; align-items: start; }
 }
+/* ---- keng kompyuter: menyu qatori sig'adigan joyda to'liq, torroq ekranda — burger (qator ikki qavat bo'lmasin) */
+@media (min-width: 1280px) { .nav { display: flex; } .burger, .mnav { display: none !important; } }
+.nav a { white-space: nowrap; }
+.nav { gap: clamp(12px, 1.4vw, 22px); }
+/* buyurtma qatori: tanlov (yetkazish / olib ketish) alohida qator, ostida manzil + tugma — hech narsa kesilmaydi */
+@media (min-width: 601px) { .order-bar > .toggle { flex: 1 1 100%; } }
 /* ---- TV / juda katta ekran: 10-fut UI */
 @media (min-width: 1921px) { :root { --maxw: 1800px; --fs-body: 22px; --touch: 64px; --gutter: 64px; } }
 [data-density="tv"] { --fs-body: 26px; --fs-h1: 72px; --fs-h2: 52px; --touch: 72px; --gutter: 56px; --radius: 24px; }
 
 /* ---- TV menyu-bord */
 .board { min-height: 100vh; display: grid; grid-template-rows: auto 1fr; background: #141416; color: #F2F1EC; }
-.board { overflow-x: hidden; }
+.board { overflow-x: hidden; grid-template-columns: minmax(0, 1fr); } .board > * { min-width: 0; }
 .board-hdr { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 24px 56px; border-bottom: 1px solid #2E2E34; }
 .board-hdr > div:first-child, #clock { flex-shrink: 0; white-space: nowrap; }
 .board-cats { display: flex; gap: 12px; flex: 1; min-width: 0; justify-content: center; flex-wrap: wrap; }
@@ -137,5 +141,9 @@ button, input, select { font: inherit; }
 .board-item .pr { font-weight: 800; font-size: 1.3em; white-space: nowrap; }
 .board-page { display: none; }
 .board-page.on { display: contents; }
-@media (max-width: 1400px) { .board-grid { grid-template-columns: repeat(2, 1fr); padding: 24px 32px; } .board-hdr { padding: 20px 32px; } }
+@media (max-width: 1400px) { .board-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 24px 32px; } .board-hdr { padding: 20px 32px; } }
+.board-item > div:first-child { min-width: 0; }
+@media (max-width: 1000px) { [data-density="tv"] { --fs-body: 16px; --fs-h1: 32px; --fs-h2: 24px; --touch: 44px; --gutter: 16px; --radius: 16px; } .board { font-size: 16px; } .board-hdr span { font-size: 1em !important; } .board-hdr span[style*="56px"] { width: 40px !important; height: 40px !important; }
+  .board-cats { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } .board-cats span { padding: 6px 14px; }
+  .board-grid { grid-template-columns: minmax(0, 1fr); padding: 16px; gap: 12px; } .board-hdr { flex-wrap: wrap; padding: 14px 16px; gap: 12px; } .board-cats { order: 3; flex-basis: 100%; justify-content: flex-start; } .board-item { padding: 16px 18px; } }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

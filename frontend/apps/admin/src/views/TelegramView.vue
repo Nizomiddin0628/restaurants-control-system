@@ -71,7 +71,7 @@ const when = (v?: string | null) => (v ? new Date(v).toLocaleString('uz-UZ', { d
 
 <template>
   <div v-if="s" class="tg">
-    <div class="kpis">
+    <div class="kpis k5">
       <button type="button" class="k kpi-click" :class="{ on: tab === 'users' }" @click="tab = 'users'"><b>{{ stats.subscribers }}</b><span>Obunachi</span><small>+{{ stats.new_week }} shu hafta</small></button>
       <button type="button" class="k kpi-click" @click="tab = 'users'"><b>{{ stats.with_phone }}</b><span>Telefon ulagan</span></button>
       <RouterLink to="/reports" class="k kpi-click"><b>{{ stats.orders_today }}</b><span>Bugungi buyurtma</span><small>30 kunda {{ stats.orders_30d }}</small></RouterLink>
@@ -217,4 +217,6 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 6px; font-
 .bx:first-child { border-top: 0; } .bx p { margin: 0; white-space: pre-line; }
 @media (max-width: 1100px) { .two { grid-template-columns: 1fr; } .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .k:last-child { grid-column: span 2; } .g3, .g2 { grid-template-columns: 1fr; } .ur { grid-template-columns: 1fr auto; padding: 10px 16px; } .ur .n, .ur .ls { font-size: var(--fs-xs); } .bar { padding: 12px 16px; } .urls span { width: auto; } .urls div { flex-wrap: wrap; } }
+/* 5 ta KPI planshetda: 3 + 2 (oxirgi ikkitasi kengroq) — bo'sh katak qolmaydi */
+@media (min-width: 601px) and (max-width: 1100px) { .kpis.k5 { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; } .kpis.k5 > * { grid-column: span 2; } .kpis.k5 > :nth-child(n+4) { grid-column: span 3; } }
 </style>

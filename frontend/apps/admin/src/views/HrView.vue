@@ -98,7 +98,7 @@ async function checkIn(e: any) { try { await api.post(`/hr/attendance/check-in?e
 async function checkOut(e: any) { try { await api.post(`/hr/attendance/check-out?employee_id=${e.id}`); await loadAtt(); await load(); toast('Ketdi ✓') } catch (x: any) { toast(x.detail ?? 'Xato', 'danger') } }
 
 // ---- oylik
-const period = ref(new Date().toISOString().slice(0, 7))
+const period = ref(new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 7))
 const payroll = ref<any[]>([])
 async function loadPayroll() { payroll.value = await api.get('/hr/payroll', { period: period.value + '-01' }) }
 async function compute() { payroll.value = await api.post(`/hr/payroll/compute?period=${period.value}-01`); toast('Hisoblandi') }

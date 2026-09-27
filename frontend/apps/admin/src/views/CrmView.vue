@@ -132,7 +132,7 @@ const bdLabel = (d: number) => (d === 0 ? 'Bugun 🎂' : d === 1 ? 'Ertaga' : `$
 
 <template>
   <div class="crm">
-    <div v-if="stats" class="kpis">
+    <div v-if="stats" class="kpis k5">
       <button type="button" class="k kpi-click" :class="{ on: tab === 'customers' && sort === 'new' }" @click="kpiGo('new')"><b>{{ stats.customers }}</b><span>Mijoz bazasi</span><small>+{{ stats.new_30d }} 30 kunda</small></button>
       <button type="button" class="k kpi-click" :class="{ on: tab === 'customers' && sort === 'orders' }" @click="kpiGo('orders')"><b>{{ stats.returning_rate }}%</b><span>Qaytib keladi</span><small>2+ marta xarid qilgan</small></button>
       <button type="button" class="k kpi-click" :class="{ on: tab === 'customers' && sort === 'recent' }" @click="kpiGo('recent')"><b>{{ stats.identified_share }}%</b><span>Cheklarda telefon</span><small>30 kun · qancha ko'p — shuncha yaxshi</small></button>
@@ -387,4 +387,6 @@ const bdLabel = (d: number) => (d === 0 ? 'Bugun 🎂' : d === 1 ? 'Ertaga' : `$
   .cr { grid-template-columns: 36px minmax(0, 1fr) auto; padding: 10px 16px; row-gap: 4px; } .cr .n { display: none; } .cr .bonus { display: flex; grid-column: 2 / 4; flex-direction: row; gap: 6px; align-items: baseline; }
   .bar { padding: 12px 16px; } .cst { grid-template-columns: repeat(2, 1fr); } .lv { grid-template-columns: 70px 1fr 90px; }
 }
+/* 5 ta KPI planshetda: 3 + 2 (oxirgi ikkitasi kengroq) — bo'sh katak qolmaydi */
+@media (min-width: 601px) and (max-width: 1100px) { .kpis.k5 { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; } .kpis.k5 > * { grid-column: span 2; } .kpis.k5 > :nth-child(n+4) { grid-column: span 3; } }
 </style>

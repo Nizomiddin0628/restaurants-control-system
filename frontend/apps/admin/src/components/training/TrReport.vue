@@ -38,7 +38,7 @@ async function remind() {
 function exportXlsx() {
   fetch('/api/v1/training/report/export.xlsx', { headers: { Authorization: `Bearer ${apiAuth.token}` } })
     .then(r => { if (!r.ok) throw new Error(); return r.blob() })
-    .then(b => { const u = URL.createObjectURL(b); const el = document.createElement('a'); el.href = u; el.download = `oqitish_${new Date().toISOString().slice(0, 10)}.xlsx`; el.click(); URL.revokeObjectURL(u) })
+    .then(b => { const u = URL.createObjectURL(b); const el = document.createElement('a'); el.href = u; el.download = `oqitish_${new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)}.xlsx`; el.click(); URL.revokeObjectURL(u) })
     .catch(() => toast('Yuklab bo\'lmadi', 'danger'))
 }
 async function open(r: any) { detail.value = await api.get(`/training/report/users/${r.user.id}`) }

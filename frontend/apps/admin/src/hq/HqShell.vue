@@ -74,8 +74,8 @@ main { min-width: 0; display: flex; flex-direction: column; }
 .scrim { display: none; }
 @media (max-width: 1000px) {
   .hq { grid-template-columns: minmax(0, 1fr); }
-  .side { position: fixed; z-index: 40; left: 0; top: 0; width: 270px; transform: translateX(-100%); transition: transform .2s; }
-  .hq.open .side { transform: none; } .hq.open .scrim { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 30; }
+  .side { position: fixed; z-index: 40; left: 0; top: 0; width: 270px; transform: translateX(-100%); transition: transform .2s, visibility .2s; visibility: hidden; }
+  .hq.open .side { transform: none; visibility: visible; } .hq.open .scrim { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 30; }
   .burger { display: grid; } .top { padding: 10px 16px; } .page { padding: 16px 16px 40px; }
   .srch { width: auto; flex: 0 1 200px; }
 }

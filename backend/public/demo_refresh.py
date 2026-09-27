@@ -6,6 +6,7 @@ Faqat demo restoranlarda ishlaydi (namuna, lazzat yoki settings["demo"] = True).
     «198 daq» o'rniga odatiy vaqt; holati (yangi / tayyorlanmoqda / tayyor) saqlanadi.
   • Zal: 3 soatdan beri ochiq turgan stollar — 10–70 daqiqa oldin ochilgandek.
   • Bron: o'tib ketgan, lekin yopilmagan bronlar bugun/ertaga shu soatga suriladi; o'tirgan — «tugadi».
+  • Taomnoma: bo'sh (taomsiz) takroriy kategoriyalar yashiriladi — «Bu kategoriyada taom yo'q» ko'rinmaydi.
   • Ombor: to'langan demo cheklar uchun tex-karta bo'yicha «savdo» sarfi yoziladi (qoldiq o'zgarmaydi) —
     «Eng ko'p sarflangan xomashyo» vidjeti bo'sh turmaydi. Qayta ishga tushirilsa takrorlamaydi.
 Ishga tushirish: python manage.py refresh_demo   (install.sh har yangilanishda chaqiradi)
@@ -35,7 +36,7 @@ def refresh(tenant, *, now=None, seed: int = 7) -> dict:
     """Bitta restoran (sxema allaqachon tanlangan bo'lishi shart). Natija: nima o'zgargani."""
     now = now or timezone.now()
     rnd = random.Random(seed)
-    out = {"orders": 0, "tables": 0, "reservations": 0, "usage": 0}
+    out = {"orders": 0, "tables": 0, "reservations": 0, "usage": 0, "categories": 0}
     mods = set(tenant.enabled_modules or [])
     with transaction.atomic():
         if "pos" in mods:
@@ -46,6 +47,8 @@ def refresh(tenant, *, now=None, seed: int = 7) -> dict:
             out["reservations"] = _reservations(now)
         if "inventory" in mods and "pos" in mods:
             out["usage"] = _usage(now)
+        if "catalog" in mods:
+            out["categories"] = _empty_categories(now)
     return out
 
 
@@ -99,6 +102,17 @@ def _reservations(now) -> int:
         n += 1
     n += Reservation.objects.filter(status=RS.SEATED, starts_at__lt=now - STALE).update(status=RS.DONE, closed_at=now)
     return n
+
+
+def _empty_categories(now) -> int:
+    """Taomi yo'q kategoriyalar (preset'dan qolgan «Asosiy taomlar», ikkinchi «Ichimliklar») — faqat to'la menyu bo'lsa yashiriladi."""
+    from modules.catalog.models import Category
+    cats = list(Category.objects.filter(deleted_at__isnull=True))
+    full = [c for c in cats if c.products.filter(deleted_at__isnull=True).exists()]
+    if len(full) < 3:
+        return 0
+    empty = [c.pk for c in cats if c not in full]
+    return Category.objects.filter(pk__in=empty).update(deleted_at=now)
 
 
 def _usage(now, days: int = 30) -> int:

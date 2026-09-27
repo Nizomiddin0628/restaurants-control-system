@@ -24,10 +24,10 @@ async function set(id: number, st: string) {
 <template>
   <div v-if="B" class="bl">
     <section class="tiles">
-      <div><span>Shu oy jami</span><b>{{ big(B.summary.month_total) }}</b></div>
-      <div class="ok"><span>To'langan</span><b>{{ big(B.summary.paid) }}</b></div>
-      <div class="wr"><span>Kutilmoqda</span><b>{{ big(B.summary.pending) }}</b></div>
-      <div class="dn"><span>Muddati o'tgan</span><b>{{ big(B.summary.overdue) }}</b><small>{{ B.summary.overdue_count }} ta hisob</small></div>
+      <button type="button" class="kpi-click" :class="{ on: !status }" @click="status = ''"><span>Shu oy jami</span><b>{{ big(B.summary.month_total) }}</b></button>
+      <button type="button" class="ok kpi-click" :class="{ on: status === 'paid' }" @click="status = status === 'paid' ? '' : 'paid'"><span>To'langan</span><b>{{ big(B.summary.paid) }}</b></button>
+      <button type="button" class="wr kpi-click" :class="{ on: status === 'pending' }" @click="status = status === 'pending' ? '' : 'pending'"><span>Kutilmoqda</span><b>{{ big(B.summary.pending) }}</b></button>
+      <button type="button" class="dn kpi-click" :class="{ on: status === 'overdue' }" @click="status = status === 'overdue' ? '' : 'overdue'"><span>Muddati o'tgan</span><b>{{ big(B.summary.overdue) }}</b><small>{{ B.summary.overdue_count }} ta hisob</small></button>
     </section>
     <UiCard title="Oylik daromad (MRR)" subtitle="12 oy"><AreaChart :points="pts" :height="190" /></UiCard>
     <UiCard :padded="false" title="Hisob-fakturalar">
@@ -51,7 +51,7 @@ async function set(id: number, st: string) {
 <style scoped>
 .bl { display: flex; flex-direction: column; gap: 14px; }
 .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-.tiles div { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid #2563EB; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; }
+.tiles button { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid #2563EB; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; }
 .tiles .ok { border-left-color: #16A34A; } .tiles .wr { border-left-color: #F59E0B; } .tiles .dn { border-left-color: #EF4444; }
 .tiles span { font-size: var(--fs-xs); color: var(--muted); font-weight: 700; } .tiles b { font-family: var(--font-display); font-size: 24px; } .tiles small { color: var(--muted); font-size: 11px; }
 select { min-height: 36px; border: 1px solid var(--line); border-radius: 10px; padding: 0 10px; font: inherit; background: var(--surface); color: var(--ink); }

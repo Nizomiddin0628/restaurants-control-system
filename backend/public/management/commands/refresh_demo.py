@@ -29,5 +29,5 @@ class Command(BaseCommand):
                 except Exception as e:   # bitta restorandagi xato boshqalarini to'xtatmasin
                     self.stdout.write(self.style.WARNING(f"{t.slug}: xato — {e}"))
                     continue
-            self.stdout.write(f"{t.slug}: buyurtma {r['orders']}, stol {r['tables']}, bron {r['reservations']}, sarf yozuvi {r['usage']}")
+            self.stdout.write(f"{t.slug}: buyurtma {r['orders']}, stol {r['tables']}, bron {r['reservations']}, sarf yozuvi {r['usage']}, bo'sh kategoriya {r['categories']}")
         self.stdout.write(self.style.SUCCESS("Demo yangilandi."))

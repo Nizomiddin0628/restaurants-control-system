@@ -12,7 +12,7 @@
         <label class="addr" style="flex:1"><span class="muted">📍</span><input name="address" placeholder="{% if lang == 'ru' %}Адрес доставки{% elif lang == 'en' %}Delivery address{% else %}Manzil{% endif %}"></label>
         <button class="btn" type="submit">{{ s.props.cta|default:"Buyurtma berish" }}</button>
       </form>
-      <div class="muted" style="display:flex;gap:18px;flex-wrap:wrap;font-size:0.9em"><span>✓ Payme · Click · UzQR</span><span>✓ {% if lang == 'ru' %}Фискальный чек{% elif lang == 'en' %}Fiscal receipt{% else %}Fiskal chek{% endif %}</span></div>
+      <div class="muted" style="display:flex;gap:18px;flex-wrap:wrap;font-size:0.9em"><span>✓ Payme · Click · UzQR</span><span>✓ {% if lang == 'ru' %}Бонус с каждого заказа{% elif lang == 'en' %}Bonus on every order{% else %}Har buyurtmadan bonus{% endif %}</span></div>
     </div>
     <div style="display:flex;flex-direction:column;gap:12px">
       {% with menu.categories|first as first_cat %}{% with first_cat.products|first as fp %}
@@ -85,7 +85,7 @@
         <div class="step"><span class="num">1</span><div><b>{% if lang == 'ru' %}Заказ — 30 секунд{% elif lang == 'en' %}Order — 30 seconds{% else %}Buyurtma — 30 soniya{% endif %}</b><div class="muted">{% if lang == 'ru' %}Сайт, Telegram-бот или касса{% elif lang == 'en' %}Website, Telegram bot or counter{% else %}Sayt, Telegram-bot yoki kassada{% endif %}</div></div></div>
         <div class="step"><span class="num">2</span><div><b>{% if lang == 'ru' %}Кухня — в реальном времени{% elif lang == 'en' %}Kitchen — live{% else %}Oshxona — real vaqtda{% endif %}</b><div class="muted">{% if lang == 'ru' %}Заказ сразу на экране кухни{% elif lang == 'en' %}Straight to the kitchen screen{% else %}Buyurtma to'g'ridan-to'g'ri oshxona ekraniga tushadi{% endif %}</div></div></div>
         <div class="step"><span class="num">3</span><div><b>{% if lang == 'ru' %}Курьер — на карте{% elif lang == 'en' %}Courier — on the map{% else %}Kuryer — xaritada{% endif %}</b><div class="muted">{{ site.delivery.eta_min|default:25 }}–{{ site.delivery.eta_max|default:35 }} {% if lang == 'ru' %}минут · бесплатно от{% elif lang == 'en' %}minutes · free from{% else %}daqiqa · {% endif %} {{ site.delivery.free_from|default:80000|money }} {% if lang == 'uz' %}so'mdan bepul{% endif %}</div></div></div>
-        <div class="step"><span class="num">4</span><div><b>{% if lang == 'ru' %}Оценка и бонус{% elif lang == 'en' %}Rating & bonus{% else %}Baho va bonus{% endif %}</b><div class="muted">{% if lang == 'ru' %}Фискальный чек — в Telegram{% elif lang == 'en' %}Fiscal receipt in Telegram{% else %}Fiskal chek Telegramga keladi{% endif %}</div></div></div>
+        <div class="step"><span class="num">4</span><div><b>{% if lang == 'ru' %}Оценка и бонус{% elif lang == 'en' %}Rating & bonus{% else %}Baho va bonus{% endif %}</b><div class="muted">{% if lang == 'ru' %}Чек и бонус приходят в Telegram{% elif lang == 'en' %}Receipt and bonus arrive in Telegram{% else %}Chek va bonus Telegramga keladi{% endif %}</div></div></div>
       </div>
     </div>
   </section>

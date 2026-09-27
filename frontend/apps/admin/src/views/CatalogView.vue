@@ -19,7 +19,7 @@ const catDrawer = ref(false), catEdit = ref<Partial<Category> | null>(null)
 const importOpen = ref(false), importResult = ref<any>(null)
 const canEdit = computed(() => a.can('catalog.edit'))
 
-async function loadCats() { cats.value = await api.get('/catalog/categories'); if (!activeCat.value && cats.value.length) activeCat.value = cats.value[0].id }
+async function loadCats() { cats.value = await api.get('/catalog/categories'); if (!activeCat.value && cats.value.length) activeCat.value = (cats.value.find((c: any) => c.products_count > 0) ?? cats.value[0]).id }
 async function loadProducts() {
   loading.value = true
   try { const r = await api.get<{ items: Product[] }>('/catalog/products', { category_id: activeCat.value, q: q.value, page_size: 200 }); products.value = r.items } finally { loading.value = false }

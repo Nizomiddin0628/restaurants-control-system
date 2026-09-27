@@ -37,4 +37,4 @@ def test_refresh_demo_moves_stale_things(tenant, other_tenant):
         assert (r.starts_at - (now - timedelta(days=2, hours=-1))).total_seconds() % 86400 == 0   # soati saqlanadi
         # ikkinchi marta — hech narsa o'zgarmaydi
         again = refresh(tenant, now=now)
-        assert again == {"orders": 0, "tables": 0, "reservations": 0, "usage": 0}
+        assert again == {"orders": 0, "tables": 0, "reservations": 0, "usage": 0, "categories": 0}

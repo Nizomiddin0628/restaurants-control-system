@@ -71,7 +71,7 @@ const initial = (s?: string) => (s ?? 'R').trim().slice(0, 1).toUpperCase()
     <UiIcon name="chevron" :size="16" class="cv" />
   </button>
   <button v-else-if="multi" ref="btn" type="button" class="chip" :class="{ on: open, sel: !!cur }" :aria-expanded="open" aria-haspopup="menu" title="Filialni almashtirish" @click="toggle">
-    <UiIcon name="store" :size="16" /><span>{{ cur ? cur.name : 'Barcha filiallar' }}</span><UiIcon name="chevron" :size="14" />
+    <UiIcon name="store" :size="16" /><span class="cf">{{ cur ? cur.name : 'Barcha filiallar' }}</span><span class="cs">{{ cur ? cur.name.replace(/\s*filiali$/i, '') : 'Hammasi' }}</span><UiIcon name="chevron" :size="14" />
   </button>
 
   <Teleport to="body">
@@ -141,5 +141,6 @@ const initial = (s?: string) => (s ?? 'R').trim().slice(0, 1).toUpperCase()
 .ck { color: var(--accent); flex-shrink: 0; }
 .sw-l, .sw-n { font-size: var(--fs-xs); color: var(--muted); padding: 6px 10px 8px; margin: 0; }
 @media (min-width: 601px) and (max-width: 1024px) { .brand .bt, .brand .cv { display: none; } .brand { justify-content: center; padding: 6px 0; } }
-@media (max-width: 600px) { .chip { max-width: 150px; } }
+.chip .cs { display: none; }
+@media (max-width: 600px) { .chip { max-width: 124px; padding: 0 8px; gap: 4px; } .chip .cf { display: none; } .chip .cs { display: inline; } }
 </style>

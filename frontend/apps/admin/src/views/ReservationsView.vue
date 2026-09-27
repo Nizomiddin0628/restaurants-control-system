@@ -12,7 +12,9 @@ const meta = ref<any>(null)
 const rows = ref<any[]>([])
 const wait = ref<any[]>([])
 const stats = ref<any>(null)
-const day = ref(new Date().toISOString().slice(0, 10))
+/** mahalliy sana (UTC emas — Toshkentda tun yarmidan keyin «kecha» bo'lib qolmasin) */
+const localIso = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+const day = ref(localIso(new Date()))
 const filter = ref('')
 /** KPI kartalar: bosilsa — ro'yxat shu holat bo'yicha filtrlanadi (yoki navbat kartasiga o'tadi) */
 const kf = ref<'' | 'active' | 'seated' | 'no_show'>('')
@@ -59,8 +61,8 @@ const canManage = computed(() => !!meta.value?.can.manage)
 const freeTables = computed(() => (meta.value?.tables ?? []))
 
 function shiftDay(n: number) {
-  const d = new Date(day.value); d.setDate(d.getDate() + n)
-  day.value = d.toISOString().slice(0, 10); load()
+  const d = new Date(`${day.value}T12:00:00`); d.setDate(d.getDate() + n)
+  day.value = localIso(d); load()
 }
 
 // ---------------------------------------------------------------- bron formasi

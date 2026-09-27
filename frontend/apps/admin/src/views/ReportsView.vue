@@ -20,7 +20,7 @@ function kpiGo(t: Tab) { tab.value = t; requestAnimationFrame(() => tabsEl.value
 const d = ref<any>(null)
 const loading = ref(false)
 const branches = ref<any[]>([])
-const iso = (x: Date) => x.toISOString().slice(0, 10)
+const iso = (x: Date) => new Date(x.getTime() - x.getTimezoneOffset() * 60000).toISOString().slice(0, 10)   // mahalliy sana
 const today = new Date()
 const range = ref({ start: iso(new Date(today.getTime() - 29 * 86400000)), end: iso(today), branch_id: '' })
 const PRESETS = [

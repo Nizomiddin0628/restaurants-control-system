@@ -168,7 +168,7 @@ const fmtDT = (s: string) => new Date(s).toLocaleString('uz-UZ', { day: '2-digit
 
 <template>
   <div class="inv">
-    <div v-if="summary" class="kpis">
+    <div v-if="summary" class="kpis k5">
       <button type="button" class="kpi kpi-click" :class="{ on: tab === 'ingredients' && !onlyLow }" @click="tab = 'ingredients'; onlyLow = false"><b>{{ summary.ingredients }}</b><span>Xomashyo turi</span></button>
       <button type="button" class="kpi kpi-click" :class="{ warn: summary.low, on: tab === 'ingredients' && onlyLow }" @click="tab = 'ingredients'; onlyLow = true"><b>{{ summary.low }}</b><span>Tugayapti</span></button>
       <button type="button" class="kpi kpi-click" @click="tab = 'ingredients'; onlyLow = false"><b>{{ money(summary.stock_value) }}</b><span>Ombor qiymati</span></button>
@@ -466,7 +466,7 @@ button.l-r { cursor: pointer; } button.l-r:hover, .l-r.sel { background: var(--a
 .sup li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line-2); font-size: var(--fs-s); } .sup li:last-child { border-bottom: 0; }
 @media (max-width: 1100px) { .plan .split { grid-template-columns: minmax(0, 1fr); } .split { grid-template-columns: 1fr; } .kpis { grid-template-columns: repeat(3, 1fr); } .cost-row { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 600px) {
-  .kpis { grid-template-columns: 1fr 1fr; } .grid2 { grid-template-columns: 1fr; }
+  .kpis { grid-template-columns: 1fr 1fr; } .kpis.k5 > :last-child { grid-column: span 2; } .grid2 { grid-template-columns: 1fr; }
   /* telefon: har qator — nomi (to'liq kenglik) + qolgan qiymatlar ixcham qatorda, sarlavha yashirin */
   .l-h { display: none; }
   .l-r { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 4px 8px; padding: 10px 14px; }
@@ -478,4 +478,6 @@ button.l-r { cursor: pointer; } button.l-r:hover, .l-r.sel { background: var(--a
   .seg-sel { min-width: 0; width: 100%; } .days { grid-template-columns: repeat(auto-fit, minmax(44px, 1fr)); gap: 4px; }
   .cost-row { grid-template-columns: 1fr 1fr; }
 }
+/* 5 ta KPI planshetda: 3 + 2 (oxirgi ikkitasi kengroq) — bo'sh katak qolmaydi */
+@media (min-width: 601px) and (max-width: 1100px) { .kpis.k5 { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; } .kpis.k5 > * { grid-column: span 2; } .kpis.k5 > :nth-child(n+4) { grid-column: span 3; } }
 </style>

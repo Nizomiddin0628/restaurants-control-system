@@ -25,10 +25,10 @@ const delta = (cur: number, prev: number) => prev ? Math.round((100 * (cur - pre
 const tiles = computed(() => !K.value ? [] : [
   { label: 'Mijozlar', value: sum(K.value.clients), note: K.value.clients_new ? `+${K.value.clients_new} shu oy` : 'restoran kompaniyalari', icon: 'users', bg: '#2563EB', to: '/tenants' },
   { label: 'Filiallar', value: sum(K.value.branches), note: 'jami restoran nuqtalari', icon: 'store', bg: '#0EA5E9', to: '/tenants' },
-  { label: 'Xodimlar', value: sum(K.value.employees), note: `${sum(K.value.users)} ta foydalanuvchi`, icon: 'users', bg: '#8B5CF6' },
+  { label: 'Xodimlar', value: sum(K.value.employees), note: `${sum(K.value.users)} ta foydalanuvchi`, icon: 'users', bg: '#8B5CF6', to: '/tenants' },
   { label: 'Oylik daromad (MRR)', value: `${big(K.value.mrr)}`, note: delta(K.value.mrr, K.value.mrr_prev) != null ? `${delta(K.value.mrr, K.value.mrr_prev)! >= 0 ? '↑' : '↓'} ${Math.abs(delta(K.value.mrr, K.value.mrr_prev)!)}% o'tgan oyga` : 'so\'m / oy', icon: 'receipt', bg: '#16A34A', to: '/billing' },
-  { label: 'Platformadagi savdo', value: big(K.value.revenue_30d), note: `30 kun · ${K.value.share_count} ta restoran ulashgan`, icon: 'chart', bg: '#F59E0B' },
-  { label: 'Buyurtmalar', value: sum(K.value.orders_30d), note: `o'rtacha chek ${big(K.value.avg_check)}`, icon: 'list', bg: '#EF4444' },
+  { label: 'Platformadagi savdo', value: big(K.value.revenue_30d), note: `30 kun · ${K.value.share_count} ta restoran ulashgan`, icon: 'chart', bg: '#F59E0B', to: '/tenants' },
+  { label: 'Buyurtmalar', value: sum(K.value.orders_30d), note: `o'rtacha chek ${big(K.value.avg_check)}`, icon: 'list', bg: '#EF4444', to: '/tenants' },
 ])
 const donut = computed(() => [
   { key: 'healthy', label: 'Sog\'lom', value: O.value?.health.healthy ?? 0, color: '#16A34A' },
@@ -48,7 +48,7 @@ const topMax = computed(() => Math.max(1, ...(O.value?.top_products ?? []).map((
     </div>
 
     <section class="kpis">
-      <component :is="t.to ? RouterLink : 'div'" v-for="t in tiles" :key="t.label" :to="t.to" class="kpi">
+      <component :is="t.to ? RouterLink : 'div'" v-for="t in tiles" :key="t.label" :to="t.to" class="kpi" :class="{ 'kpi-click': t.to }">
         <span class="ki" :style="{ background: t.bg }"><UiIcon :name="t.icon" :size="18" /></span>
         <span class="kl">{{ t.label }}</span>
         <b class="kv">{{ t.value }}</b>
