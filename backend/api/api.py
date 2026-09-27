@@ -481,6 +481,14 @@ def dashboard_sections(request):
     return sections(request)
 
 
+@api.get("/dashboard/section/{code}", auth=auth, tags=["dashboard"])
+def dashboard_section(request, code: str, days: int = 7):
+    """Bo'lim dashboardi: shu bo'limning grafiklari va ro'yxatlari (vidjetlar)."""
+    from .section_dash import section_dashboard
+    _live(request)
+    return section_dashboard(request, code, days)
+
+
 # ------------------------------------------------------------------ modullar routerlari
 from integrations.telegram.api import router as telegram_router  # noqa: E402
 from modules.catalog.api import router as catalog_router  # noqa: E402

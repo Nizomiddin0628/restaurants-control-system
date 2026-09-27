@@ -3,7 +3,7 @@
 import { computed, ref } from 'vue'
 import { big } from '../fmt'
 
-const props = withDefaults(defineProps<{ points: { label: string; value: number }[]; height?: number; money?: boolean; bars?: boolean; every?: number }>(), { height: 220, money: true })
+const props = withDefaults(defineProps<{ points: { label: string; value: number }[]; height?: number; money?: boolean; bars?: boolean; every?: number; color?: string; unit?: string }>(), { height: 220, money: true, color: '#2563EB', unit: '' })
 const W = 640, PL = 48, PB = 24, PT = 10
 const hover = ref<number | null>(null)
 const g = computed(() => {
@@ -26,17 +26,17 @@ const g = computed(() => {
     <svg :viewBox="`0 0 ${W} ${g.H}`" preserveAspectRatio="none" role="img" aria-label="Grafik" :style="{ height: `${g.H}px` }">
       <g v-for="t in g.ticks" :key="t.v"><line :x1="PL" :x2="W - 6" :y1="t.y" :y2="t.y" stroke="var(--line-2)" /><text :x="PL - 6" :y="t.y + 4" text-anchor="end" class="ax">{{ money ? big(t.v).replace(' mln', 'M').replace(' mlrd', 'B').replace(' ming', 'k') : t.v }}</text></g>
       <template v-if="bars">
-        <rect v-for="(p, i) in g.pts" :key="i" :x="p[0] - g.bw * 0.32" :y="p[1]" :width="g.bw * 0.64" :height="g.H - PB - p[1]" rx="3" :fill="hover === i ? '#1D4ED8' : '#93B4F5'" />
+        <rect v-for="(p, i) in g.pts" :key="i" :x="p[0] - g.bw * 0.32" :y="p[1]" :width="g.bw * 0.64" :height="g.H - PB - p[1]" rx="3" :fill="color" :opacity="hover === i ? 1 : 0.55" />
       </template>
       <template v-else>
-        <path :d="g.area" fill="#2563EB" opacity=".12" /><path :d="g.line" fill="none" stroke="#2563EB" stroke-width="2.5" stroke-linejoin="round" />
-        <circle v-for="(p, i) in g.pts" :key="i" :cx="p[0]" :cy="p[1]" :r="hover === i ? 5 : 3" fill="#2563EB" stroke="var(--surface)" stroke-width="2" />
+        <path :d="g.area" :fill="color" opacity=".12" /><path :d="g.line" fill="none" :stroke="color" stroke-width="2.5" stroke-linejoin="round" />
+        <circle v-for="(p, i) in g.pts" :key="i" :cx="p[0]" :cy="p[1]" :r="hover === i ? 5 : 3" :fill="color" stroke="var(--surface)" stroke-width="2" />
       </template>
       <text v-for="(p, i) in g.pts" v-show="i % g.every === 0" :key="`l${i}`" :x="p[0]" :y="g.H - 6" text-anchor="middle" class="ax">{{ points[i].label }}</text>
       <rect v-for="(p, i) in g.pts" :key="`h${i}`" :x="p[0] - (W - PL) / Math.max(1, g.pts.length) / 2" :y="0" :width="(W - PL) / Math.max(1, g.pts.length)" :height="g.H" fill="transparent" @mouseenter="hover = i" />
     </svg>
     <div v-if="hover !== null" class="tip" :style="{ left: `${(g.pts[hover][0] / W) * 100}%`, top: `${(g.pts[hover][1] / g.H) * 100}%` }">
-      <b>{{ points[hover].label }}</b><span>{{ money ? big(points[hover].value) + ' so\'m' : points[hover].value }}</span>
+      <b>{{ points[hover].label }}</b><span>{{ money ? big(points[hover].value) + ' so\'m' : points[hover].value + unit }}</span>
     </div>
   </div>
 </template>

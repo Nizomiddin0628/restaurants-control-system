@@ -60,7 +60,8 @@ const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d)
           <UiIcon :name="n.icon" /><span class="lbl">{{ t(n.label, ui.lang) }}</span>
         </RouterLink>
         <div class="navsp"></div>
-        <button type="button" class="item alt" title="Boshqa bo'limlar" @click="browse = ''"><UiIcon name="columns" /><span class="lbl">Boshqa bo'limlar</span></button>
+        <RouterLink v-if="route.path !== `/s/${shown.code}`" :to="`/s/${shown.code}`" class="item sback" :title="`${shown.title} — bo'lim paneli`" @click="close">
+          <UiIcon name="chart" /><span class="lbl">Bosh bo'limga qaytish</span></RouterLink>
         <button type="button" class="item back" title="Asosiy sahifaga qaytish" @click="goHome"><UiIcon name="home" /><span class="lbl">Asosiy sahifaga qaytish</span></button>
       </nav>
       <div class="foot">
@@ -113,7 +114,7 @@ const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d)
 .sh .lbl { display: flex; flex-direction: column; font-weight: 800; font-size: var(--fs-b); } .sh small { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
 .in .item.on { background: color-mix(in srgb, var(--sc) 14%, var(--surface)); color: var(--sc); }
 .navsp { flex: 1; min-height: 12px; }
-.item.alt { color: var(--muted); font-size: var(--fs-s); min-height: 40px; }
+.item.sback { color: var(--sc); font-weight: 700; background: color-mix(in srgb, var(--sc) 8%, transparent); }
 .item.back { border: 1px dashed var(--line); color: var(--ink); font-weight: 700; }
 .item.back:hover { border-color: var(--accent); color: var(--accent); }
 .ttl { display: flex; flex-direction: column; min-width: 0; }
