@@ -9,6 +9,7 @@ export const router = createRouter({
       path: '/', component: () => import('@/layouts/AppShell.vue'),
       children: [
         { path: '', name: 'dashboard', component: () => import('@/views/DashboardView.vue') },
+        { path: 's/:code', name: 'section', component: () => import('@/views/SectionView.vue'), meta: { title: "Bo'lim" } },
         { path: 'catalog', name: 'catalog', component: () => import('@/views/CatalogView.vue'), meta: { module: 'catalog' } },
         { path: 'tasks', name: 'tasks', component: () => import('@/views/TasksView.vue'), meta: { module: 'tasks' } },
         { path: 'pos', name: 'pos', component: () => import('@/views/PosView.vue'), meta: { module: 'pos' } },

@@ -12,8 +12,10 @@ import { UiAvatar, UiCard, UiChip, UiEmpty, UiIcon, money } from '@restopos/ui'
 import { useAuth } from '@/stores/auth'
 import HolidayAlert from '@/components/forecast/HolidayAlert.vue'
 import WeatherStrip from '@/components/forecast/WeatherStrip.vue'
+import { useNav } from '@/nav/sections'
 
 const a = useAuth(), router = useRouter()
+const { sections, sectionLink } = useNav()
 const D = ref<any>(null)
 const S = ref<any>(null)
 const loading = ref(false)
@@ -130,6 +132,13 @@ const branchName = computed(() => D.value?.branches_list.find((b: any) => String
         </div>
       </div>
     </header>
+
+    <!-- BO'LIMLAR: asosiy sahifadan har bo'limga bir bosishda -->
+    <nav class="secs" aria-label="Bo'limlar">
+      <RouterLink v-for="sc in sections" :key="sc.code" :to="sectionLink(sc)" class="sec-t" :style="{ '--sc': sc.color }">
+        <span class="sec-e">{{ sc.emoji }}</span><span class="sec-x"><b>{{ sc.title }}</b><small>{{ sc.items.length > 1 ? `${sc.items.length} ta modul` : sc.desc.split(',')[0] }}</small></span>
+      </RouterLink>
+    </nav>
 
     <RouterLink v-if="accessReq" to="/support" class="setup req">🛟 <b>Platforma yordami panelingizga kirish uchun ruxsat so'rayapti</b> — {{ accessReq.reason }}. Ko'rib chiqish →</RouterLink>
     <RouterLink v-if="setupLeft.length" :to="setupLeft[0].route" class="setup">
@@ -297,6 +306,13 @@ const branchName = computed(() => D.value?.branches_list.find((b: any) => String
 </template>
 
 <style scoped>
+.secs { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.sec-t { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); text-decoration: none; color: var(--ink); min-width: 0; }
+.sec-t:hover { border-color: var(--sc); box-shadow: 0 4px 14px rgba(0,0,0,.05); }
+.sec-e { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; font-size: 22px; flex-shrink: 0; background: color-mix(in srgb, var(--sc) 13%, transparent); }
+.sec-x { display: flex; flex-direction: column; min-width: 0; } .sec-x b { font-size: var(--fs-s); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .sec-x small { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 640px) { .secs { grid-template-columns: 1fr 1fr; gap: 8px; } .sec-t { padding: 10px; } .sec-e { width: 36px; height: 36px; font-size: 19px; } }
+
 .db { display: flex; flex-direction: column; gap: 16px; transition: opacity .2s; } .db.busy { opacity: .72; }
 .top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .hi h1 { margin: 0; font-family: var(--font-display); font-size: 28px; font-weight: 800; letter-spacing: -.02em; }
