@@ -63,7 +63,7 @@ export const DESC: Record<string, string> = {
   '/reports': 'Savdo, foyda-zarar, food cost, menyu tahlili',
   '/ai': "Ertalabki hisobot va ovozli buyruqlar — Telegram'da rahbar kotibi",
   '/branches': "Filiallar, manzil, ish vaqti",
-  '/users': 'Kim tizimga kiradi: login, parol, rollar va ruxsatlar',
+  '/users': "Kim kiradi va qaysi bo'limlarni ko'radi: lavozim, filial, AI Kotib",
   '/modules': "Modullarni yoqish va o'chirish",
   '/settings': 'Restoran va profil sozlamalari',
   '/support': 'Texnik yordam va platforma bilan aloqa',
@@ -72,7 +72,7 @@ export const DESC: Record<string, string> = {
 
 const TAIL: NavItem[] = [
   { route: '/branches', label: { uz: 'Filiallar', ru: 'Филиалы', en: 'Branches' }, icon: 'store', order: 80, perm: 'core.branches.manage' },
-  { route: '/users', label: { uz: 'Kirish va rollar', ru: 'Доступ и роли', en: 'Access & roles' }, icon: 'users', order: 85, perm: 'core.users.manage' },
+  { route: '/users', label: { uz: 'Xodimlar va kirish', ru: 'Сотрудники и доступ', en: 'Staff & access' }, icon: 'users', order: 85, perm: 'core.users.manage' },
   { route: '/modules', label: { uz: 'Modullar', ru: 'Модули', en: 'Modules' }, icon: 'sliders', order: 95, perm: 'core.modules.manage' },
   { route: '/settings', label: { uz: 'Sozlamalar', ru: 'Настройки', en: 'Settings' }, icon: 'bars', order: 96, perm: 'core.settings.view' },
   { route: '/support', label: { uz: 'Yordam', ru: 'Поддержка', en: 'Support' }, icon: 'headset', order: 97, perm: 'core.settings.view' },

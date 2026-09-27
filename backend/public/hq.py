@@ -223,18 +223,22 @@ def impersonate(t: Tenant, staff, reason: str) -> dict:
     """Egasi ruxsat bergan bo'lsa — restoran paneliga «Platforma yordami» nomidan vaqtinchalik token."""
     import jwt
     from django.conf import settings
+
+    from .models import DIRECT_ROLES
     acc = active_access(t)
-    if acc is None:
+    direct = staff.role in DIRECT_ROLES
+    if acc is None and not direct:
         raise PermissionError("Restoran egasi hozir kirishga ruxsat bermagan. «Ruxsat so'rash» tugmasini bosing.")
+    until = acc.until if acc else timezone.now() + timedelta(hours=8)
     with schema_context(t.schema_name):
         from core.models import AuditLog, Membership, Role, User
-        role, _ = Role.objects.get_or_create(code="platform_support", defaults={"name": "Platforma yordami", "permissions": ["*"], "is_system": True})
+        role, _ = Role.objects.get_or_create(code="platform_support", defaults={"name": "Platforma yordami", "permissions": ["*"], "is_system": True, "level": 1000})
         u, _ = User.objects.get_or_create(phone="+998000000001", defaults={"full_name": "Platforma yordami"})
         Membership.objects.get_or_create(user=u, defaults={"role": role})
         AuditLog.objects.create(actor=u, action="support_login", model="Platforma",
-                                after={"staff": staff.user.full_name or staff.user.phone, "reason": reason, "until": acc.until.isoformat()})
+                                after={"staff": staff.user.full_name or staff.user.phone, "role": staff.role, "reason": reason, "until": until.isoformat(), "direct": direct})
         now = datetime.now(dt_tz.utc)
-        exp = min(acc.until, timezone.now() + timedelta(hours=2))
+        exp = min(until, timezone.now() + timedelta(hours=8 if direct else 2))
         token = jwt.encode({"sub": str(u.pk), "sch": t.schema_name, "iat": int(now.timestamp()), "exp": int(exp.timestamp()), "support": True},
                            settings.JWT_SECRET, algorithm="HS256")
     SupportSession.objects.create(tenant=t, staff=staff, staff_name=staff.user.full_name or staff.user.phone, reason=reason)

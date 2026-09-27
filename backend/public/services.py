@@ -21,23 +21,31 @@ from core.presets import DEFAULT_SETTINGS, PRESETS
 from .models import Domain, Plan, Tenant
 
 SYSTEM_ROLES = [
-    ("owner", "Egasi", ["*"]),
-    ("manager", "Filial menejeri", ["catalog.*", "cms.view", "core.branches.manage", "core.settings.view", "finance.*", "pos.*", "kds.*", "inventory.*", "hr.*", "tasks.*", "tables.*", "reservations.*", "payments.view", "training.*", "telegram.*", "crm.*", "forecast.*", "ops.*", "procurement.*", "projects.*"]),
+    ("owner", "Superadmin (egasi)", ["*"]),
+    ("general_manager", "Bosh menejer", ["*"]),
+    ("manager", "Filial menejeri (admin)", ["core.users.manage", "core.dashboard.view", "catalog.*", "cms.view", "core.branches.manage", "core.settings.view", "finance.*", "pos.*", "kds.*", "inventory.*", "hr.*", "tasks.*", "tables.*", "reservations.*", "payments.view", "training.*", "telegram.*", "crm.*", "forecast.*", "ops.*", "procurement.*", "projects.*"]),
     ("cashier", "Kassir", ["procurement.buy", "procurement.pay", "crm.view", "pos.sell", "pos.shift", "catalog.view", "tasks.view", "tasks.create", "hr.view", "tables.view", "tables.serve", "reservations.view", "reservations.manage"]),
     ("waiter", "Ofitsiant", ["crm.view", "tables.view", "tables.serve", "reservations.view", "reservations.manage", "pos.sell", "catalog.view", "kds.view", "tasks.view", "tasks.create", "hr.view"]),
     ("cook", "Oshpaz", ["kds.view", "kds.cook", "catalog.view", "inventory.view", "forecast.view", "tasks.view", "tasks.create", "hr.view"]),
     ("courier", "Kuryer", ["delivery.courier", "tasks.view", "tasks.create", "hr.view"]),
-    ("accountant", "Buxgalter", ["finance.*", "inventory.*", "forecast.view", "ops.view", "procurement.*", "projects.view", "hr.payroll", "hr.view", "core.settings.view", "tasks.view", "tasks.create", "payments.view"]),
+    ("accountant", "Buxgalter", ["core.dashboard.view", "finance.*", "inventory.*", "forecast.view", "ops.view", "procurement.*", "projects.view", "hr.payroll", "hr.view", "core.settings.view", "tasks.view", "tasks.create", "payments.view"]),
     ("buyer", "Bozorchi (zakupshik)", ["procurement.buy", "procurement.view", "inventory.view", "tasks.view", "tasks.create", "hr.view"]),
     ("marketer", "Marketolog", ["projects.view", "crm.*", "cms.*", "catalog.view", "tasks.view", "tasks.create", "tasks.edit", "telegram.view", "telegram.broadcast"]),
 ]
+# Ierarxiya: kim kimga kirish bera oladi (faqat o'zidan pastga; Superadmin — hammaga)
+ROLE_LEVELS = {"owner": 100, "general_manager": 80, "manager": 60}
+ROLE_DESC = {
+    "owner": "Restoran egasi — hamma narsa, barcha filiallar",
+    "general_manager": "Barcha filiallar va bo'limlarni ko'radi va boshqaradi",
+    "manager": "O'z filialining admini: xodimlar, smena, savdo, ombor",
+}
 # O'qitish: har bir xodim o'z kurslari, topshiriqlari va standartlarini ko'radi
 for _code, _name, _perms in SYSTEM_ROLES:
-    if _code not in ("owner", "manager"):
+    if _code not in ("owner", "general_manager", "manager"):
         _perms.append("training.view")
 # Loyihalar: har bir xodim o'zi ishtirok etgan loyiha va vazifalarni ko'radi
 for _code, _name, _perms in SYSTEM_ROLES:
-    if _code != "owner" and not any(p.startswith("projects.") for p in _perms):
+    if "*" not in _perms and not any(p.startswith("projects.") for p in _perms):
         _perms.append("projects.view")
 
 
@@ -71,7 +79,8 @@ def create_tenant(*, name: str, slug: str, owner_phone: str, preset: str = "fast
     with schema_context(tenant.schema_name):
         roles = {}
         for code, rname, perms in SYSTEM_ROLES:
-            roles[code], _ = Role.objects.get_or_create(code=code, defaults={"name": rname, "permissions": perms, "is_system": True})
+            roles[code], _ = Role.objects.get_or_create(code=code, defaults={"name": rname, "permissions": perms, "is_system": True,
+                                                                             "level": ROLE_LEVELS.get(code, 10), "description": ROLE_DESC.get(code, "")})
         owner = User.objects.create_user(owner_phone, full_name=owner_name or "Egasi")
         Membership.objects.create(user=owner, role=roles["owner"])
         Branch.objects.create(name=branch_name, sort_order=0)

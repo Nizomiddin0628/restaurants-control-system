@@ -114,7 +114,8 @@ def _staff_help(tenant, user) -> str:
         lines.append("📋 <b>Vazifalarim</b> — ochiq vazifalaringiz")
     if tenant.module_enabled("hr"):
         lines.append("🕘 <b>Keldim</b> / 🏁 <b>Ketdim</b> — davomat")
-    return "\n".join(lines) or "Vazifalar va tasdiqlar shu yerga keladi."
+    lines.append("💻 <b>Saytga kirish</b>: panelda telefon raqamingizni yozing → «Telegram orqali kirish» → shu yerda «✅ Ha» ni bosing")
+    return "\n".join(lines)
 
 
 def _ai_ok(tenant, user) -> bool:

@@ -125,7 +125,12 @@ def set_webhook(request):
     t.save(update_fields=["settings"])
     r = call("setWebhook", {"url": f"{base}/api/v1/telegram/webhook", "secret_token": cur["webhook_secret"],
                             "allowed_updates": ["message", "callback_query", "my_chat_member"]}, tok)
-    call("setChatMenuButton", {"menu_button": {"type": "web_app", "text": "Menyu", "web_app": {"url": f"{base}/tg/"}}}, tok)
+    from .management.commands.telegram_check import COMMANDS
+    call("setMyCommands", {"commands": COMMANDS}, tok)
+    if services.staff_only(t):            # xodimlar rejimi: Mini App (mijoz menyusi) o'rniga buyruqlar menyusi
+        call("setChatMenuButton", {"menu_button": {"type": "commands"}}, tok)
+    else:
+        call("setChatMenuButton", {"menu_button": {"type": "web_app", "text": "Menyu", "web_app": {"url": f"{base}/tg/"}}}, tok)
     if not r.get("ok"):
         raise HttpError(400, f"Telegram rad etdi: {r.get('description') or r.get('error')}")
     return {"ok": True, "url": f"{base}/api/v1/telegram/webhook"}

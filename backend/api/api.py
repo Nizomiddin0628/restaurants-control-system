@@ -76,6 +76,41 @@ def verify_otp(request, data: OtpVerify):
     return {"token": issue_token(user, request.tenant.schema_name), "user": _me(request, user)}
 
 
+class TgLoginIn(Schema):
+    phone: str
+
+
+@api.post("/auth/tg-login", tags=["auth"])
+def tg_login_start(request, data: TgLoginIn):
+    """Telegram orqali kirish: botga «Ha / Yo'q» tugmali xabar yuboriladi."""
+    from core import tglogin
+    phone = User.objects.normalize_phone(data.phone)
+    user = User.objects.filter(phone=phone, is_active=True).first()
+    if user is None or not user.memberships.filter(is_active=True).exists():
+        raise HttpError(404, "Bu raqam ushbu restoranda ro'yxatdan o'tmagan — rahbaringizga ayting")
+    bot = _bot_username(request.tenant)
+    if not user.telegram_id:
+        return {"ok": False, "reason": "not_linked", "bot_username": bot}
+    try:
+        req = tglogin.start(request.tenant, user, request.META.get("REMOTE_ADDR", ""), request.headers.get("User-Agent", ""))
+    except PermissionError as e:
+        raise HttpError(429, str(e)) from None
+    if req is None:
+        return {"ok": False, "reason": "bot_off", "bot_username": bot}
+    return {"ok": True, "id": str(req.pk), "secret": req.secret, "ttl": req.TTL, "bot_username": bot}
+
+
+@api.get("/auth/tg-login/{rid}", tags=["auth"])
+def tg_login_poll(request, rid: str, secret: str = ""):
+    from core import tglogin
+    status, user = tglogin.poll(rid, secret)
+    if status != "ok" or user is None:
+        return {"status": status}
+    user.last_seen_at = timezone.now()
+    user.save(update_fields=["last_seen_at"])
+    return {"status": "ok", "token": issue_token(user, request.tenant.schema_name), "user": _me(request, user)}
+
+
 def _tg_send(tenant, user, text: str) -> bool:
     """Xodimga restoran boti orqali xabar (bot ulangan va xodim botda telefonini ulashgan bo'lsa)."""
     if user is None or not getattr(user, "telegram_id", None) or not tenant.module_enabled("telegram"):
@@ -166,17 +201,25 @@ def _me(request, user: User) -> dict:
                    "trial_ends_at": tenant.trial_ends_at.isoformat() if tenant.trial_ends_at else None},
         "nav": [n for n in modreg.nav_for(tenant.enabled_modules) if user.has_perm_code(n.get("perm", "core.*"))],
         "branches": _my_branches(user),
+        "branch_all": user.branch_scope() is None,
+        "level": user.access_level(),
+        "home": "/" if user.has_perm_code("core.dashboard.view") else "/my",
+        "telegram_linked": bool(user.telegram_id),
+        "bot_username": _bot_username(tenant),
         "has_password": _has_pw(user),
     }
+
+
+def _bot_username(tenant) -> str:
+    return ((((tenant.settings or {}).get("modules") or {}).get("telegram") or {}).get("bot_username") or "").lstrip("@")
 
 
 def _my_branches(user: User) -> list[dict]:
     """Foydalanuvchi ko'ra oladigan filiallar: egasi / filial boshqaruvchisi yoki cheklanmagan a'zolik — hammasi."""
     qs = Branch.objects.filter(deleted_at__isnull=True, is_active=True).order_by("id")
-    ms = list(user.memberships.filter(is_active=True).prefetch_related("branches"))
-    if not user.is_superuser and not user.has_perm_code("core.branches.manage") and ms and all(m.branches.exists() for m in ms):
-        ids = {b.pk for m in ms for b in m.branches.all()}
-        qs = qs.filter(pk__in=ids)
+    scope = user.branch_scope()
+    if scope is not None:
+        qs = qs.filter(pk__in=scope)
     return [{"id": b.pk, "name": b.name, "address": b.address} for b in qs]
 
 
@@ -276,6 +319,36 @@ def me(request):
     return _me(request, request.auth)
 
 
+@api.get("/me/home", auth=auth, tags=["auth"])
+def my_home(request):
+    """Xodimning shaxsiy sahifasi: mening vazifalarim, bugungi smena, ochiq kurslar."""
+    t, u = request.tenant, request.auth
+    out: dict = {"tasks": [], "tasks_open": 0, "tasks_overdue": 0, "shift": None, "training_todo": None}
+    if t.module_enabled("tasks") and u.has_perm_code("tasks.view"):
+        try:
+            from modules.tasks.models import Task
+            mine = Task.objects.open().filter(assignee=u, is_archived=False).select_related("column")
+            out["tasks_open"] = mine.count()
+            out["tasks_overdue"] = mine.filter(due_at__lt=timezone.now()).count()
+            out["tasks"] = [{"id": x.pk, "number": x.number, "title": x.title, "column": (x.column.name or {}).get("uz", ""),
+                             "due_at": x.due_at.isoformat() if x.due_at else None, "overdue": bool(x.due_at and x.due_at < timezone.now())}
+                            for x in mine.order_by("due_at", "-created_at")[:6]]
+        except Exception:
+            pass
+    if t.module_enabled("hr"):
+        try:
+            from modules.hr.models import Employee, ShiftPlan
+            e = Employee.objects.filter(user=u).first()
+            if e:
+                a = e.attendance.filter(check_out__isnull=True).first()
+                plan = ShiftPlan.objects.filter(employee=e, date=timezone.localdate()).order_by("start").first()
+                out["shift"] = {"on": bool(a), "since": timezone.localtime(a.check_in).strftime("%H:%M") if a else None,
+                                "plan": f"{plan.start:%H:%M}–{plan.end:%H:%M}" if plan else None, "can": u.has_perm_code("hr.view")}
+        except Exception:
+            pass
+    return out
+
+
 class MeIn(Schema):
     full_name: Optional[str] = None
     language: Optional[str] = None
@@ -354,7 +427,8 @@ def update_tenant(request, data: TenantSettingsIn):
     if data.name:
         t.name = data.name
     if data.settings is not None:
-        t.settings = {**t.settings, **data.settings}
+        # platforma chegaralari (hq) va rozilik (platform) — bu yerdan o'zgarmaydi
+        t.settings = {**t.settings, **{k: v for k, v in data.settings.items() if k not in ("hq", "platform")}}
     t.save(update_fields=["name", "settings"])
     record(request, "update", model="Tenant", before=before, after={"name": t.name, "settings": t.settings})
     return {"name": t.name, "settings": t.settings}
@@ -425,11 +499,13 @@ class RoleIn(Schema):
 class RoleOut(RoleIn):
     id: int
     is_system: bool
+    level: int = 10
+    description: str = ""
 
 
 @api.get("/roles", response=list[RoleOut], auth=auth, tags=["users"])
 def list_roles(request):
-    return Role.objects.all()
+    return Role.objects.exclude(code="platform_support")
 
 
 @api.post("/roles", response=RoleOut, auth=auth, tags=["users"])
@@ -444,8 +520,10 @@ def create_role(request, data: RoleIn):
 def update_role(request, rid: int, data: RoleIn):
     require_perm(request, "core.users.manage")
     r = get_object_or_404(Role, pk=rid)
-    if r.is_system and r.code == "owner":
-        raise HttpError(400, "Egasi rolini o'zgartirib bo'lmaydi")
+    if "*" in (r.permissions or []) or r.code == "platform_support":
+        raise HttpError(400, "Bu rolni o'zgartirib bo'lmaydi (hamma ruxsatli rol)")
+    if r.level >= request.auth.access_level():
+        raise HttpError(403, "O'zingizdan yuqori yoki teng darajadagi rolni o'zgartira olmaysiz")
     for k, v in data.dict().items():
         setattr(r, k, v)
     r.save()
@@ -517,8 +595,15 @@ def list_users(request):
 def create_user(request, data: UserIn):
     require_perm(request, "core.users.manage")
     role = get_object_or_404(Role, code=data.role_code)
+    from core.access import can_grant_role, check_branches
+    if not can_grant_role(request.auth, role):
+        raise HttpError(403, f"«{role.name}» rolini bera olmaysiz")
+    data.branch_ids = check_branches(request.auth, data.branch_ids)
     phone = User.objects.normalize_phone(data.phone)
     u, created = User.objects.get_or_create(phone=phone, defaults={"full_name": data.full_name, "language": data.language})
+    from core.access import can_manage_user
+    if not created and u.memberships.exists() and not can_manage_user(request.auth, u):
+        raise HttpError(403, "Bu raqam sizdan yuqori darajadagi xodimga tegishli")
     m, _ = Membership.objects.get_or_create(user=u, role=role)
     m.branches.set(data.branch_ids)
     if data.password:
@@ -546,8 +631,9 @@ def set_user_password(request, uid: str, data: PasswordSet):
     if not (me.has_perm_code("core.users.manage") or me.has_perm_code("hr.edit")):
         raise HttpError(403, "Ruxsat yo'q: core.users.manage")
     u = get_object_or_404(User, pk=uid, is_active=True)
-    if u.pk != me.pk and u.memberships.filter(role__code="owner").exists() and not me.memberships.filter(role__code="owner").exists():
-        raise HttpError(403, "Egasining parolini faqat egasining o'zi o'zgartira oladi")
+    from core.access import can_manage_user
+    if u.pk != me.pk and not can_manage_user(me, u) and not (me.has_perm_code("hr.edit") and u.access_level() < me.access_level()):
+        raise HttpError(403, "Bu xodimning parolini o'zgartira olmaysiz (sizdan yuqori daraja yoki boshqa filial)")
     if data.generate:
         import secrets
         pw = f"{secrets.randbelow(900000) + 100000}"
@@ -587,6 +673,9 @@ def deactivate_user(request, uid: str):
     u = get_object_or_404(User, pk=uid)
     if u == request.auth:
         raise HttpError(400, "O'zingizni o'chira olmaysiz")
+    from core.access import can_manage_user
+    if not can_manage_user(request.auth, u):
+        raise HttpError(403, "Bu xodimni o'chira olmaysiz (sizdan yuqori daraja yoki boshqa filial)")
     u.is_active = False
     u.save(update_fields=["is_active"])
     record(request, "deactivate", u)
@@ -627,6 +716,7 @@ def _has_shift():
 @api.get("/dashboard/summary", auth=auth, tags=["dashboard"])
 def dashboard_summary(request):
     """Bosqich 1: sozlash holati. Kassa (4-bosqich) kelganda savdo KPI'lari shu yerga qo'shiladi."""
+    require_perm(request, "core.dashboard.view")
     from modules.catalog.models import Category, MenuVersion, Product
     from modules.cms.models import SiteSection, SiteSettings
 
@@ -695,22 +785,31 @@ def dashboard_summary(request):
 @api.get("/dashboard/overview", auth=auth, tags=["dashboard"])
 def dashboard_overview(request, period: str = "today", branch_id: Optional[int] = None):
     """Menejer paneli: KPI, dinamika, holat, top, filiallar, so'nggi buyurtmalar, ombor, vazifalar, faoliyat."""
+    require_perm(request, "core.dashboard.view")
     from .dashboard import overview
-    return overview(request, period, branch_id)
+    return overview(request, period, _scoped_branch(request, branch_id))
 
 
 @api.get("/dashboard/sections", auth=auth, tags=["dashboard"])
 def dashboard_sections(request, branch_id: Optional[int] = None, period: str = "today"):
     """Har bo'lim uchun 3–5 ta asosiy ko'rsatkich (plitkalar). period: today|yesterday|week|month|year — asosiy sahifadagi davr."""
     from .sections import sections
-    return sections(request, branch_id, period)
+    return sections(request, _scoped_branch(request, branch_id), period)
 
 
 @api.get("/dashboard/section/{code}", auth=auth, tags=["dashboard"])
 def dashboard_section(request, code: str, days: int = 7, branch_id: Optional[int] = None):
     """Bo'lim dashboardi: shu bo'limning grafiklari va ro'yxatlari (vidjetlar)."""
     from .section_dash import section_dashboard
-    return section_dashboard(request, code, days, branch_id)
+    return section_dashboard(request, code, days, _scoped_branch(request, branch_id))
+
+
+def _scoped_branch(request, branch_id: Optional[int]) -> Optional[int]:
+    """Filial menejeri faqat o'z filialini ko'radi: boshqa filial yoki «hammasi» so'ralsa — o'z filialiga."""
+    scope = request.auth.branch_scope()
+    if scope is None or (branch_id and branch_id in scope):
+        return branch_id
+    return min(scope) if scope else -1
 
 
 # ------------------------------------------------------------------ modullar routerlari
@@ -756,9 +855,11 @@ api.add_router("/ops", ops_router)
 api.add_router("/procurement", procurement_router)
 api.add_router("/projects", projects_router)
 
+from api.access_api import router as access_router  # noqa: E402
 from api.platform_api import router as platform_router  # noqa: E402
 
 api.add_router("/platform", platform_router)
+api.add_router("/access", access_router)
 
 
 @api.get("/health", tags=["system"])

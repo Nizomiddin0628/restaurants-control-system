@@ -27,6 +27,8 @@ from core.modules import all_modules
 from integrations.sms import send_otp
 from public import hq
 from public.models import (
+    DIRECT_ROLES,
+    TOP_ROLES,
     FeatureFlag,
     HqAudit,
     Invoice,
@@ -67,7 +69,7 @@ hq_auth = HqAuth()
 
 
 def _need(request, *roles: str):
-    if request.staff.role != StaffRole.SUPERADMIN and request.staff.role not in roles:
+    if request.staff.role not in TOP_ROLES and request.staff.role not in roles:
         raise HttpError(403, "Bu amal uchun huquqingiz yo'q.")
 
 
@@ -282,7 +284,43 @@ def tenant_detail(request, tid: int):
         "sessions": [{"at": s.started_at.isoformat(), "staff": s.staff_name, "reason": s.reason} for s in SupportSession.objects.filter(tenant=t)[:10]],
         "activity": [{"at": a.at.isoformat(), "who": a.staff_name, "action": a.action, "detail": a.detail} for a in HqAudit.objects.filter(tenant=t)[:10]],
         "admin_url": f"{hq.tenant_base(t)}/admin/", "site_url": f"{hq.tenant_base(t)}/",
+        "ai": _ai_out(t), "direct_entry": request.staff.role in DIRECT_ROLES,
     }
+
+
+def _ai_out(t: Tenant) -> dict:
+    from modules.ai import limits
+    out = {**limits.platform(t), "module_enabled": t.module_enabled("ai"), "used": 0, "today": 0}
+    try:
+        with schema_context(t.schema_name):
+            from modules.ai.agent import used_today
+            out["used"] = len(limits.holders()) if t.module_enabled("ai") else 0
+            out["today"] = used_today() if t.module_enabled("ai") else 0
+    except Exception:
+        pass
+    return out
+
+
+class AiCapIn(Schema):
+    enabled: bool = True
+    daily_limit: int = 0
+    seats: int = 0
+
+
+@router.put("/tenants/{int:tid}/ai", auth=hq_auth)
+def set_ai_cap(request, tid: int, data: AiCapIn):
+    """AI Kotib tarifi: yoqilgan/o'chirilgan, kunlik so'rovlar va nechta xodim (0 — cheklovsiz)."""
+    _need(request, StaffRole.SALES)
+    t = get_object_or_404(Tenant, pk=tid)
+    from modules.ai import limits
+    c = limits.set_platform(t, enabled=data.enabled, daily_limit=data.daily_limit, seats=data.seats)
+    if data.enabled and not t.module_enabled("ai"):
+        try:
+            set_modules(t, [*t.enabled_modules, "ai"])
+        except PermissionError:
+            pass
+    hq.audit(request.staff, "ai_cap", t, **c)
+    return _ai_out(t)
 
 
 class StatusIn(Schema):
@@ -378,7 +416,10 @@ def access_request(request, tid: int, data: ReasonIn):
 
 @router.post("/tenants/{int:tid}/impersonate", auth=hq_auth)
 def impersonate(request, tid: int, data: ReasonIn):
+    """Founder/developer/superadmin — to'g'ridan-to'g'ri (yoziladi); texnik yordam — egasi ruxsat berganda."""
     _need(request, StaffRole.SUPPORT)
+    if not data.reason.strip() and request.staff.role in DIRECT_ROLES:
+        data.reason = "Platforma rahbari: nazorat va sozlash"
     if not data.reason.strip():
         raise HttpError(400, "Kirish sababini yozing (masalan: murojaat #10482).")
     t = get_object_or_404(Tenant, pk=tid)

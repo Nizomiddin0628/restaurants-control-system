@@ -43,7 +43,8 @@ function goCol(i: number) {
   activeCol.value = i
 }
 
-const f = ref({ branch_id: '', department_id: '', priority: '', assignee_id: '', q: '', overdue: useRoute().query.overdue === '1' })
+const route0 = useRoute()
+const f = ref({ branch_id: '', department_id: '', priority: '', assignee_id: '', q: '', overdue: route0.query.overdue === '1' })
 /** Statistika kartalari: «Jarayonda / Tekshiruvda / Bajarildi» — kanbanda shu ustun ajratiladi, «Kechikkan» — filtr */
 const hlKind = ref(f.value.overdue ? 'overdue' : '')
 function kpiPick(k: 'all' | 'active' | 'review' | 'done' | 'overdue') {
@@ -115,7 +116,7 @@ async function loadList() {
 }
 
 async function reload() { tab.value === 'kanban' ? await loadBoard() : await loadList() }
-onMounted(async () => { await loadMeta(); await reload() })
+onMounted(async () => { await loadMeta(); await reload(); const o = Number(route0.query.open); if (o) open(o).catch(() => {}) })
 watch([tab, () => ({ ...f.value })], reload, { deep: true })
 
 async function open(id: number) { selected.value = await api.get<Task>(`/tasks/tasks/${id}`) }

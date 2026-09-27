@@ -18,6 +18,12 @@ export const useAuth = defineStore('auth', {
     async requestOtp(phone: string) { return api.post<{ ok: boolean; dev_code?: string; via?: string }>('/auth/otp', { phone }) },
     async verify(phone: string, code: string) { const r = await api.post<{ token: string; user: Me }>('/auth/verify', { phone, code }); tokenStore.set(r.token); this.me = r.user },
     async login(phone: string, password: string) { const r = await api.post<{ token: string; user: Me }>('/auth/login', { phone, password }); tokenStore.set(r.token); this.me = r.user },
+    async tgStart(phone: string) { return api.post<{ ok: boolean; reason?: string; id?: string; secret?: string; ttl?: number; bot_username?: string }>('/auth/tg-login', { phone }) },
+    async tgPoll(id: string, secret: string) {
+      const r = await api.get<{ status: string; token?: string; user?: Me }>(`/auth/tg-login/${id}`, { secret })
+      if (r.status === 'ok' && r.token && r.user) { tokenStore.set(r.token); this.me = r.user }
+      return r.status
+    },
     async switchIn(code: string) { const r = await api.post<{ token: string; user: Me }>('/auth/switch', { code }); tokenStore.set(r.token); this.me = r.user },
     logout() { tokenStore.set(null); this.me = null; location.href = '/admin/login' },
   },

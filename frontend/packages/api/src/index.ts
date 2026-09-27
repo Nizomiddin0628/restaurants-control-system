@@ -53,7 +53,7 @@ export const api = {
 
 // ---- domen tiplari (qo'lda; generatsiya qilingan schema.d.ts bilan almashtiriladi)
 export type I18n = { uz?: string; ru?: string; en?: string }
-export type Me = { id: string; phone: string; full_name: string; language: string; avatar: string | null; roles: string[]; role_names?: string[]; permissions: string[]; tenant: { name: string; slug: string; preset: string; schema: string; enabled_modules: string[]; settings: Json; trial_ends_at: string | null }; nav: NavItem[]; branches?: { id: number; name: string; address: string }[]; has_password?: boolean }
+export type Me = { id: string; phone: string; full_name: string; language: string; avatar: string | null; roles: string[]; role_names?: string[]; permissions: string[]; tenant: { name: string; slug: string; preset: string; schema: string; enabled_modules: string[]; settings: Json; trial_ends_at: string | null }; nav: NavItem[]; branches?: { id: number; name: string; address: string }[]; has_password?: boolean; branch_all?: boolean; level?: number; home?: string; telegram_linked?: boolean; bot_username?: string }
 export type NavItem = { route: string; label: I18n; icon: string; order: number; perm?: string; module: string }
 export type ModuleInfo = { code: string; name: I18n; version: string; phase: number; implemented: boolean; depends: string[]; permissions: string[]; nav: NavItem[]; settings_schema: Json; order: number; enabled: boolean; allowed_by_plan: boolean }
 export type Category = { id: number; name: I18n; image: string | null; sort_order: number; is_active: boolean; products_count: number }

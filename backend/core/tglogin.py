@@ -1,0 +1,110 @@
+"""
+Telegram orqali kirish (parolsiz, kodsiz):
+  1) saytda telefon → POST /auth/tg-login → botga «Kirishni tasdiqlaysizmi?» [✅ Ha] [❌ Yo'q]
+  2) xodim «Ha» bosadi (callback login:ok:<id>) → so'rov tasdiqlanadi
+  3) sayt har 2 soniyada GET /auth/tg-login/<id> so'raydi → tasdiqlangan bo'lsa token oladi va kiradi.
+Xodim avval botga /start bosib telefonini ulashgan bo'lishi kerak (telegram_id).
+"""
+from __future__ import annotations
+
+import logging
+import secrets
+from datetime import timedelta
+
+from django.utils import timezone
+
+from integrations.telegram import call
+
+from .models import LoginRequest, User
+
+log = logging.getLogger("telegram")
+PREFIX = "login:"
+
+
+def _device(ua: str) -> str:
+    ua = ua or ""
+    os_ = next((n for k, n in (("iPhone", "iPhone"), ("Android", "Android"), ("Windows", "Windows"), ("Mac OS", "Mac"), ("Linux", "Linux")) if k in ua), "")
+    br = next((n for k, n in (("Edg/", "Edge"), ("OPR/", "Opera"), ("YaBrowser", "Yandex"), ("Chrome/", "Chrome"), ("Firefox/", "Firefox"), ("Safari/", "Safari")) if k in ua), "brauzer")
+    return f"{br}{' · ' + os_ if os_ else ''}"
+
+
+def _token(tenant) -> str | None:
+    from modules.telegram.services import token
+    return token(tenant)
+
+
+def start(tenant, user: User, ip: str = "", ua: str = "") -> LoginRequest | None:
+    """So'rov yaratib botga yuboradi. Bot yoki bog'lanish bo'lmasa — None."""
+    tok = _token(tenant)
+    if not tok or not user.telegram_id:
+        return None
+    recent = LoginRequest.objects.filter(user=user, created_at__gte=timezone.now() - timedelta(minutes=10)).count()
+    if recent >= 6:
+        raise PermissionError("Juda ko'p urinish — 10 daqiqadan keyin qayta urinib ko'ring yoki parol bilan kiring")
+    LoginRequest.objects.filter(user=user, status=LoginRequest.PENDING).update(status=LoginRequest.NO)
+    req = LoginRequest.objects.create(user=user, secret=secrets.token_urlsafe(24), ip=(ip or "")[:64], device=_device(ua)[:160])
+    now = timezone.localtime()
+    text = (f"🔐 <b>{tenant.name}</b> — boshqaruv paneliga kirish\n\n"
+            f"👤 {user.full_name or user.phone}\n💻 {req.device}\n🕘 {now:%H:%M}\n\n"
+            "Hozir o'zingiz kiryapsizmi? <b>«Ha»</b> ni bosing.\nSiz bo'lmasangiz — <b>«Yo'q»</b>ni bosing va hech kimga kod bermang.")
+    kb = {"inline_keyboard": [[{"text": "✅ Ha, men kiryapman", "callback_data": f"{PREFIX}ok:{req.pk}"},
+                               {"text": "❌ Yo'q, men emas", "callback_data": f"{PREFIX}no:{req.pk}"}]]}
+    r = call("sendMessage", {"chat_id": user.telegram_id, "text": text, "parse_mode": "HTML", "reply_markup": kb}, tok)
+    if not r.get("ok"):
+        req.status = LoginRequest.NO
+        req.save(update_fields=["status"])
+        return None
+    return req
+
+
+def handle_callback(tenant, cq: dict) -> bool:
+    data = str(cq.get("data") or "")
+    if not data.startswith(PREFIX):
+        return False
+    tok = _token(tenant)
+    chat_id = ((cq.get("message") or {}).get("chat") or {}).get("id") or (cq.get("from") or {}).get("id")
+    msg_id = (cq.get("message") or {}).get("message_id")
+    try:
+        _, action, rid = data.split(":", 2)
+        req = LoginRequest.objects.select_related("user").get(pk=rid)
+    except Exception:
+        call("answerCallbackQuery", {"callback_query_id": cq.get("id"), "text": "So'rov topilmadi"}, tok)
+        return True
+    if req.user.telegram_id != chat_id:
+        call("answerCallbackQuery", {"callback_query_id": cq.get("id"), "text": "Bu so'rov sizga tegishli emas"}, tok)
+        return True
+    if req.status != LoginRequest.PENDING or req.expired:
+        txt = "⌛ Bu so'rov eskirgan. Saytda qaytadan «Telegram orqali kirish»ni bosing."
+    elif action == "ok":
+        req.status, req.decided_at = LoginRequest.OK, timezone.now()
+        req.save(update_fields=["status", "decided_at"])
+        txt = f"✅ Kirish tasdiqlandi — {tenant.name} paneli ochilmoqda."
+    else:
+        req.status, req.decided_at = LoginRequest.NO, timezone.now()
+        req.save(update_fields=["status", "decided_at"])
+        txt = "❌ Kirish rad etildi. Agar bu siz bo'lmasangiz — rahbaringizga ayting va parolingizni almashtiring."
+    call("answerCallbackQuery", {"callback_query_id": cq.get("id")}, tok)
+    if msg_id:
+        call("editMessageText", {"chat_id": chat_id, "message_id": msg_id, "text": txt}, tok)
+    return True
+
+
+def poll(rid: str, secret: str) -> tuple[str, User | None]:
+    """→ (holat, foydalanuvchi): pending | ok | no | expired."""
+    try:
+        req = LoginRequest.objects.select_related("user").filter(pk=rid).first()
+    except Exception:          # noto'g'ri id
+        req = None
+    if req is None or not secrets.compare_digest(req.secret, secret or ""):
+        return "no", None
+    if req.status == LoginRequest.OK:
+        if (timezone.now() - (req.decided_at or req.created_at)).total_seconds() > 120:
+            return "expired", None
+        if not LoginRequest.objects.filter(pk=req.pk, status=LoginRequest.OK).update(status=LoginRequest.USED):
+            return "expired", None             # bir so'rov bilan faqat bir marta kiriladi
+        return "ok", req.user
+    if req.status == LoginRequest.PENDING and req.expired:
+        return "expired", None
+    if req.status == LoginRequest.PENDING:
+        return "pending", None
+    return ("no" if req.status == LoginRequest.NO else "expired"), None

@@ -72,10 +72,18 @@ class Domain(DomainMixin):
 # Restoran ichiga kirish — faqat egasi vaqtincha ruxsat berganda (SupportAccess), har kirish yoziladi (SupportSession).
 
 class StaffRole(models.TextChoices):
+    FOUNDER = "founder", "Asoschi (founder)"
+    DEVELOPER = "developer", "Dasturchi (developer)"
     SUPERADMIN = "superadmin", "Bosh administrator"
     SUPPORT = "support", "Texnik yordam"
     SALES = "sales", "Sotuv"
     FINANCE = "finance", "Moliya"
+
+
+# Butun platforma rahbarlari: har qanday restoranga (egasining ruxsatisiz) kira oladi, tarif/limitlarni boshqaradi
+TOP_ROLES = ("founder", "developer", "superadmin")
+# Restoran paneliga egasining ruxsatisiz kira oladiganlar (har kirish yoziladi)
+DIRECT_ROLES = ("founder", "developer")
 
 
 class PlatformStaff(models.Model):

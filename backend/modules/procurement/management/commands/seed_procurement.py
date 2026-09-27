@@ -7,7 +7,7 @@ from django.core.management.base import BaseCommand
 from django_tenants.utils import schema_context
 
 from public.models import Tenant
-from public.services import SYSTEM_ROLES, set_modules
+from public.services import ROLE_LEVELS, SYSTEM_ROLES, set_modules
 
 
 class Command(BaseCommand):
@@ -32,7 +32,7 @@ class Command(BaseCommand):
                 from core.models import Role
                 from modules.procurement import services
                 for code, name, perms in SYSTEM_ROLES:          # yangi rol (bozorchi) va yangi ruxsatlar
-                    r, created = Role.objects.get_or_create(code=code, defaults={"name": name, "permissions": perms, "is_system": True})
+                    r, created = Role.objects.get_or_create(code=code, defaults={"name": name, "permissions": perms, "is_system": True, "level": ROLE_LEVELS.get(code, 10)})
                     if not created and r.is_system and set(perms) - set(r.permissions):
                         r.permissions = sorted(set(r.permissions) | set(perms))
                         r.save(update_fields=["permissions"])

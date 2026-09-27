@@ -17,7 +17,7 @@ const tab = ref<'overview' | 'branches' | 'billing' | 'tickets' | 'access' | 'mo
 const reason = ref('')
 const busy = ref(false)
 const plans = ref<any[]>([])
-async function load() { T.value = await api.get(`/hq/tenants/${route.params.id}`) }
+async function load() { T.value = await api.get(`/hq/tenants/${route.params.id}`); syncAi() }
 onMounted(async () => { await load(); plans.value = (await api.get('/hq/tenants')).plans })
 
 const pts = computed(() => (T.value?.series ?? []).map((p: any) => ({ label: p.date.slice(8, 10) + '.' + p.date.slice(5, 7), value: p.revenue })))
@@ -31,7 +31,7 @@ async function act(fn: () => Promise<any>, ok: string) {
 }
 const requestAccess = () => act(() => api.post(`/hq/tenants/${T.value.id}/access-request`, { reason: reason.value }), 'So\'rov yuborildi — egasi panelida ko\'radi')
 async function enter() {
-  if (!reason.value.trim()) { toast('Kirish sababini yozing (masalan: murojaat #10482)', 'danger'); return }
+  if (!reason.value.trim() && !s.direct) { toast('Kirish sababini yozing (masalan: murojaat #10482)', 'danger'); return }
   busy.value = true
   try { const r = await api.post(`/hq/tenants/${T.value.id}/impersonate`, { reason: reason.value }); window.open(r.url, '_blank'); await load() }
   catch (e: any) { toast(e.detail ?? 'Xato', 'danger') } finally { busy.value = false }
@@ -47,6 +47,11 @@ function toggleModule(code: string, on: boolean) {
   const codes = T.value.modules.filter((m: any) => (m.code === code ? on : m.enabled)).map((m: any) => m.code)
   act(() => api.put(`/hq/tenants/${T.value.id}/modules`, { codes }), 'Modullar yangilandi')
 }
+// AI Kotib tarifi: yoqilgan, kunlik so'rov, nechta xodim (0 — cheklovsiz)
+const ai = ref({ enabled: true, daily_limit: 0, seats: 0 })
+const aiOpen = computed(() => !!T.value?.ai)
+function syncAi() { if (T.value?.ai) ai.value = { enabled: T.value.ai.enabled, daily_limit: T.value.ai.daily_limit, seats: T.value.ai.seats } }
+const saveAi = () => act(() => api.put(`/hq/tenants/${T.value.id}/ai`, { enabled: ai.value.enabled, daily_limit: Number(ai.value.daily_limit) || 0, seats: Number(ai.value.seats) || 0 }), 'AI Kotib tarifi saqlandi')
 const invStatus = (id: number, status: string) => act(() => api.post(`/hq/invoices/${id}/status`, { status }), 'Hisob yangilandi')
 </script>
 
@@ -147,13 +152,14 @@ const invStatus = (id: number, status: string) => act(() => api.post(`/hq/invoic
 
     <!-- KIRISH -->
     <div v-else-if="tab === 'access'" class="grid2">
-      <UiCard title="Restoran paneliga kirish" subtitle="Faqat egasi vaqtincha ruxsat berganda. Har kirish egasiga ko'rinadi.">
-        <div v-if="T.access" class="acc ok">✅ Ruxsat bor — <b>{{ dt(T.access.until) }}</b> gacha ({{ T.access.granted_by }})</div>
+      <UiCard title="Restoran paneliga kirish" :subtitle="T.direct_entry ? 'Siz platforma rahbarisiz — to\'g\'ridan-to\'g\'ri kirasiz. Har kirish egasiga ko\'rinadi.' : 'Faqat egasi vaqtincha ruxsat berganda. Har kirish egasiga ko\'rinadi.'">
+        <div v-if="T.direct_entry" class="acc ok">👑 To'g'ridan-to'g'ri kirish (8 soat). Sabab ixtiyoriy.</div>
+        <div v-else-if="T.access" class="acc ok">✅ Ruxsat bor — <b>{{ dt(T.access.until) }}</b> gacha ({{ T.access.granted_by }})</div>
         <div v-else class="acc">🔒 Ruxsat yo'q. Egasidan so'rang — unga panelda va Telegram'da xabar boradi.</div>
         <div v-if="T.access_request && !T.access" class="acc wait">⏳ So'rov yuborilgan: {{ T.access_request.by }} · {{ ago(T.access_request.at) }}</div>
-        <label class="fl"><span>Sabab (majburiy)</span><input v-model="reason" placeholder="Masalan: murojaat #10482 — checklist ishlamayapti" /></label>
+        <label class="fl"><span>{{ T.direct_entry ? 'Sabab (ixtiyoriy)' : 'Sabab (majburiy)' }}</span><input v-model="reason" placeholder="Masalan: murojaat #10482 — checklist ishlamayapti" /></label>
         <div class="acts">
-          <UiButton v-if="T.access" variant="brand" :loading="busy" @click="enter()">Panelni ochish ↗</UiButton>
+          <UiButton v-if="T.access || T.direct_entry" variant="brand" :loading="busy" @click="enter()">Panelni ochish ↗</UiButton>
           <UiButton v-else variant="brand" :loading="busy" @click="requestAccess()">Ruxsat so'rash</UiButton>
         </div>
       </UiCard>
@@ -164,9 +170,20 @@ const invStatus = (id: number, status: string) => act(() => api.post(`/hq/invoic
     </div>
 
     <!-- MODULLAR -->
-    <UiCard v-else-if="tab === 'modules'" title="Yoqilgan modullar" subtitle="Tarif ruxsat bermagan modul yoqilmaydi">
+    <div v-else-if="tab === 'modules'" class="mstack">
+    <UiCard v-if="aiOpen" title="🤖 AI Kotib — tarif chegarasi" subtitle="Restoran Superadmini shu chegara ichida xodimlariga taqsimlaydi. 0 — cheklovsiz.">
+      <div class="aic">
+        <UiToggle v-model="ai.enabled" label="AI Kotib yoqilgan" :disabled="!s.can('sales')" />
+        <label class="fl"><span>Kuniga nechta so'rov</span><input v-model.number="ai.daily_limit" type="number" min="0" :disabled="!s.can('sales')" /></label>
+        <label class="fl"><span>Nechta xodim foydalanadi</span><input v-model.number="ai.seats" type="number" min="0" :disabled="!s.can('sales')" /></label>
+        <UiButton variant="brand" :loading="busy" :disabled="!s.can('sales')" @click="saveAi()">Saqlash</UiButton>
+      </div>
+      <p class="aiu">Hozir: <b>{{ T.ai.used }}</b> xodimda bor · bugun <b>{{ T.ai.today }}</b> ta so'rov{{ T.ai.module_enabled ? '' : ' · modul o\'chiq' }}</p>
+    </UiCard>
+    <UiCard title="Yoqilgan modullar" subtitle="Tarif ruxsat bermagan modul yoqilmaydi">
       <div class="mods"><div v-for="m in T.modules" :key="m.code" class="mod" :class="{ off: !m.allowed }"><UiToggle :model-value="m.enabled" :disabled="!m.allowed || busy || !s.can('support', 'sales')" :label="m.name" @update:model-value="(v: boolean) => toggleModule(m.code, v)" /></div></div>
     </UiCard>
+    </div>
 
     <!-- FAOLIYAT -->
     <UiCard v-else title="Jamoa harakatlari (shu mijoz)">
@@ -220,4 +237,8 @@ const invStatus = (id: number, status: string) => act(() => api.post(`/hq/invoic
   .ss li { grid-template-columns: 1fr auto; } .ss li span { grid-column: 1 / -1; order: 3; color: var(--ink-2); }
 }
 @media (max-width: 560px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ha { width: 100%; } .inv { grid-template-columns: 1fr auto; } }
+.mstack { display: flex; flex-direction: column; gap: 14px; }
+.aic { display: grid; grid-template-columns: auto 1fr 1fr auto; gap: 12px; align-items: end; }
+.aiu { margin: 10px 0 0; font-size: var(--fs-s); color: var(--muted); }
+@media (max-width: 800px) { .aic { grid-template-columns: 1fr; } }
 </style>

@@ -67,6 +67,8 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStamped):
     is_staff = models.BooleanField(default=False)
     telegram_id = models.BigIntegerField(null=True, blank=True)
     last_seen_at = models.DateTimeField(null=True, blank=True)
+    extra_permissions = models.JSONField(default=list, blank=True,
+                                         help_text="Roldan tashqari shaxsiy ruxsatlar (masalan ['ai.use', 'inventory.view'])")
 
     USERNAME_FIELD = "phone"
     REQUIRED_FIELDS: list[str] = []
@@ -89,10 +91,37 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStamped):
 
     # ---- ruxsatlar (rol orqali)
     def tenant_permissions(self) -> set[str]:
+        perms: set[str] = set(self.extra_permissions or [])
+        for m in self.memberships.select_related("role").filter(is_active=True):
+            perms.update(m.role.permissions or [])
+        return perms
+
+    def role_permissions(self) -> set[str]:
         perms: set[str] = set()
         for m in self.memberships.select_related("role").filter(is_active=True):
             perms.update(m.role.permissions or [])
         return perms
+
+    def access_level(self) -> int:
+        """Ierarxiya darajasi: Superadmin (egasi) 100, Bosh menejer 80, Filial menejeri 60, xodim 10."""
+        if self.is_superuser:
+            return 1000
+        return max([m.role.level for m in self.memberships.select_related("role").filter(is_active=True)] or [0])
+
+    def branch_scope(self) -> set[int] | None:
+        """None — barcha filiallar; aks holda ruxsat etilgan filiallar id'lari (a'zoliklardagi filiallar birlashmasi)."""
+        if self.is_superuser:
+            return None
+        ms = list(self.memberships.filter(is_active=True).select_related("role").prefetch_related("branches"))
+        if not ms:
+            return None
+        ids: set[int] = set()
+        for m in ms:
+            bs = {b.pk for b in m.branches.all()}
+            if not bs or m.role.level >= 80:
+                return None
+            ids |= bs
+        return ids
 
     def has_perm_code(self, code: str) -> bool:
         """`catalog.product.edit` → rolda 'catalog.product.edit' | 'catalog.*' | '*' bo'lsa True."""
@@ -117,6 +146,8 @@ class Role(TimeStamped):
     permissions = models.JSONField(default=list, help_text="['catalog.*', 'core.settings.view', ...] yoki ['*']")
     is_system = models.BooleanField(default=False, help_text="owner kabi o'chirib bo'lmaydigan rollar")
     requires_pin_for = models.JSONField(default=list, help_text="PIN talab qilinadigan harakatlar")
+    level = models.PositiveSmallIntegerField(default=10, help_text="100 Superadmin · 80 Bosh menejer · 60 Filial menejeri · 10 xodim")
+    description = models.CharField(max_length=200, blank=True)
 
     class Meta:
         unique_together = [("code",)]
@@ -196,6 +227,29 @@ class OtpCode(models.Model):
 
     def is_valid(self, ttl_seconds: int) -> bool:
         return self.used_at is None and self.attempts < 5 and (timezone.now() - self.created_at).total_seconds() < ttl_seconds
+
+
+class LoginRequest(models.Model):
+    """Telegram orqali kirish: saytda telefon kiritiladi → botga «Kirishni tasdiqlaysizmi?» → «Ha» bosilsa sayt o'zi kiradi."""
+
+    PENDING, OK, NO, USED = "pending", "ok", "no", "used"
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="login_requests")
+    status = models.CharField(max_length=10, default=PENDING)
+    secret = models.CharField(max_length=64, help_text="brauzerdagi so'rov kaliti (boshqa odam tokenni ololmasin)")
+    ip = models.CharField(max_length=64, blank=True)
+    device = models.CharField(max_length=160, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    TTL = 180   # soniya
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    @property
+    def expired(self) -> bool:
+        return (timezone.now() - self.created_at).total_seconds() > self.TTL
 
 
 class Device(TimeStamped):

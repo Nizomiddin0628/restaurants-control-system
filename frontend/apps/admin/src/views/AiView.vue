@@ -20,8 +20,21 @@ const EX = ['Kecha qancha savdo bo\'ldi, o\'tgan haftadan farqi qancha?', 'Ombor
 
 async function loadStatus() {
   S.value = await api.get('/ai/status')
-  form.value = { api_key: '', morning_enabled: S.value.morning_enabled, morning_time: S.value.morning_time, daily_limit: S.value.daily_limit }
+  form.value = { api_key: '', morning_enabled: S.value.morning_enabled, morning_time: S.value.morning_time, daily_limit: S.value.daily_limit_own ?? S.value.daily_limit }
+  if (S.value.can_manage) loadSeats()
 }
+/** Kimlar AI Kotibdan foydalanadi — Superadmin bir bosishda beradi/oladi (platforma bergan o'rinlar doirasida) */
+const seats = ref<any>(null), seatBusy = ref('')
+async function loadSeats() { try { seats.value = await api.get('/ai/seats') } catch { seats.value = null } }
+async function toggleSeat(u: any, on: boolean) {
+  seatBusy.value = u.id
+  try { const r = await api.post('/ai/seats', { user_id: u.id, on }); seats.value = { ...r, users: seats.value.users.map((x: any) => (x.id === u.id ? r.user : x)) }; toast(on ? `${u.name}: AI Kotib berildi` : `${u.name}: AI Kotib olindi`); loadStatus() }
+  catch (e: any) { toast(e.detail ?? 'Xato', 'danger') } finally { seatBusy.value = '' }
+}
+const seatLine = computed(() => {
+  const x = seats.value; if (!x) return ''
+  return x.seats ? `Tarifingiz: ${x.seats} kishi · band: ${x.used} · bo'sh: ${x.free}` : `Band: ${x.used} kishi · tarifda cheklov yo'q`
+})
 async function loadReport(ai = false) {
   rLoading.value = true
   try { R.value = await api.get('/ai/report', { ai: ai ? 1 : 0 }) } catch (e: any) { toast(e.detail ?? 'Xato', 'danger') } finally { rLoading.value = false }
@@ -148,7 +161,7 @@ const ready = computed(() => S.value?.recipients?.filter((r: any) => r.telegram)
             <UiToggle v-model="form.morning_enabled" label="Har kuni ertalab hisobot yuborish" />
             <div class="ai-row two">
               <UiInput v-model="form.morning_time" type="time" label="Soat nechada" />
-              <UiInput v-model="form.daily_limit" type="number" label="Kunlik so'rov chegarasi" hint="0 — cheklovsiz (sinov davri). Keyin masalan 60" />
+              <UiInput v-model="form.daily_limit" type="number" label="Kunlik so'rov chegarasi" :hint="S.platform?.daily_limit ? `Tarif bo'yicha eng ko'pi: ${S.platform.daily_limit}. 0 — tarif chegarasi` : '0 — cheklovsiz'" />
             </div>
             <UiButton variant="secondary" :loading="saving" @click="save()">Saqlash</UiButton>
           </div>
@@ -156,8 +169,20 @@ const ready = computed(() => S.value?.recipients?.filter((r: any) => r.telegram)
       </div>
     </div>
 
+    <!-- KIMLAR FOYDALANADI (Superadmin taqsimlaydi) -->
+    <UiCard v-if="S.can_manage && seats" title="Kimlar foydalanadi" :subtitle="seatLine">
+      <div class="ai-seat">
+        <div v-for="u in seats.users" :key="u.id" class="ai-seat-i" :class="{ on: u.on }">
+          <span class="nm"><b>{{ u.name }}</b><small>{{ u.role }}<template v-if="u.by_role"> · lavozimi bo'yicha</template> · {{ u.telegram ? '✈️ Telegram ulangan' : 'Telegram ulanmagan' }}</small></span>
+          <UiToggle :model-value="u.on" :disabled="!u.editable || seatBusy === u.id" :aria-label="`${u.name} — AI Kotib`" @update:model-value="(v: boolean) => toggleSeat(u, v)" />
+        </div>
+      </div>
+      <p class="ai-note">Yoqilgan xodim: Telegram botda «🤖 AI Kotib» tugmasi, ertalabki hisobot va saytda o'ng pastdagi chat. Ertalabki hisobot faqat Telegram'ga ulanganlarga boradi.</p>
+      <p v-if="!S.bot_connected" class="ai-warn">⚠️ Telegram bot ulanmagan — «Telegram bot» sahifasida tokenni kiriting.</p>
+    </UiCard>
+
     <!-- OLUVCHILAR -->
-    <UiCard :title="`Hisobot oluvchilar · ${ready}`" subtitle="Rahbar va menejerlar — Telegram botga telefon raqamini ulashganlar. Ruxsat: «Kirish va rollar»da «ai.use».">
+    <UiCard v-else :title="`Hisobot oluvchilar · ${ready}`" subtitle="Rahbar va menejerlar — Telegram botga telefon raqamini ulashganlar. AI Kotibni Superadmin beradi.">
       <div v-if="S.recipients.length" class="ai-rc">
         <div v-for="r in S.recipients" :key="r.id" class="ai-rc-i" :class="{ off: !r.telegram }">
           <b>{{ r.name }}</b><small>{{ r.role }}</small>
@@ -218,6 +243,12 @@ const ready = computed(() => S.value?.recipients?.filter((r: any) => r.telegram)
 @keyframes ai-dot { 50% { transform: translateY(-4px); opacity: .5; } }
 .ai-set { display: flex; flex-direction: column; gap: 10px; } .ai-set hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; width: 100%; }
 .ai-row { display: flex; gap: 8px; flex-wrap: wrap; } .ai-row.two > * { flex: 1 1 160px; }
+.ai-seat { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 8px; }
+.ai-seat-i { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px; min-width: 0; }
+.ai-seat-i.on { border-color: color-mix(in srgb, #7C3AED 45%, transparent); background: color-mix(in srgb, #7C3AED 6%, var(--surface)); }
+.ai-seat-i .nm { display: flex; flex-direction: column; flex: 1; min-width: 0; } .ai-seat-i .nm b { font-size: var(--fs-s); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-seat-i .nm small, .ai-seat-i .rl { color: var(--muted); font-size: var(--fs-xs); }
+.ai-note { margin: 10px 0 0; font-size: var(--fs-xs); color: var(--muted); }
 .ai-rc { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: 8px; }
 .ai-rc-i { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; min-width: 0; }
 .ai-rc-i b { font-size: var(--fs-s); } .ai-rc-i small { color: var(--muted); font-size: var(--fs-xs); } .ai-rc-i > :last-child { align-self: flex-start; } .ai-rc-i.off { opacity: .7; }

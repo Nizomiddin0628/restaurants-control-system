@@ -8,7 +8,8 @@ export const router = createRouter({
     {
       path: '/', component: () => import('@/layouts/AppShell.vue'),
       children: [
-        { path: '', name: 'dashboard', component: () => import('@/views/DashboardView.vue') },
+        { path: '', name: 'dashboard', component: () => import('@/views/DashboardView.vue'), meta: { perm: 'core.dashboard.view' } },
+        { path: 'my', name: 'my', component: () => import('@/views/MyView.vue'), meta: { title: 'Mening sahifam' } },
         { path: 's/:code', name: 'section', component: () => import('@/views/SectionView.vue'), meta: { title: "Bo'lim" } },
         { path: 'catalog', name: 'catalog', component: () => import('@/views/CatalogView.vue'), meta: { module: 'catalog' } },
         { path: 'tasks', name: 'tasks', component: () => import('@/views/TasksView.vue'), meta: { module: 'tasks' } },
@@ -38,12 +39,12 @@ export const router = createRouter({
         { path: 'crm', name: 'crm', component: () => import('@/views/CrmView.vue'), meta: { module: 'crm', title: 'Mijozlar va bonus' } },
         { path: 'telegram', name: 'telegram', component: () => import('@/views/TelegramView.vue'), meta: { module: 'telegram' } },
         { path: 'site', name: 'site', component: () => import('@/views/SiteView.vue'), meta: { module: 'cms' } },
-        { path: 'branches', name: 'branches', component: () => import('@/views/BranchesView.vue') },
-        { path: 'users', name: 'users', component: () => import('@/views/UsersView.vue') },
-        { path: 'modules', name: 'modules', component: () => import('@/views/ModulesView.vue') },
+        { path: 'branches', name: 'branches', component: () => import('@/views/BranchesView.vue'), meta: { perm: 'core.branches.manage' } },
+        { path: 'users', name: 'users', component: () => import('@/views/UsersView.vue'), meta: { perm: 'core.users.manage', title: 'Xodimlar va kirish' } },
+        { path: 'modules', name: 'modules', component: () => import('@/views/ModulesView.vue'), meta: { perm: 'core.modules.manage' } },
         { path: 'settings', name: 'settings', component: () => import('@/views/SettingsView.vue') },
-        { path: 'support', name: 'support', component: () => import('@/views/SupportView.vue'), meta: { title: 'Yordam va platforma' } },
-        { path: 'audit', name: 'audit', component: () => import('@/views/AuditView.vue'), meta: { title: "O'zgarishlar tarixi" } },
+        { path: 'support', name: 'support', component: () => import('@/views/SupportView.vue'), meta: { title: 'Yordam va platforma', perm: 'core.settings.view' } },
+        { path: 'audit', name: 'audit', component: () => import('@/views/AuditView.vue'), meta: { title: "O'zgarishlar tarixi", perm: 'core.settings.view' } },
         { path: ':pathMatch(.*)*', redirect: '/' },
       ],
     },
@@ -54,6 +55,15 @@ router.beforeEach(async (to) => {
   const a = useAuth()
   if (to.meta.public) return true
   if (!a.me) { try { await a.load() } catch { return '/login' } }
-  if (to.meta.module && !a.me!.tenant.enabled_modules.includes(to.meta.module as string)) return '/modules'
+  const me = a.me!
+  const home = me.home || '/'
+  // umumiy raqamlarni ko'rmaydigan xodim — o'z sahifasiga
+  if (to.meta.perm && !a.can(to.meta.perm as string)) return home
+  if (to.meta.module) {
+    const mod = to.meta.module as string
+    if (!me.tenant.enabled_modules.includes(mod)) return a.can('core.modules.manage') ? '/modules' : home
+    // modul sahifasi — faqat menyusida shu modul bo'lganlarga (ruxsat bo'yicha)
+    if (!me.nav.some(n => n.module === mod)) return home
+  }
   return true
 })

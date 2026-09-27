@@ -16,7 +16,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **opts):
         from public.models import Tenant
-        from public.services import SYSTEM_ROLES, set_modules
+        from public.services import ROLE_LEVELS, SYSTEM_ROLES, set_modules
         qs = Tenant.objects.exclude(schema_name="public")
         if opts["slug"]:
             qs = qs.filter(slug=opts["slug"])
@@ -30,7 +30,7 @@ class Command(BaseCommand):
             with schema_context(t.schema_name):
                 from core.models import Role
                 for code, name, perms in SYSTEM_ROLES:          # yangi ruxsatlar (projects.*)
-                    r, created = Role.objects.get_or_create(code=code, defaults={"name": name, "permissions": perms, "is_system": True})
+                    r, created = Role.objects.get_or_create(code=code, defaults={"name": name, "permissions": perms, "is_system": True, "level": ROLE_LEVELS.get(code, 10)})
                     if not created and r.is_system and set(perms) - set(r.permissions):
                         r.permissions = sorted(set(r.permissions) | set(perms))
                         r.save(update_fields=["permissions"])

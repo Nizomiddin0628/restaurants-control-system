@@ -53,6 +53,7 @@ def sections(request, branch_id: int | None = None, period: str = "today") -> di
     S, L = make(branch_id)
     on = set(t.enabled_modules or [])
     can = u.has_perm_code
+    money = can("core.dashboard.view") or can("finance.view") or can("pos.view_all")   # savdo summalari — faqat rahbarlarga
     today = timezone.localdate()
     period = period if period in PERIODS else "today"
     d0, d1, plabel, p0, p1 = _range(period, today)
@@ -72,7 +73,7 @@ def sections(request, branch_id: int | None = None, period: str = "today") -> di
     def sales():
         from modules.pos.models import Order
         rows = []
-        if "pos" in on and (can("pos.sell") or can("finance.view")):
+        if "pos" in on and money:
             q = S(Order.objects.filter(status="paid", paid_at__date__gte=d0, paid_at__date__lte=d1))
             s = int(q.aggregate(s=Sum("total"))["s"] or 0)
             n = q.count()
@@ -108,7 +109,7 @@ def sections(request, branch_id: int | None = None, period: str = "today") -> di
             ps = Product.objects.filter(deleted_at__isnull=True, is_active=True)
             stop = ps.filter(in_stop_list=True).count()
             rows.append(_k("Taomlar", ps.count(), f"{stop} tasi stop-listda" if stop else "hammasi sotuvda", "warn" if stop else "", "/catalog", "🍽️"))
-        if "pos" in on:
+        if "pos" in on and money:
             from modules.pos.models import OrderItem
             top = (S(OrderItem.objects.filter(order__status="paid", order__paid_at__date__gte=d0 if period != "today" else today - timedelta(days=6),
                                               order__paid_at__date__lte=d1), "order__branch")

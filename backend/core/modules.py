@@ -83,7 +83,7 @@ def nav_for(enabled: list[str]) -> list[dict]:
 
 
 def all_permissions(enabled: list[str] | None = None) -> list[str]:
-    perms = ["core.*", "core.settings.view", "core.settings.edit", "core.branches.manage", "core.users.manage", "core.modules.manage"]
+    perms = ["core.*", "core.dashboard.view", "core.settings.view", "core.settings.edit", "core.branches.manage", "core.users.manage", "core.modules.manage"]
     for m in all_modules():
         if enabled is None or m.code in enabled:
             perms.extend(m.permissions)

@@ -11,7 +11,7 @@ from ninja.files import UploadedFile
 
 from core.auth import auth, require_module, require_perm
 
-from . import agent, gemini, report, services, tg
+from . import agent, gemini, limits, report, services, tg
 from .models import AiDaily, AiLog
 
 router = Router(tags=["ai"])
@@ -19,6 +19,8 @@ router = Router(tags=["ai"])
 
 def _guard(request, perm: str = "ai.use"):
     require_module(request, "ai")
+    if not limits.platform(request.tenant)["enabled"]:
+        raise HttpError(403, "AI Kotib tarifingizda yoqilmagan — platforma bilan bog'laning")
     require_perm(request, perm)
 
 
@@ -39,12 +41,13 @@ def _status(request) -> dict:
         "has_key": bool(key), "key_source": gemini.key_source(t), "key_masked": _mask(key),
         "model": (c.get("model") or "").strip(), "models": gemini.MODELS,
         "morning_enabled": services.morning_on(t), "morning_time": services.morning_time(t).strftime("%H:%M"),
-        "daily_limit": agent.daily_limit(t), "used_today": agent.used_today(), "bot_connected": bool(tg._tok(t)),
+        "daily_limit": agent.daily_limit(t), "daily_limit_own": int(c.get("daily_limit") or 0), "used_today": agent.used_today(), "bot_connected": bool(tg._tok(t)),
         "recipients": [{"id": str(u.pk), "name": u.full_name or u.phone, "telegram": bool(u.telegram_id),
                         "role": ", ".join(m.role.name for m in u.memberships.filter(is_active=True).select_related("role")),
                         "sent_today": (got[u.pk].ok if u.pk in got else None)} for u in staff],
         "recipients_ready": len(users),
         "can_manage": request.auth.has_perm_code("ai.manage"),
+        "platform": limits.platform(t), "seats": limits.seats_info(t),
     }
 
 
@@ -86,7 +89,7 @@ def put_settings(request, data: SettingsIn):
     if data.model is not None:
         c["model"] = data.model.strip()
     if data.daily_limit is not None:
-        c["daily_limit"] = 0 if int(data.daily_limit) <= 0 else max(5, min(int(data.daily_limit), 5000))
+        c["daily_limit"] = 0 if int(data.daily_limit) <= 0 else max(1, min(int(data.daily_limit), 5000))
     mods["ai"] = c
     s["modules"] = mods
     t.settings = s
@@ -194,3 +197,62 @@ def logs(request, limit: int = 30):
     return [{"id": x.pk, "at": timezone.localtime(x.created_at).strftime("%d.%m %H:%M"), "user": (x.user.full_name or x.user.phone) if x.user_id else "Tizim",
              "channel": x.channel, "kind": x.kind, "question": x.question[:300], "answer": x.answer[:600] if x.kind in ("ask", "voice", "test") else "",
              "ok": x.ok, "error": x.error, "model": x.model, "calls": x.calls, "tokens": x.tokens, "sec": round(x.ms / 1000, 1)} for x in qs[:max(1, min(limit, 100))]]
+
+
+# ------------------------------------------------------------------ AI Kotib kimlarda bor (Superadmin taqsimlaydi)
+def _seat_row(u, actor) -> dict:
+    from core.access import can_manage_user, covers
+    role_perms = u.role_permissions()
+    return {"id": str(u.pk), "name": u.full_name or u.phone, "phone": u.phone, "telegram": bool(u.telegram_id),
+            "role": ", ".join(m.role.name for m in u.memberships.filter(is_active=True).select_related("role")),
+            "on": u.has_perm_code("ai.use"), "by_role": covers(role_perms, "ai.use"),
+            "editable": can_manage_user(actor, u) and not covers(role_perms, "ai.use")}
+
+
+@router.get("/seats", auth=auth)
+def seats(request):
+    """Kimlar AI Kotibdan foydalanadi: platforma bergan o'rinlar va xodimlar ro'yxati (yoqish/o'chirish)."""
+    _guard(request, "ai.manage")
+    from core.models import User
+    actor = request.auth
+    users = (User.objects.filter(is_active=True, memberships__is_active=True).exclude(memberships__role__code="platform_support")
+             .distinct().order_by("full_name"))
+    scope = actor.branch_scope()
+    if scope is not None:
+        users = users.filter(memberships__branches__in=scope).distinct()
+    rows = [_seat_row(u, actor) for u in users]
+    rows.sort(key=lambda r: (not r["on"], r["name"]))
+    return {**limits.seats_info(request.tenant), "users": rows}
+
+
+class SeatIn(Schema):
+    user_id: str
+    on: bool
+
+
+@router.post("/seats", auth=auth)
+def set_seat(request, data: SeatIn):
+    _guard(request, "ai.manage")
+    from django.db import transaction
+    from django.shortcuts import get_object_or_404
+
+    from core.access import can_manage_user
+    from core.audit import record
+    from core.models import User
+    u = get_object_or_404(User, pk=data.user_id, is_active=True)
+    if not can_manage_user(request.auth, u):
+        raise HttpError(403, "Bu xodimga AI Kotibni bera olmaysiz (sizdan yuqori daraja yoki boshqa filial)")
+    extra = [p for p in (u.extra_permissions or []) if p != "ai.use"]
+    with transaction.atomic():
+        if data.on:
+            u.extra_permissions = [*extra, "ai.use"]
+            u.save(update_fields=["extra_permissions"])
+            if limits.over_seats(request.tenant):
+                raise HttpError(400, f"O'rinlar tugagan: tarifingizda {limits.platform(request.tenant)['seats']} kishi. Avval boshqa xodimdan oling.")
+        else:
+            u.extra_permissions = extra
+            u.save(update_fields=["extra_permissions"])
+            if u.has_perm_code("ai.use"):
+                raise HttpError(400, "Bu xodimda AI Kotib roli orqali bor — «Xodimlar kirishi» sahifasida rolini o'zgartiring")
+    record(request, "update", u, after={"ai": data.on})
+    return {**limits.seats_info(request.tenant), "user": _seat_row(u, request.auth)}

@@ -69,7 +69,7 @@ async function addStaff() {
 
     <template v-else-if="tab === 'staff' && S">
       <UiCard :padded="false">
-        <div v-for="m in S.items" :key="m.id" class="rl"><b>{{ m.name }}</b><span>{{ m.phone }}</span><UiChip :tone="m.role === 'superadmin' ? 'accent' : 'neutral'">{{ m.role_label }}</UiChip></div>
+        <div v-for="m in S.items" :key="m.id" class="rl"><b>{{ m.name }}</b><span>{{ m.phone }}</span><UiChip :tone="['founder', 'developer', 'superadmin'].includes(m.role) ? 'accent' : 'neutral'">{{ m.role_label }}</UiChip></div>
       </UiCard>
       <UiCard v-if="s.isAdmin" title="Jamoaga qo'shish">
         <div class="g3"><UiInput v-model="ns.phone" label="Telefon" /><UiInput v-model="ns.full_name" label="Ism" />

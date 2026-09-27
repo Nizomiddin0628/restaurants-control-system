@@ -2,7 +2,7 @@
 «AI Kotib» modulini yoqish va menejer rollariga ruxsat berish:
     python manage.py seed_ai                 (barcha restoranlar)
     python manage.py seed_ai --slug namuna
-Egasi ('*') ruxsatiga ega. Filial menejeri va operatsion rahbar rollariga «ai.use» qo'shiladi.
+Superadmin ('*') ruxsatiga ega. Menejerlarga «ai.use» shaxsiy ruxsat sifatida beriladi (keyin Superadmin o'zi taqsimlaydi).
 """
 from django.core.management.base import BaseCommand
 from django_tenants.utils import schema_context
@@ -31,12 +31,12 @@ class Command(BaseCommand):
                     self.stderr.write(f"{t.slug}: {e}")
                     continue
             with schema_context(t.schema_name):
-                from core.models import Role
+                from core.models import User
                 n = 0
-                for r in Role.objects.filter(code__in=ROLES):
-                    if "ai.use" not in (r.permissions or []) and "*" not in (r.permissions or []):
-                        r.permissions = [*(r.permissions or []), "ai.use"]
-                        r.save(update_fields=["permissions"])
+                for u in User.objects.filter(is_active=True, memberships__is_active=True, memberships__role__code__in=ROLES).distinct():
+                    if "ai.use" not in (u.extra_permissions or []):
+                        u.extra_permissions = [*(u.extra_permissions or []), "ai.use"]
+                        u.save(update_fields=["extra_permissions"])
                         n += 1
-            self.stdout.write(f"{t.slug}: AI Kotib yoqildi · ruxsat qo'shilgan rollar: {n}")
+            self.stdout.write(f"{t.slug}: AI Kotib yoqildi · AI Kotib berilgan menejerlar: {n}")
         self.stdout.write(self.style.SUCCESS("Tayyor."))

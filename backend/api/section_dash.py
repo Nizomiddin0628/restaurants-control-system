@@ -46,6 +46,7 @@ def section_dashboard(request, code: str, days: int = 7, branch_id: int | None =
     S, L = make(branch_id)
     on = set(t.enabled_modules or [])
     can = u.has_perm_code
+    money = can("core.dashboard.view") or can("finance.view") or can("pos.view_all")   # savdo summalari — faqat rahbarlarga
     today = timezone.localdate()
     now = timezone.localtime()
     days = days if days in (1, 7, 30) else 7
@@ -72,7 +73,7 @@ def section_dashboard(request, code: str, days: int = 7, branch_id: int | None =
 
     # ================================================================== SAVDO VA XIZMAT
     if code == "sales":
-        if "pos" in on:
+        if "pos" in on and money:
             def hourly():
                 qs = paid().filter(paid_at__date=today).values("paid_at__hour").annotate(s=Sum("total"))
                 by = {r["paid_at__hour"]: int(r["s"] or 0) for r in qs}
@@ -133,7 +134,7 @@ def section_dashboard(request, code: str, days: int = 7, branch_id: int | None =
 
     # ================================================================== MENYU VA MIJOZLAR
     elif code == "menu":
-        if "pos" in on:
+        if "pos" in on and money:
             def top():
                 from modules.pos.models import OrderItem
                 q = (S(OrderItem.objects.filter(order__status="paid", order__paid_at__date__gte=since), "order__branch").values("name")
@@ -165,7 +166,7 @@ def section_dashboard(request, code: str, days: int = 7, branch_id: int | None =
 
     # ================================================================== MIJOZLAR VA MARKETING
     elif code == "clients":
-        if "pos" in on:
+        if "pos" in on and money:
             def sources():
                 lab = {"pos": "Kassa", "telegram": "Telegram", "site": "Sayt", "app": "Ilova"}
                 q = paid().filter(paid_at__date__gte=since).values("source").annotate(n=Count("id")).order_by("-n")

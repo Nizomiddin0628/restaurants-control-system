@@ -200,6 +200,8 @@ for i in $(seq 1 24); do
 done
 echo "   $SCH://namuna.$BASE/admin/ → HTTP $code"
 [ "$code" = 200 ] || echo "   (sertifikat hali tayyor bo'lmasa, 2-3 daqiqadan keyin brauzerda oching; log: journalctl -u caddy -n 50)"
+echo "   Telegram bot:"
+sudo -u $USR bash -c "set -a; . $ENVF; set +a; cd $APP/backend; $APP/.venv/bin/python manage.py telegram_check --fix" || echo "   (bot tekshiruvi o'tmadi — keyin: restopos-manage telegram_check --fix)"
 cat <<DONE
 
 $(printf '\033[1;32m')TAYYOR!$(printf '\033[0m')  Kirish telefoni: +998901234567 (kod ekranda chiqadi — SMS ulanmaguncha)
@@ -209,5 +211,6 @@ $(printf '\033[1;32m')TAYYOR!$(printf '\033[0m')  Kirish telefoni: +998901234567
   Platforma (HQ):   $SCH://$BASE/hq/
 Yangilash (GitHub'ga push qilgandan keyin) — xuddi shu buyruq. Yangi restoran qo'shilsa: restopos-caddy
 Log: journalctl -u restopos -f
+Telegram bot holati: restopos-manage telegram_check   (tuzatish: --fix)
 O'z raqamingizga parol: restopos-manage user_access --all --phone +998XXXXXXXXX --password 'Parol123' --role owner --name 'Ism'
 DONE

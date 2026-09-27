@@ -26,12 +26,17 @@ const pos = ref<Record<string, string>>({})
 const branches = computed(() => a.me?.branches ?? [])
 const multi = computed(() => branches.value.length > 1)
 const cur = computed(() => branches.value.find(b => String(b.id) === ui.branch))
-const role = computed(() => a.me?.roles.includes('owner') ? 'Egasi' : (a.me?.role_names?.length ? a.me.role_names : a.me?.roles ?? []).join(', '))
+const role = computed(() => a.me?.roles.includes('owner') ? 'Superadmin' : (a.me?.role_names?.length ? a.me.role_names : a.me?.roles ?? []).join(', '))
+/** Filial menejeri (bir nechta filiali bo'lsa ham) «Barcha filiallar»ni tanlay olmaydi — faqat o'zinikilar */
+const allowAll = computed(() => a.me?.branch_all !== false)
 const sub = computed(() => multi.value ? (cur.value ? cur.value.name : `Barcha filiallar · ${branches.value.length}`) : role.value)
 const canAdd = computed(() => a.can('core.branches.manage'))
 
 // tanlangan filial o'chirilgan / ruxsat yo'q bo'lsa — «Barcha filiallar»
-watch(branches, (bs) => { if (ui.branch && !bs.some(b => String(b.id) === ui.branch)) ui.setBranch(null) }, { immediate: true })
+watch(branches, (bs) => {
+  if (ui.branch && !bs.some(b => String(b.id) === ui.branch)) ui.setBranch(null)
+  if (!allowAll.value && !ui.branch && bs.length) ui.setBranch(bs[0].id)
+}, { immediate: true })
 
 async function toggle() {
   if (open.value) { open.value = false; return }
@@ -84,7 +89,7 @@ const initial = (s?: string) => (s ?? 'R').trim().slice(0, 1).toUpperCase()
         </div>
 
         <div class="sw-g">Filiallar</div>
-        <button v-if="multi" type="button" class="sw-i" role="menuitemradio" :aria-checked="!ui.branch" @click="pick(null)">
+        <button v-if="multi && allowAll" type="button" class="sw-i" role="menuitemradio" :aria-checked="!ui.branch" @click="pick(null)">
           <span class="rd" :class="{ on: !ui.branch }"></span><span class="tx"><b>Barcha filiallar</b><small>{{ branches.length }} ta filial birga</small></span>
         </button>
         <button v-for="b in branches" :key="b.id" type="button" class="sw-i" role="menuitemradio" :aria-checked="String(b.id) === ui.branch || !multi" @click="multi ? pick(b.id) : (open = false)">

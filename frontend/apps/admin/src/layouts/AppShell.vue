@@ -25,7 +25,10 @@ const browse = ref<string | null | undefined>(undefined)     // undefined — sa
 watch(() => route.fullPath, () => { browse.value = undefined })
 const shown = computed(() => (browse.value === undefined ? current.value : browse.value ? sections.value.find(s => s.code === browse.value) ?? null : null))
 
-function goHome() { ui.sidebarOpen = false; browse.value = undefined; router.push('/') }
+/** Bosh sahifa: rahbarlar — boshqaruv paneli, xodimlar — «Mening sahifam» */
+const home = computed(() => a.me?.home || '/')
+const homeLabel = computed(() => (home.value === '/' ? 'Boshqaruv paneli' : 'Mening sahifam'))
+function goHome() { ui.sidebarOpen = false; browse.value = undefined; router.push(home.value) }
 function openRoot() { browse.value = ''; ui.sidebarOpen = true }
 const close = () => { ui.sidebarOpen = false }
 
@@ -47,7 +50,7 @@ const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d)
       <AccountSwitcher />
       <!-- 1-daraja: asosiy menyu -->
       <nav v-if="!shown" class="nav">
-        <RouterLink to="/" class="item" :class="{ on: route.path === '/' }" @click="close"><UiIcon :name="HOME.icon" /><span class="lbl">Boshqaruv paneli</span></RouterLink>
+        <RouterLink :to="home" class="item" :class="{ on: route.path === home }" @click="close"><UiIcon :name="HOME.icon" /><span class="lbl">{{ homeLabel }}</span></RouterLink>
         <div class="grp">Bo'limlar</div>
         <RouterLink v-for="s in sections" :key="s.code" :to="sectionLink(s)" class="item sec" :style="{ '--sc': s.color }" :title="s.title" @click="s.items.length === 1 && close()">
           <span class="si"><UiIcon :name="s.icon" :size="18" /></span><span class="lbl">{{ s.title }}</span>
@@ -92,7 +95,7 @@ const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d)
       <main class="content"><RouterView /></main>
       <AiChat v-if="showAi" />
       <nav class="tabbar">
-        <RouterLink to="/" class="tab" :class="{ on: route.path === '/' }"><UiIcon name="home" :size="22" /><span>Panel</span></RouterLink>
+        <RouterLink :to="home" class="tab" :class="{ on: route.path === home }"><UiIcon name="home" :size="22" /><span>{{ home === '/' ? 'Panel' : 'Men' }}</span></RouterLink>
         <RouterLink v-for="n in phoneNav" :key="n.route" :to="n.route" class="tab" :class="{ on: matches(n.route, route.path) }"><UiIcon :name="n.icon" :size="22" /><span>{{ t(n.label, ui.lang).split(' ')[0] }}</span></RouterLink>
         <button class="tab" type="button" @click="openRoot()"><UiIcon name="menu" :size="22" /><span>Bo'limlar</span></button>
       </nav>

@@ -83,7 +83,8 @@ def download(tenant, file_id: str) -> bytes:
 
 
 def eligible(tenant, user) -> bool:
-    return bool(user and user.is_active and tenant.module_enabled("ai") and user.has_perm_code("ai.use")
+    from .limits import platform
+    return bool(user and user.is_active and tenant.module_enabled("ai") and platform(tenant)["enabled"] and user.has_perm_code("ai.use")
                 and user.memberships.filter(is_active=True).exists())
 
 

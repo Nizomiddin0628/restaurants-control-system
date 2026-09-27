@@ -65,11 +65,13 @@ def used_today(user=None) -> int:
 
 
 def daily_limit(tenant) -> int:
-    """0 — cheklovsiz (sinov davri). Keyin panelda kunlik chegara qo'yiladi."""
+    """0 — cheklovsiz. Restoran sozlamasi va platforma (tarif) chegarasidan kichigi."""
+    from .limits import combine, platform
     try:
-        return max(0, int(gemini.conf(tenant).get("daily_limit") or 0))
+        own = max(0, int(gemini.conf(tenant).get("daily_limit") or 0))
     except (TypeError, ValueError):
-        return 0
+        own = 0
+    return combine(own, platform(tenant)["daily_limit"])
 
 
 def limit_left(tenant) -> int:

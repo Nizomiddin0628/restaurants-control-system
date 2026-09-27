@@ -42,13 +42,27 @@ def webhook(request):
     allowed = {s for s in (_tenant_cfg(tenant).get("webhook_secret"), os.environ.get("TELEGRAM_WEBHOOK_SECRET", "restopos")) if s}
     if given not in allowed:
         return JsonResponse({"ok": False}, status=403)
-    upd = json.loads(request.body or b"{}")
-    process_update(tenant, upd, request.build_absolute_uri("/").rstrip("/"))
+    # Har doim 200 qaytaramiz: xato bo'lsa Telegram shu xabarni qayta-qayta yuborib, keyingilarini to'xtatib qo'yadi
+    try:
+        upd = json.loads(request.body or b"{}")
+        process_update(tenant, upd, request.build_absolute_uri("/").rstrip("/"))
+    except Exception:
+        log.exception("telegram webhook xato")
     return JsonResponse({"ok": True})
 
 
 def process_update(tenant, upd: dict, base_url: str | None = None) -> None:
     """Bitta Telegram xabarini qayta ishlaydi — webhook ham, polling (telegram_polling) ham shuni chaqiradi."""
+
+    # Saytga kirishni tasdiqlash tugmalari (login:ok:<id> / login:no:<id>)
+    cq = upd.get("callback_query") or {}
+    if str(cq.get("data") or "").startswith("login:"):
+        try:
+            from core.tglogin import handle_callback
+            handle_callback(tenant, cq)
+        except Exception:
+            log.exception("tg-login xato")
+        return
 
     # AI Kotib (rahbar/menejer): «🤖 AI Kotib», «📊 Bugungi hisobot», ovozli buyruq va tasdiq tugmalari
     try:
