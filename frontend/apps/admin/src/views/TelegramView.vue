@@ -4,7 +4,7 @@
  * Har restoranning o'z boti. Token yo'q bo'lsa tizim ishlayveradi — xabarlar faqat logga yoziladi.
  */
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { api } from '@restopos/api'
 import { UiButton, UiCard, UiChip, UiEmpty, UiIcon, UiInput, UiSelect, UiToggle, money, toast } from '@restopos/ui'
 import { useAuth } from '@/stores/auth'
@@ -72,11 +72,11 @@ const when = (v?: string | null) => (v ? new Date(v).toLocaleString('uz-UZ', { d
 <template>
   <div v-if="s" class="tg">
     <div class="kpis">
-      <div class="k"><b>{{ stats.subscribers }}</b><span>Obunachi</span><small>+{{ stats.new_week }} shu hafta</small></div>
-      <div class="k"><b>{{ stats.with_phone }}</b><span>Telefon ulagan</span></div>
-      <div class="k"><b>{{ stats.orders_today }}</b><span>Bugungi buyurtma</span><small>30 kunda {{ stats.orders_30d }}</small></div>
-      <div class="k"><b>{{ money(stats.revenue_30d) }}</b><span>Botdan savdo (30 kun)</span></div>
-      <div class="k"><b>{{ stats.conversion }}%</b><span>Konversiya</span><small>{{ stats.buyers }} xaridor</small></div>
+      <button type="button" class="k kpi-click" :class="{ on: tab === 'users' }" @click="tab = 'users'"><b>{{ stats.subscribers }}</b><span>Obunachi</span><small>+{{ stats.new_week }} shu hafta</small></button>
+      <button type="button" class="k kpi-click" @click="tab = 'users'"><b>{{ stats.with_phone }}</b><span>Telefon ulagan</span></button>
+      <RouterLink to="/reports" class="k kpi-click"><b>{{ stats.orders_today }}</b><span>Bugungi buyurtma</span><small>30 kunda {{ stats.orders_30d }}</small></RouterLink>
+      <RouterLink to="/reports" class="k kpi-click"><b>{{ money(stats.revenue_30d) }}</b><span>Botdan savdo (30 kun)</span></RouterLink>
+      <button type="button" class="k kpi-click" @click="tab = 'users'"><b>{{ stats.conversion }}%</b><span>Konversiya</span><small>{{ stats.buyers }} xaridor</small></button>
     </div>
 
     <nav class="tabs">

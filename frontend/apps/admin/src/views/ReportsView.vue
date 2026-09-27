@@ -9,10 +9,14 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { api, auth as apiAuth } from '@restopos/api'
 import { UiButton, UiCard, UiChip, UiDrawer, UiEmpty, UiIcon, UiInput, UiSelect, money, toast } from '@restopos/ui'
 import { useAuth } from '@/stores/auth'
+import { useRoute, useRouter } from 'vue-router'
 
-const a = useAuth()
+const a = useAuth(), router = useRouter(), route = useRoute()
 type Tab = 'pnl' | 'sales' | 'menu' | 'expenses' | 'payments'
-const tab = ref<Tab>('pnl')
+const tab = ref<Tab>((['pnl', 'sales', 'menu', 'expenses', 'payments'] as Tab[]).includes(route.query.tab as Tab) ? route.query.tab as Tab : 'pnl')
+const tabsEl = ref<HTMLElement | null>(null)
+/** KPI kartasi → tegishli tab (daromad → savdo, food cost → menyu tahlili, sof foyda → chiqimlar) */
+function kpiGo(t: Tab) { tab.value = t; requestAnimationFrame(() => tabsEl.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })) }
 const d = ref<any>(null)
 const loading = ref(false)
 const branches = ref<any[]>([])
@@ -86,15 +90,15 @@ async function savePay() { try { await api.put('/payments/settings', pay.value);
     </div>
 
     <div v-if="p" class="kpis">
-      <div class="kpi inv"><span>Daromad</span><b>{{ money(p.revenue) }}</b><i :class="deltaTone(d.delta.revenue)">{{ d.delta.revenue != null ? (d.delta.revenue >= 0 ? '▲ ' : '▼ ') + Math.abs(d.delta.revenue) + '% oldingi davrga' : '' }}</i></div>
-      <div class="kpi"><span>Buyurtmalar</span><b>{{ p.orders }}</b><i :class="deltaTone(d.delta.orders)">o'rtacha chek {{ money(p.avg_check) }}</i></div>
-      <div class="kpi"><span>Food cost</span><b :class="{ danger: p.food_cost_percent > TARGET.fc + 8, warn: p.food_cost_percent > TARGET.fc }">{{ p.food_cost_percent }}%</b><i class="muted">maqsad ≤ {{ TARGET.fc }}% · {{ money(p.cogs) }}</i></div>
-      <div class="kpi"><span>Mehnat</span><b :class="{ danger: p.labor_percent > TARGET.labor + 5, warn: p.labor_percent > TARGET.labor }">{{ p.labor_percent }}%</b><i class="muted">maqsad ≤ {{ TARGET.labor }}% · {{ money(p.labor) }}</i></div>
-      <div class="kpi"><span>Prime cost</span><b>{{ p.prime_cost_percent }}%</b><i class="muted">tannarx + mehnat · me'yor ≤ 60%</i></div>
-      <div class="kpi" :class="p.net_profit >= 0 ? 'good' : 'bad'"><span>Sof foyda</span><b>{{ money(p.net_profit) }}</b><i :class="deltaTone(d.delta.net_profit)">marja {{ p.net_margin_percent }}%</i></div>
+      <button type="button" class="kpi inv kpi-click" :class="{ on: tab === 'sales' }" @click="kpiGo('sales')"><span>Daromad</span><b>{{ money(p.revenue) }}</b><i :class="deltaTone(d.delta.revenue)">{{ d.delta.revenue != null ? (d.delta.revenue >= 0 ? '▲ ' : '▼ ') + Math.abs(d.delta.revenue) + '% oldingi davrga' : '' }}</i></button>
+      <button type="button" class="kpi kpi-click" :class="{ on: tab === 'payments' }" @click="kpiGo('payments')"><span>Buyurtmalar</span><b>{{ p.orders }}</b><i :class="deltaTone(d.delta.orders)">o'rtacha chek {{ money(p.avg_check) }}</i></button>
+      <button type="button" class="kpi kpi-click" :class="{ on: tab === 'menu' }" @click="kpiGo('menu')"><span>Food cost</span><b :class="{ danger: p.food_cost_percent > TARGET.fc + 8, warn: p.food_cost_percent > TARGET.fc }">{{ p.food_cost_percent }}%</b><i class="muted">maqsad ≤ {{ TARGET.fc }}% · {{ money(p.cogs) }}</i></button>
+      <button type="button" class="kpi kpi-click" @click="router.push('/hr?tab=payroll')"><span>Mehnat</span><b :class="{ danger: p.labor_percent > TARGET.labor + 5, warn: p.labor_percent > TARGET.labor }">{{ p.labor_percent }}%</b><i class="muted">maqsad ≤ {{ TARGET.labor }}% · {{ money(p.labor) }}</i></button>
+      <button type="button" class="kpi kpi-click" :class="{ on: tab === 'pnl' }" @click="kpiGo('pnl')"><span>Prime cost</span><b>{{ p.prime_cost_percent }}%</b><i class="muted">tannarx + mehnat · me'yor ≤ 60%</i></button>
+      <button type="button" class="kpi kpi-click" :class="[p.net_profit >= 0 ? 'good' : 'bad', { on: tab === 'expenses' }]" @click="kpiGo('expenses')"><span>Sof foyda</span><b>{{ money(p.net_profit) }}</b><i :class="deltaTone(d.delta.net_profit)">marja {{ p.net_margin_percent }}%</i></button>
     </div>
 
-    <nav class="tabs">
+    <nav ref="tabsEl" class="tabs">
       <button :class="{ on: tab === 'pnl' }" @click="tab = 'pnl'">Foyda-zarar (P&L)</button>
       <button :class="{ on: tab === 'sales' }" @click="tab = 'sales'">Savdo</button>
       <button :class="{ on: tab === 'menu' }" @click="tab = 'menu'">Menyu tahlili</button>
@@ -202,12 +206,12 @@ async function savePay() { try { await api.put('/payments/settings', pay.value);
 .presets button { border: 0; background: transparent; padding: 6px 10px; border-radius: var(--radius-s); font-weight: 700; font-size: var(--fs-xs); cursor: pointer; }
 .presets button:hover { background: var(--surface); }
 .kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
-.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-l); padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-l); padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .kpi.inv { background: var(--ink); color: var(--ink-inv); border-color: transparent; } .kpi.inv span, .kpi.inv i { color: var(--surface-3); }
 .kpi span { font-size: var(--fs-xs); color: var(--muted); font-weight: 700; } .kpi b { font-family: var(--font-display); font-size: var(--fs-xl); font-weight: 800; line-height: 1.1; }
 .kpi i { font-style: normal; font-size: var(--fs-xs); font-weight: 700; } .kpi.good b { color: var(--ok); } .kpi.bad b { color: var(--danger); }
 .ok, .kpi i.ok { color: var(--ok); } .danger, .kpi i.danger { color: var(--danger); } .warn { color: var(--warn); } .muted, .mut { color: var(--muted); }
-.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; scroll-margin-top: calc(var(--topbar-h) + 12px); }
 .tabs button { border: 0; background: transparent; padding: 9px 12px; font-weight: 700; font-size: var(--fs-s); color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
 .tabs button.on { color: var(--accent); border-bottom-color: var(--accent); }
 .two { display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; align-items: start; } .col { display: flex; flex-direction: column; gap: 14px; }

@@ -154,15 +154,15 @@ def _sales(out, period, start, end, pstart, pend, today, now, branch_id):
     sp_fc = [round(100 * int((daily.get(d) or {}).get("c") or 0) / r, 1) if r else 0 for d, r in zip(days, sp_rev, strict=True)]
     label_prev = {"today": "Kecha shu vaqtgacha", "yesterday": "Avvalgi kun", "week": "Oldingi 7 kun", "month": "O'tgan oy shu kungacha", "year": "O'tgan yil"}[period]
     out["kpis"] = [
-        {"key": "revenue", "label": "Savdo", "value": rev, "money": True, "delta": _delta(rev, prev_rev), "prev": prev_rev, "prev_label": label_prev, "spark": sp_rev, "icon": "receipt", "route": "/reports"},
-        {"key": "orders", "label": "Buyurtmalar", "value": n, "delta": _delta(n, prev_n), "prev": prev_n, "prev_label": label_prev, "spark": sp_n, "icon": "list", "route": "/pos"},
-        {"key": "avg_check", "label": "O'rtacha chek", "value": avg, "money": True, "delta": _delta(avg, prev_avg), "prev": prev_avg, "prev_label": label_prev, "spark": sp_avg, "icon": "chart"},
+        {"key": "revenue", "label": "Savdo", "value": rev, "money": True, "delta": _delta(rev, prev_rev), "prev": prev_rev, "prev_label": label_prev, "spark": sp_rev, "icon": "receipt", "route": "/reports?tab=sales"},
+        {"key": "orders", "label": "Buyurtmalar", "value": n, "delta": _delta(n, prev_n), "prev": prev_n, "prev_label": label_prev, "spark": sp_n, "icon": "list", "route": "/reports?tab=payments"},
+        {"key": "avg_check", "label": "O'rtacha chek", "value": avg, "money": True, "delta": _delta(avg, prev_avg), "prev": prev_avg, "prev_label": label_prev, "spark": sp_avg, "icon": "chart", "route": "/reports?tab=sales"},
         {"key": "food_cost", "label": "Food cost", "value": fc, "percent": True, "delta": round(fc - pfc, 1) if pfc is not None else None,
-         "lower_is_better": True, "norm": "Me'yor: 28–35%", "ok": 0 < fc <= 35, "spark": sp_fc, "icon": "box", "route": "/inventory"},
+         "lower_is_better": True, "norm": "Me'yor: 28–35%", "ok": 0 < fc <= 35, "spark": sp_fc, "icon": "box", "route": "/reports?tab=menu"},
         {"key": "labor", "label": "Mehnat xarajati", "value": m["labor_percent"], "percent": True, "delta": round(m["labor_percent"] - pm["labor_percent"], 1) if pm["revenue"] and pm["labor"] else None,
-         "lower_is_better": True, "norm": "Me'yor: ≤ 25% · " + ("oy" if period not in ("year",) else "yil"), "ok": m["labor_percent"] <= 25, "icon": "users", "route": "/hr"},
+         "lower_is_better": True, "norm": "Me'yor: ≤ 25% · " + ("oy" if period not in ("year",) else "yil"), "ok": m["labor_percent"] <= 25, "icon": "users", "route": "/hr?tab=payroll"},
         {"key": "net", "label": "Sof foyda", "value": m["net_profit"], "money": True, "delta": _delta(m["net_profit"], pm["net_profit"]) if pm["net_profit"] > 0 and pm["labor"] else None,
-         "norm": f"Marja: {m['net_margin_percent']}% · " + ("oy" if period != "year" else "yil"), "ok": m["net_margin_percent"] >= 10, "icon": "chart", "route": "/reports"},
+         "norm": f"Marja: {m['net_margin_percent']}% · " + ("oy" if period != "year" else "yil"), "ok": m["net_margin_percent"] >= 10, "icon": "chart", "route": "/reports?tab=pnl"},
     ]
 
     # savdo dinamikasi: kun ichida — soatlar, hafta/oy — kunlar, yil — oylar

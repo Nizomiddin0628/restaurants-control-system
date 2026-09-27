@@ -12,6 +12,12 @@ import { uploadWithProgress, fmtDateTime } from '@/components/training/upload'
 
 const router = useRouter()
 const tab = ref<'board' | 'vacancies'>('board')
+/** KPI kartasi → nomzodlar taxtasining shu bosqich ustuni ajratiladi va ko'rinadigan joyga suriladi */
+const hl = ref('')
+function kpiGo(stage: string) {
+  tab.value = 'board'; hl.value = hl.value === stage ? '' : stage
+  if (stage) setTimeout(() => document.getElementById(`rc-${stage}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }), 60)
+}
 const V = ref<any[]>([]), A = ref<any[]>([]), S = ref<any>(null), M = ref<any>(null)
 const fVac = ref<string>(''), q = ref('')
 
@@ -129,12 +135,12 @@ const nextStages = computed(() => {
     </header>
 
     <div v-if="S" class="kpis">
-      <UiKpi label="Ochiq vakansiya" :value="S.open" />
-      <UiKpi label="Yangi ariza" :value="S.new" />
-      <UiKpi label="Ariza (30 kun)" :value="S.applications_30d" />
-      <UiKpi label="Kutilayotgan suhbat" :value="S.interviews_upcoming" />
-      <UiKpi label="Qabul (30 kun)" :value="S.hired_30d" />
-      <UiKpi label="O'rtacha yollash" :value="S.time_to_hire != null ? `${S.time_to_hire} kun` : '—'" />
+      <UiKpi label="Ochiq vakansiya" :value="S.open" clickable :on="tab === 'vacancies'" @click="tab = 'vacancies'" />
+      <UiKpi label="Yangi ariza" :value="S.new" clickable :on="tab === 'board' && hl === 'new'" @click="kpiGo('new')" />
+      <UiKpi label="Ariza (30 kun)" :value="S.applications_30d" clickable @click="kpiGo('')" />
+      <UiKpi label="Kutilayotgan suhbat" :value="S.interviews_upcoming" clickable :on="tab === 'board' && hl === 'interview'" @click="kpiGo('interview')" />
+      <UiKpi label="Qabul (30 kun)" :value="S.hired_30d" clickable :on="tab === 'board' && hl === 'hired'" @click="kpiGo('hired')" />
+      <UiKpi label="O'rtacha yollash" :value="S.time_to_hire != null ? `${S.time_to_hire} kun` : '—'" clickable @click="kpiGo('hired')" />
     </div>
 
     <nav class="tabs">
@@ -146,7 +152,7 @@ const nextStages = computed(() => {
     <template v-if="tab === 'board'">
       <div class="flt"><UiSelect v-model="fVac" :options="vacOpts" /><UiInput v-model="q" placeholder="Ism yoki telefon…" /></div>
       <div class="board">
-        <section v-for="s in STAGES" :key="s.key" class="colm">
+        <section v-for="s in STAGES" :id="`rc-${s.key}`" :key="s.key" class="colm" :class="{ hl: hl === s.key }">
           <header><UiChip :tone="s.tone as any">{{ s.label }}</UiChip><b>{{ col(s.key).length }}</b></header>
           <button v-for="a in col(s.key)" :key="a.id" class="card" :class="{ ko: a.knocked_out }" @click="openApp(a)">
             <span class="nm">{{ a.full_name }}<em v-if="a.rating">{{ '★'.repeat(a.rating) }}</em></span>
@@ -310,6 +316,7 @@ const nextStages = computed(() => {
 .flt { display: flex; gap: 10px; max-width: 640px; } .flt > * { flex: 1; }
 .board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(220px, 1fr); gap: 12px; overflow-x: auto; padding-bottom: 8px; }
 .colm { background: var(--surface-2); border: 1px solid var(--line); border-radius: 16px; padding: 10px; display: flex; flex-direction: column; gap: 8px; min-height: 200px; }
+.colm.hl { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); background: color-mix(in srgb, var(--accent) 6%, var(--surface-2)); }
 .colm header { display: flex; justify-content: space-between; align-items: center; padding: 2px 4px 6px; }
 .card { text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 4px; cursor: pointer; font: inherit; color: var(--ink); }
 .card:hover { border-color: var(--accent); } .card.ko { border-left: 3px solid var(--danger); }

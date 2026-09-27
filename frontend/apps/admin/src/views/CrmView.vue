@@ -50,6 +50,8 @@ const q = ref(''), seg = ref('all'), sort = ref('recent')
 async function loadCustomers() { list.value = await api.get('/crm/customers', { q: q.value, segment: seg.value, sort: sort.value }) }
 watch([seg, sort], () => tab.value === 'customers' && loadCustomers())
 function openSeg(s: string) { seg.value = s; tab.value = 'customers' }
+/** KPI kartasi → mijozlar ro'yxati, mos tartibda (yangi / ko'p tashrif / oxirgi / ko'p xarid / bonusi ko'p) */
+function kpiGo(s: string) { seg.value = 'all'; sort.value = s; tab.value = 'customers'; loadCustomers() }
 async function syncOrders() {
   const r = await api.post('/crm/sync'); toast(`Yangi kartalar: ${r.created} · jami ${r.total}`); loadCustomers(); loadStats()
 }
@@ -131,11 +133,11 @@ const bdLabel = (d: number) => (d === 0 ? 'Bugun 🎂' : d === 1 ? 'Ertaga' : `$
 <template>
   <div class="crm">
     <div v-if="stats" class="kpis">
-      <div class="k"><b>{{ stats.customers }}</b><span>Mijoz bazasi</span><small>+{{ stats.new_30d }} 30 kunda</small></div>
-      <div class="k"><b>{{ stats.returning_rate }}%</b><span>Qaytib keladi</span><small>2+ marta xarid qilgan</small></div>
-      <div class="k"><b>{{ stats.identified_share }}%</b><span>Cheklarda telefon</span><small>30 kun · qancha ko'p — shuncha yaxshi</small></div>
-      <div class="k"><b>{{ money(stats.avg_check_customer) }}</b><span>Mijoz o'rtacha cheki</span><small>umumiy: {{ money(stats.avg_check_all) }}</small></div>
-      <div class="k"><b>{{ money(stats.bonus_liability) }}</b><span>Mijozlardagi bonus</span><small>+{{ money(stats.bonus_earned_30d) }} / −{{ money(stats.bonus_spent_30d) }} (30 kun)</small></div>
+      <button type="button" class="k kpi-click" :class="{ on: tab === 'customers' && sort === 'new' }" @click="kpiGo('new')"><b>{{ stats.customers }}</b><span>Mijoz bazasi</span><small>+{{ stats.new_30d }} 30 kunda</small></button>
+      <button type="button" class="k kpi-click" :class="{ on: tab === 'customers' && sort === 'orders' }" @click="kpiGo('orders')"><b>{{ stats.returning_rate }}%</b><span>Qaytib keladi</span><small>2+ marta xarid qilgan</small></button>
+      <button type="button" class="k kpi-click" :class="{ on: tab === 'customers' && sort === 'recent' }" @click="kpiGo('recent')"><b>{{ stats.identified_share }}%</b><span>Cheklarda telefon</span><small>30 kun · qancha ko'p — shuncha yaxshi</small></button>
+      <button type="button" class="k kpi-click" :class="{ on: tab === 'customers' && sort === 'spent' }" @click="kpiGo('spent')"><b>{{ money(stats.avg_check_customer) }}</b><span>Mijoz o'rtacha cheki</span><small>umumiy: {{ money(stats.avg_check_all) }}</small></button>
+      <button type="button" class="k kpi-click" :class="{ on: tab === 'customers' && sort === 'balance' }" @click="kpiGo('balance')"><b>{{ money(stats.bonus_liability) }}</b><span>Mijozlardagi bonus</span><small>+{{ money(stats.bonus_earned_30d) }} / −{{ money(stats.bonus_spent_30d) }} (30 kun)</small></button>
     </div>
 
     <nav class="tabs">

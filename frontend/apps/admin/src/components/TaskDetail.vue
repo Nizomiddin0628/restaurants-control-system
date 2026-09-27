@@ -1,9 +1,9 @@
 <script setup lang="ts">
 /**
- * Vazifa kartochkasi (o'ng panel) — zanjirning ko'rinadigan qismi:
+ * Vazifa kartochkasi (v28: ekran o'rtasidagi oyna) — zanjirning ko'rinadigan qismi:
  * rasmlar → maydonlar (bajaruvchi/nazoratchi/muddat) → bosqichlar → dalil → tasdiq/rad → izoh va tarix.
  */
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { api, type Task, type TaskActivity, type TaskComment, type TaskMeta } from '@restopos/api'
 import { UiAvatar, UiButton, UiChip, UiDropzone, UiIcon, money, t, toast } from '@restopos/ui'
 import { useAuth } from '@/stores/auth'
@@ -12,6 +12,9 @@ import { useUi } from '@/stores/ui'
 const props = defineProps<{ task: Task; meta: TaskMeta }>()
 const emit = defineEmits<{ (e: 'close'): void; (e: 'changed', task: Task): void; (e: 'deleted', id: number): void }>()
 const a = useAuth(), ui = useUi()
+function onEsc(e: KeyboardEvent) { if (e.key === 'Escape') emit('close') }
+onMounted(() => { window.addEventListener('keydown', onEsc); document.body.style.overflow = 'hidden' })
+onBeforeUnmount(() => { window.removeEventListener('keydown', onEsc); document.body.style.overflow = '' })
 
 const tab = ref<'comments' | 'activity' | 'files'>('comments')
 const comments = ref<TaskComment[]>([])
@@ -97,7 +100,8 @@ const ACTION_LABEL: Record<string, string> = {
 </script>
 
 <template>
-  <aside class="panel">
+  <Teleport to="body"><div class="td-ov" @click.self="emit('close')">
+  <aside class="panel" role="dialog" aria-modal="true">
     <header class="hd">
       <div class="hd-l">
         <span class="num">#{{ task.number }}</span>
@@ -261,6 +265,7 @@ const ACTION_LABEL: Record<string, string> = {
       <UiButton size="m" aria-label="Yuborish" @click="comment()"><UiIcon name="send" :size="16" /></UiButton>
     </footer>
   </aside>
+  </div></Teleport>
 </template>
 
 <style scoped>
@@ -332,7 +337,13 @@ dd select:hover, dd input:hover { border-color: var(--line); background: var(--s
 .stat { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; flex-shrink: 0; padding: 2px 0; }
 .stat button { flex-shrink: 0; border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 7px 12px; font: inherit; font-size: var(--fs-s); font-weight: 700; color: var(--ink-2); cursor: pointer; }
 .stat button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
-@media (max-width: 1024px) {
-  .panel { position: fixed; inset: 0; width: 100%; max-height: none; border-radius: 0; z-index: 60; }
+/* v28: vazifa kartasi ekran o'rtasida (modal) ochiladi; telefonda — to'liq ekran */
+.td-ov { position: fixed; inset: 0; z-index: 55; background: rgba(15, 23, 42, .45); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; padding: 24px; animation: td-fade .15s ease-out; }
+.td-ov .panel { position: static; width: min(760px, 100%); max-height: min(calc(100dvh - 48px), 940px); border-radius: 20px; box-shadow: 0 24px 70px rgba(0, 0, 0, .28); border: 0; animation: td-in .18s ease-out; }
+@keyframes td-fade { from { opacity: 0; } }
+@keyframes td-in { from { transform: translateY(12px) scale(.98); opacity: 0; } }
+@media (max-width: 600px) {
+  .td-ov { padding: 0; align-items: stretch; }
+  .td-ov .panel { width: 100%; max-height: none; height: 100dvh; border-radius: 0; }
 }
 </style>

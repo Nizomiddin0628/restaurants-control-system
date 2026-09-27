@@ -53,6 +53,13 @@ onUnmounted(() => clearInterval(timer))
 const zoneOptions = computed(() => [{ value: '0', label: 'Barcha zallar' },
   ...(meta.value?.zones ?? []).map((z: any) => ({ value: String(z.id), label: `${z.name} (${z.tables_count})` }))])
 const shown = computed<any[]>(() => board.value.tables)
+/** KPI kartalar: «band» — xaritada faqat band stollar ajralib turadi; qolganlari — bugungi o'tirishlar jadvaliga */
+const hl = ref<'' | 'busy'>('')
+const sesEl = ref<HTMLElement | null>(null)
+function kpiGo(k: 'busy' | 'ses') {
+  if (k === 'busy') { hl.value = hl.value === 'busy' ? '' : 'busy'; mapEl.value?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }
+  else sesEl.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
 const longSit = computed(() => meta.value?.settings.long_sit_minutes ?? 90)
 const canServe = computed(() => !!meta.value?.can.serve && a.can('tables.serve'))
 const freeForMove = computed(() => shown.value.filter(t => t.status === 'free' && t.id !== picked.value?.id))
@@ -161,18 +168,18 @@ async function delZone(z: any) {
     </header>
 
     <div class="kpis">
-      <div class="k"><span>Band stollar</span><b>{{ board.counts.occupied ?? 0 }} / {{ board.tables.length }}</b></div>
-      <div class="k"><span>Hozir mehmon</span><b>{{ board.guests }}</b></div>
-      <div class="k"><span>Bugun o'tirish</span><b>{{ stats?.sessions ?? 0 }}</b></div>
-      <div class="k"><span>O'rtacha o'tirish</span><b>{{ stats?.avg_minutes ?? '—' }}<small> daq</small></b></div>
-      <div class="k"><span>Stol aylanishi</span><b>{{ stats?.turnover ?? 0 }}<small>×</small></b></div>
-      <div class="k"><span>O'rtacha chek</span><b>{{ money(stats?.avg_check ?? 0) }}</b></div>
+      <button type="button" class="k kpi-click" :class="{ on: hl === 'busy' }" @click="kpiGo('busy')"><span>Band stollar</span><b>{{ board.counts.occupied ?? 0 }} / {{ board.tables.length }}</b></button>
+      <button type="button" class="k kpi-click" :class="{ on: hl === 'busy' }" @click="kpiGo('busy')"><span>Hozir mehmon</span><b>{{ board.guests }}</b></button>
+      <button type="button" class="k kpi-click" @click="kpiGo('ses')"><span>Bugun o'tirish</span><b>{{ stats?.sessions ?? 0 }}</b></button>
+      <button type="button" class="k kpi-click" @click="kpiGo('ses')"><span>O'rtacha o'tirish</span><b>{{ stats?.avg_minutes ?? '—' }}<small> daq</small></b></button>
+      <button type="button" class="k kpi-click" @click="kpiGo('ses')"><span>Stol aylanishi</span><b>{{ stats?.turnover ?? 0 }}<small>×</small></b></button>
+      <button type="button" class="k kpi-click" @click="kpiGo('ses')"><span>O'rtacha chek</span><b>{{ money(stats?.avg_check ?? 0) }}</b></button>
     </div>
 
     <p v-if="edit" class="tip"><UiIcon name="alert" :size="14" /> Stollarni bosib turib suring — xarita zalingizga o'xshasin. Tugatgach «Tartibni saqlash» tugmasini bosing.</p>
 
     <div ref="mapEl" class="map" :class="{ edit }" @pointermove="drag" @pointerup="up" @pointerleave="up">
-      <button v-for="t in shown" :key="t.id" class="tb" :class="[t.status, 's' + t.size, t.shape, { sel: picked?.id === t.id }]"
+      <button v-for="t in shown" :key="t.id" class="tb" :class="[t.status, 's' + t.size, t.shape, { sel: picked?.id === t.id, dim: hl === 'busy' && !t.session }]"
               :style="{ left: t.x + '%', top: t.y + '%' }" @pointerdown="down($event, t)" @click="pick(t)">
         <b class="no">{{ t.number }}</b>
         <span class="seats"><UiIcon name="users" :size="11" />{{ t.seats }}</span>
@@ -183,6 +190,7 @@ async function delZone(z: any) {
       <UiEmpty v-if="!shown.length" title="Bu zalda stol yo'q" />
     </div>
 
+    <div ref="sesEl" class="ses-anchor"></div>
     <UiCard v-if="sessions.length" title="Bugungi o'tirishlar" subtitle="Qaysi stol, nechta mehmon, qancha vaqt va qancha summa">
       <div class="tbl">
         <table>
@@ -295,6 +303,7 @@ async function delZone(z: any) {
 .kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
 .k { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .k span { font-size: var(--fs-xs); color: var(--muted); font-weight: 700; }
+.tb.dim { opacity: .28; filter: grayscale(.6); } .ses-anchor { scroll-margin-top: calc(var(--topbar-h) + 12px); height: 0; margin: 0 0 -1px; }
 .k b { font-family: var(--font-display); font-size: var(--fs-l); } .k small { font-size: var(--fs-xs); color: var(--muted); }
 .tip { margin: 0; font-size: var(--fs-s); color: var(--warn-ink); display: flex; gap: 6px; align-items: center; }
 .map { position: relative; min-height: 460px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-l);

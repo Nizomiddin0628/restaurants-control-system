@@ -6,6 +6,7 @@
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import draggable from 'vuedraggable'
+import { useRoute } from 'vue-router'
 import { api, type Task, type TaskCard, type TaskColumn, type TaskMeta, type TaskStats } from '@restopos/api'
 import { UiAvatar, UiButton, UiCard, UiChip, UiDrawer, UiEmpty, UiIcon, UiInput, UiSelect, money, t, toast } from '@restopos/ui'
 import TaskDetail from '@/components/TaskDetail.vue'
@@ -42,7 +43,20 @@ function goCol(i: number) {
   activeCol.value = i
 }
 
-const f = ref({ branch_id: '', department_id: '', priority: '', assignee_id: '', q: '', overdue: false })
+const f = ref({ branch_id: '', department_id: '', priority: '', assignee_id: '', q: '', overdue: useRoute().query.overdue === '1' })
+/** Statistika kartalari: «Jarayonda / Tekshiruvda / Bajarildi» — kanbanda shu ustun ajratiladi, «Kechikkan» — filtr */
+const hlKind = ref(f.value.overdue ? 'overdue' : '')
+function kpiPick(k: 'all' | 'active' | 'review' | 'done' | 'overdue') {
+  if (k === 'overdue') { f.value.overdue = !f.value.overdue; hlKind.value = f.value.overdue ? 'overdue' : ''; return }
+  if (k === 'all') { f.value.overdue = false; hlKind.value = ''; tab.value = 'kanban'; return }
+  tab.value = 'kanban'
+  hlKind.value = hlKind.value === k ? '' : k
+  const i = columns.value.findIndex(c => c.kind === k)
+  if (i >= 0 && hlKind.value) setTimeout(() => {
+    goCol(i)
+    boardEl.value?.querySelectorAll<HTMLElement>('.col')[i]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+  }, 50)
+}
 const query = computed(() => ({
   branch_id: f.value.branch_id || undefined,
   department_id: f.value.department_id || undefined,
@@ -199,7 +213,7 @@ const initials = (n?: string) => (n || '?').split(' ').map(x => x[0]).slice(0, 2
       </div>
     </header>
 
-    <TaskStatsPanel v-if="showStats" :stats="stats" />
+    <TaskStatsPanel v-if="showStats" :stats="stats" :active="hlKind" @pick="kpiPick" />
 
     <nav class="tabs">
       <button v-for="tb in TABS" :key="tb.code" :class="{ on: tab === tb.code }" @click="tab = tb.code">
@@ -234,7 +248,7 @@ const initials = (n?: string) => (n || '?').split(' ').map(x => x[0]).slice(0, 2
     <div class="work">
       <!-- KANBAN -->
       <div v-if="tab === 'kanban'" ref="boardEl" class="board" :class="{ loading }" @scroll.passive="onBoardScroll">
-        <section v-for="col in columns" :key="col.id" class="col">
+        <section v-for="col in columns" :key="col.id" class="col" :class="{ hl: hlKind === col.kind }">
           <header class="col-h" :style="{ '--c': `var(${KIND_VAR[col.kind] ?? '--chart-bar'})` }">
             <span class="cdot"></span>
             <b>{{ t(col.name as any, ui.lang) }}</b>
@@ -371,6 +385,7 @@ const initials = (n?: string) => (n || '?').split(' ').map(x => x[0]).slice(0, 2
 .board { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 6px; flex: 1; min-width: 0; }
 .board.loading { opacity: .6; }
 .col { flex: 0 0 300px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-l); padding: 10px; display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 220px); }
+.col.hl { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 28%, transparent); background: color-mix(in srgb, var(--accent) 5%, var(--surface-2)); }
 .col-h { display: flex; align-items: center; gap: 8px; font-size: var(--fs-s); }
 .cdot { width: 10px; height: 10px; border-radius: 3px; background: var(--c); }
 .col-h b { font-weight: 800; }

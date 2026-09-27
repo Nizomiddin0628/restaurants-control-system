@@ -9,7 +9,9 @@ import { UiCard, UiIcon, t } from '@restopos/ui'
 import type { TaskStats } from '@restopos/api'
 import { useUi } from '@/stores/ui'
 
-const props = defineProps<{ stats: TaskStats | null }>()
+const props = defineProps<{ stats: TaskStats | null; active?: string }>()
+/** KPI kartasi bosilsa — vazifalar taxtasi shu holatga o'tadi (ustun yoki «kechikkan» filtri) */
+const emit = defineEmits<{ (e: 'pick', k: 'all' | 'active' | 'review' | 'done' | 'overdue'): void }>()
 const ui = useUi()
 
 const KIND_VAR: Record<string, string> = { backlog: '--chart-new', active: '--chart-active', review: '--chart-review', done: '--chart-done', cancelled: '--chart-cancel' }
@@ -54,11 +56,11 @@ const priorities = computed(() => {
 <template>
   <div v-if="stats" class="wrap">
     <div class="kpis">
-      <div class="kpi"><span class="k-ic ok"><UiIcon name="list" :size="18" /></span><div><b>{{ stats.total }}</b><span>Jami vazifa</span></div></div>
-      <div class="kpi"><span class="k-ic run"><UiIcon name="clock" :size="18" /></span><div><b>{{ stats.in_progress }}</b><span>Jarayonda</span></div></div>
-      <div class="kpi"><span class="k-ic rev"><UiIcon name="eye" :size="18" /></span><div><b>{{ stats.review }}</b><span>Tekshiruvda</span></div></div>
-      <div class="kpi"><span class="k-ic done"><UiIcon name="check" :size="18" /></span><div><b>{{ stats.done }}</b><span>Bajarildi</span></div></div>
-      <div class="kpi" :class="{ warn: stats.overdue > 0 }"><span class="k-ic late"><UiIcon name="alert" :size="18" /></span><div><b>{{ stats.overdue }}</b><span>Kechikkan</span></div></div>
+      <button type="button" class="kpi kpi-click" :class="{ on: active === 'all' }" @click="emit('pick', 'all')"><span class="k-ic ok"><UiIcon name="list" :size="18" /></span><div><b>{{ stats.total }}</b><span>Jami vazifa</span></div></button>
+      <button type="button" class="kpi kpi-click" :class="{ on: active === 'active' }" @click="emit('pick', 'active')"><span class="k-ic run"><UiIcon name="clock" :size="18" /></span><div><b>{{ stats.in_progress }}</b><span>Jarayonda</span></div></button>
+      <button type="button" class="kpi kpi-click" :class="{ on: active === 'review' }" @click="emit('pick', 'review')"><span class="k-ic rev"><UiIcon name="eye" :size="18" /></span><div><b>{{ stats.review }}</b><span>Tekshiruvda</span></div></button>
+      <button type="button" class="kpi kpi-click" :class="{ on: active === 'done' }" @click="emit('pick', 'done')"><span class="k-ic done"><UiIcon name="check" :size="18" /></span><div><b>{{ stats.done }}</b><span>Bajarildi</span></div></button>
+      <button type="button" class="kpi kpi-click" :class="{ warn: stats.overdue > 0, on: active === 'overdue' }" @click="emit('pick', 'overdue')"><span class="k-ic late"><UiIcon name="alert" :size="18" /></span><div><b>{{ stats.overdue }}</b><span>Kechikkan</span></div></button>
       <div class="kpi"><span class="k-ic avg"><UiIcon name="chart" :size="18" /></span><div><b>{{ stats.avg_hours_to_done ?? '—' }}<i v-if="stats.avg_hours_to_done"> soat</i></b><span>O'rtacha bajarish</span></div></div>
     </div>
 

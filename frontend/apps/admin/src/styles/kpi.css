@@ -1,0 +1,14 @@
+/*
+ * Bosiladigan ko'rsatkich kartasi (v28): sahifalar tepasidagi KPI kartalar bosilsa — tegishli filtr yoki sahifa ochiladi.
+ * Ishlatish: <button class="<o'z klassi> kpi-click" :class="{ on: tanlangan }" @click="...">  yoki  <RouterLink class="... kpi-click">
+ */
+.kpi-click { cursor: pointer; text-align: left; font: inherit; color: inherit; text-decoration: none; position: relative;
+  transition: transform .15s, box-shadow .15s, border-color .15s, background-color .15s; -webkit-tap-highlight-color: transparent; }
+button.kpi-click { appearance: none; margin: 0; }
+.kpi-click:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)) !important; box-shadow: 0 8px 22px -14px rgba(16, 24, 40, .4); transform: translateY(-1px); }
+.kpi-click:active { transform: translateY(0); }
+.kpi-click:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.kpi-click.on { border-color: var(--accent) !important; box-shadow: inset 0 0 0 1px var(--accent); background: color-mix(in srgb, var(--accent) 7%, var(--surface)) !important; }
+.kpi-click::after { content: '›'; position: absolute; top: 6px; right: 10px; font-size: 16px; line-height: 1; color: var(--muted); font-weight: 800; opacity: .4; pointer-events: none; }
+.kpi-click:hover::after, .kpi-click.on::after { opacity: 1; color: var(--accent); }
+.kpi-click.on::after { content: '✓'; font-size: 12px; top: 8px; }

@@ -2,6 +2,7 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import '@restopos/tokens/tokens.css'
 import './styles/mobile.css'
+import './styles/kpi.css'
 import { IS_HQ, auth } from '@restopos/api'
 import { applyTheme } from './stores/ui'
 

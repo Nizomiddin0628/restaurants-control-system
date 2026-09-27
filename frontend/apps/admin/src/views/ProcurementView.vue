@@ -83,11 +83,11 @@ function toggleMkCat(c: string) { const s = new Set(mk.value.categories); s.has(
   <div v-if="M" class="pr">
     <!-- KPI -->
     <section v-if="K && tab === 'home'" class="kpis">
-      <div class="kpi"><span class="ki g">🧾</span><div><small>Ta'minotchilar</small><b>{{ K.suppliers }}</b><em>{{ K.markets }} ta bozor ro'yxatda</em></div></div>
-      <div class="kpi"><span class="ki b">📋</span><div><small>Joriy buyurtmalar</small><b>{{ K.active_orders }}</b><em>{{ K.on_way }} tasi tasdiqlangan</em></div></div>
-      <div class="kpi"><span class="ki o">🛒</span><div><small>Oylik xarid</small><b :title="money(K.month_total)">{{ short(K.month_total) }}</b><em v-if="K.month_delta != null">{{ K.month_delta >= 0 ? '↑' : '↓' }} {{ Math.abs(K.month_delta) }}% o'tgan oyga</em><em v-else>so'm, shu oy</em></div></div>
-      <button type="button" class="kpi" @click="tab = 'debts'"><span class="ki p">💳</span><div><small>Qarzdorlik</small><b :class="{ bad: K.overdue }" :title="money(K.debt)">{{ short(K.debt) }}</b><em>{{ K.debt_suppliers }} ta ta'minotchi{{ K.overdue ? ` · ${K.overdue} muddati o'tgan` : '' }}</em></div></button>
-      <button type="button" class="kpi" @click="tab = 'orders'; ost = 'confirmed'"><span class="ki r">🚚</span><div><small>Bugun keladi</small><b>{{ K.today }}</b><em>buyurtma</em></div></button>
+      <button type="button" class="kpi kpi-click" @click="tab = 'suppliers'"><span class="ki g">🧾</span><div><small>Ta'minotchilar</small><b>{{ K.suppliers }}</b><em>{{ K.markets }} ta bozor ro'yxatda</em></div></button>
+      <button type="button" class="kpi kpi-click" @click="tab = 'orders'; ost = ''"><span class="ki b">📋</span><div><small>Joriy buyurtmalar</small><b>{{ K.active_orders }}</b><em>{{ K.on_way }} tasi tasdiqlangan</em></div></button>
+      <button type="button" class="kpi kpi-click" @click="router.push('/inventory?tab=purchase')"><span class="ki o">🛒</span><div><small>Oylik xarid</small><b :title="money(K.month_total)">{{ short(K.month_total) }}</b><em v-if="K.month_delta != null">{{ K.month_delta >= 0 ? '↑' : '↓' }} {{ Math.abs(K.month_delta) }}% o'tgan oyga</em><em v-else>so'm, shu oy</em></div></button>
+      <button type="button" class="kpi kpi-click" @click="tab = 'debts'"><span class="ki p">💳</span><div><small>Qarzdorlik</small><b :class="{ bad: K.overdue }" :title="money(K.debt)">{{ short(K.debt) }}</b><em>{{ K.debt_suppliers }} ta ta'minotchi{{ K.overdue ? ` · ${K.overdue} muddati o'tgan` : '' }}</em></div></button>
+      <button type="button" class="kpi kpi-click" @click="tab = 'orders'; ost = 'confirmed'"><span class="ki r">🚚</span><div><small>Bugun keladi</small><b>{{ K.today }}</b><em>buyurtma</em></div></button>
     </section>
 
     <!-- «Nima kerak?» -->

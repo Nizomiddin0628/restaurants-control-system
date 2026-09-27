@@ -17,7 +17,7 @@ const route = useRoute(), router = useRouter()
 type Tab = 'home' | 'kanban' | 'calendar' | 'feed'
 const tab = ref<Tab>((route.query.tab as Tab) || 'home')
 const M = ref<any>(null), O = ref<any>(null)
-const filter = ref<'live' | 'plan' | 'done' | 'all'>('live'), cat = ref('')
+const filter = ref<'live' | 'plan' | 'done' | 'all' | 'risk'>(route.query.filter === 'risk' ? 'risk' : 'live'), cat = ref('')
 const form = ref(false)
 const tasks = ref<any[]>([]), kMine = ref(false), kProject = ref('')
 const now = new Date()
@@ -37,7 +37,7 @@ watch([kMine, kProject], load)
 watch(ym, load, { deep: true })
 
 const list = computed(() => (O.value?.projects ?? []).filter((p: any) =>
-  (filter.value === 'all' || (filter.value === 'live' ? ['active', 'paused'].includes(p.status) : filter.value === 'plan' ? p.status === 'plan' : ['done', 'cancelled'].includes(p.status)))
+  (filter.value === 'all' || (filter.value === 'risk' ? ['active', 'paused', 'plan'].includes(p.status) && ['risk', 'late'].includes(p.health) : filter.value === 'live' ? ['active', 'paused'].includes(p.status) : filter.value === 'plan' ? p.status === 'plan' : ['done', 'cancelled'].includes(p.status)))
   && (!cat.value || p.category.code === cat.value)))
 const counts = computed(() => {
   const ps = O.value?.projects ?? []
@@ -82,16 +82,17 @@ const EV_ICON: Record<string, string> = { task: '•', milestone: '🏁', start:
     <!-- BOSH -->
     <template v-if="tab === 'home' && O">
       <section class="kpis">
-        <div class="kpi"><span class="ki b">📁</span><div><small>Faol loyihalar</small><b>{{ K.active }}</b><em>{{ K.plan }} tasi rejada · jami {{ K.total }}</em></div></div>
-        <div class="kpi"><span class="ki g">📈</span><div><small>O'rtacha bajarilish</small><b>{{ K.avg_progress }}%</b><em>{{ K.done_month }} ta shu oy yakunlandi</em></div></div>
-        <div class="kpi"><span class="ki o">⚠️</span><div><small>Xavf ostida</small><b :class="{ bad: K.risk }">{{ K.risk }}</b><em>{{ K.late ? `${K.late} tasi kechikmoqda` : 'kechikkan yo\'q' }}</em></div></div>
-        <button type="button" class="kpi" @click="tab = 'kanban'; kMine = true"><span class="ki p">✅</span><div><small>Ochiq vazifalar</small><b>{{ K.open_tasks }}</b><em>{{ K.overdue_tasks }} ta muddati o'tgan · {{ K.my_tasks }} ta meniki</em></div></button>
-        <div class="kpi"><span class="ki r">💰</span><div><small>Byudjet (faol)</small><b :title="money(K.spent)">{{ short(K.spent) }}</b><em>{{ short(K.budget) }} dan · {{ K.budget ? Math.round((100 * K.spent) / K.budget) : 0 }}%</em></div></div>
+        <button type="button" class="kpi kpi-click" :class="{ on: filter === 'live' }" @click="filter = 'live'"><span class="ki b">📁</span><div><small>Faol loyihalar</small><b>{{ K.active }}</b><em>{{ K.plan }} tasi rejada · jami {{ K.total }}</em></div></button>
+        <button type="button" class="kpi kpi-click" :class="{ on: filter === 'done' }" @click="filter = 'done'"><span class="ki g">📈</span><div><small>O'rtacha bajarilish</small><b>{{ K.avg_progress }}%</b><em>{{ K.done_month }} ta shu oy yakunlandi</em></div></button>
+        <button type="button" class="kpi kpi-click" :class="{ on: filter === 'risk' }" @click="filter = filter === 'risk' ? 'live' : 'risk'"><span class="ki o">⚠️</span><div><small>Xavf ostida</small><b :class="{ bad: K.risk }">{{ K.risk }}</b><em>{{ K.late ? `${K.late} tasi kechikmoqda` : 'kechikkan yo\'q' }}</em></div></button>
+        <button type="button" class="kpi kpi-click" @click="tab = 'kanban'; kMine = true"><span class="ki p">✅</span><div><small>Ochiq vazifalar</small><b>{{ K.open_tasks }}</b><em>{{ K.overdue_tasks }} ta muddati o'tgan · {{ K.my_tasks }} ta meniki</em></div></button>
+        <button type="button" class="kpi kpi-click" @click="filter = 'live'"><span class="ki r">💰</span><div><small>Byudjet (faol)</small><b :title="money(K.spent)">{{ short(K.spent) }}</b><em>{{ short(K.budget) }} dan · {{ K.budget ? Math.round((100 * K.spent) / K.budget) : 0 }}%</em></div></button>
       </section>
 
       <div class="grid">
         <div class="main">
           <div class="flt">
+            <button v-if="filter === 'risk'" class="on" @click="filter = 'live'">Xavf ostida ✕</button>
             <button v-for="x in ([['live', 'Faol'], ['plan', 'Rejada'], ['done', 'Yakunlangan'], ['all', 'Hammasi']] as const)" :key="x[0]" :class="{ on: filter === x[0] }" @click="filter = x[0]">{{ x[1] }} <i>{{ counts[x[0]] }}</i></button>
             <span class="sp"></span>
             <select v-model="cat" class="cs" aria-label="Toifa"><option value="">Barcha toifalar</option><option v-for="c in M.categories" :key="c.code" :value="c.code">{{ c.emoji }} {{ c.label }}</option></select>

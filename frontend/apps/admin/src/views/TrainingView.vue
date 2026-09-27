@@ -19,7 +19,9 @@ const route = useRoute(), router = useRouter()
 const meta = ref<any>(null)
 const courses = ref<any[]>([])
 const tab = ref<Tab>((route.query.tab as Tab) || 'my')
-watch(tab, (v) => router.replace({ query: { tab: v } }))
+watch(tab, (v) => { if (route.query.tab !== v) router.replace({ query: { ...route.query, tab: v } }) })
+// tashqaridan havola (bo'lim paneli, KPI) bilan kelinsa — shu tab ochiladi
+watch(() => route.query.tab, (v) => { if (v && v !== tab.value) tab.value = v as Tab })
 onMounted(async () => {
   meta.value = await api.get('/training/meta')
   if (meta.value.can.manage) courses.value = await api.get('/training/courses')

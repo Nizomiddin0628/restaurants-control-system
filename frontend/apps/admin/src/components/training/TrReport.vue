@@ -1,13 +1,21 @@
 <script setup lang="ts">
 /** Hisobot: har xodim — kurs, dars, video, test, topshiriq, standart. Qatorni bossangiz — batafsil (qaysi videoni necha % ko'rgan). */
 import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { api, auth as apiAuth } from '@restopos/api'
 import { UiAvatar, UiButton, UiChip, UiDrawer, UiEmpty, UiInput, toast } from '@restopos/ui'
 import { fmtDate, fmtDateTime, fmtDur, SUB_STATUS } from './upload'
 
 const R = ref<any>(null)
 const q = ref('')
-const filter = ref<'all' | 'overdue' | 'idle' | 'review'>('all')
+type F = 'all' | 'overdue' | 'idle' | 'review' | 'low' | 'std'
+const filter = ref<F>((['overdue', 'idle', 'review', 'low', 'std'] as F[]).includes(useRoute().query.f as F) ? useRoute().query.f as F : 'all')
+const listEl = ref<HTMLElement | null>(null)
+/** KPI kartasi bosilsa — ro'yxat shu bo'yicha filtrlanadi va ro'yxatga suriladi */
+function setF(f: F) {
+  filter.value = filter.value === f ? 'all' : f
+  requestAnimationFrame(() => listEl.value?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+}
 const detail = ref<any>(null)
 onMounted(async () => { R.value = await api.get('/training/report/summary') })
 const rows = computed(() => (R.value?.rows ?? []).filter((r: any) => {
@@ -16,6 +24,8 @@ const rows = computed(() => (R.value?.rows ?? []).filter((r: any) => {
   if (filter.value === 'overdue') return r.courses_overdue > 0
   if (filter.value === 'idle') return r.lessons_done === 0 && r.lessons_total > 0
   if (filter.value === 'review') return r.assignments_review > 0
+  if (filter.value === 'low') return r.avg_score !== null && r.avg_score < 70
+  if (filter.value === 'std') return r.standards_acked < r.standards_total
   return true
 }))
 const reminding = ref(false)
@@ -39,14 +49,14 @@ const hours = (s: number) => (s >= 3600 ? `${(s / 3600).toFixed(1)} soat` : `${M
 <template>
   <div v-if="R" class="rp">
     <div class="kpis">
-      <div class="k"><b>{{ R.kpis.completion }}%</b><span>Umumiy tugatish</span><small>{{ R.kpis.completed }}/{{ R.kpis.enrollments }} kurs</small></div>
-      <div class="k" :class="{ warn: R.kpis.overdue }"><b>{{ R.kpis.overdue }}</b><span>Muddati o'tgan</span></div>
-      <div class="k"><b>{{ R.kpis.not_started }}</b><span>Boshlamagan</span></div>
-      <div class="k"><b>{{ R.kpis.avg_score ?? '—' }}<small v-if="R.kpis.avg_score !== null">%</small></b><span>O'rtacha test bali</span></div>
-      <div class="k" :class="{ info: R.kpis.to_review }"><b>{{ R.kpis.to_review }}</b><span>Tekshiruvni kutmoqda</span></div>
-      <div class="k"><b>{{ R.kpis.standards_percent ?? '—' }}<small v-if="R.kpis.standards_percent !== null">%</small></b><span>Standartlar bilan tanishgan</span></div>
+      <button type="button" class="k kpi-click" :class="{ on: filter === 'all' }" @click="setF('all')"><b>{{ R.kpis.completion }}%</b><span>Umumiy tugatish</span><small>{{ R.kpis.completed }}/{{ R.kpis.enrollments }} kurs</small></button>
+      <button type="button" class="k kpi-click" :class="{ warn: R.kpis.overdue, on: filter === 'overdue' }" @click="setF('overdue')"><b>{{ R.kpis.overdue }}</b><span>Muddati o'tgan</span></button>
+      <button type="button" class="k kpi-click" :class="{ on: filter === 'idle' }" @click="setF('idle')"><b>{{ R.kpis.not_started }}</b><span>Boshlamagan</span></button>
+      <button type="button" class="k kpi-click" :class="{ on: filter === 'low' }" @click="setF('low')"><b>{{ R.kpis.avg_score ?? '—' }}<small v-if="R.kpis.avg_score !== null">%</small></b><span>O'rtacha test bali</span><small>bosing — 70% dan pastlar</small></button>
+      <button type="button" class="k kpi-click" :class="{ info: R.kpis.to_review, on: filter === 'review' }" @click="setF('review')"><b>{{ R.kpis.to_review }}</b><span>Tekshiruvni kutmoqda</span></button>
+      <button type="button" class="k kpi-click" :class="{ on: filter === 'std' }" @click="setF('std')"><b>{{ R.kpis.standards_percent ?? '—' }}<small v-if="R.kpis.standards_percent !== null">%</small></b><span>Standartlar bilan tanishgan</span><small>bosing — tanishmaganlar</small></button>
     </div>
-    <div class="bar">
+    <div ref="listEl" class="bar">
       <UiInput v-model="q" placeholder="Xodimni qidirish" />
       <div class="acts"><UiButton size="s" variant="secondary" :loading="reminding" @click="remind">🔔 Eslatma yuborish</UiButton><UiButton size="s" variant="secondary" @click="exportXlsx">⬇ Excel</UiButton></div>
       <div class="tr-seg f">
@@ -54,6 +64,7 @@ const hours = (s: number) => (s >= 3600 ? `${(s / 3600).toFixed(1)} soat` : `${M
         <button :class="{ on: filter === 'overdue' }" @click="filter = 'overdue'">Kechikkan</button>
         <button :class="{ on: filter === 'idle' }" @click="filter = 'idle'">Boshlamagan</button>
         <button :class="{ on: filter === 'review' }" @click="filter = 'review'">Tekshiruvda</button>
+        <button v-if="filter === 'low' || filter === 'std'" class="on" @click="filter = 'all'">{{ filter === 'low' ? 'Past ball' : 'Standart' }} ✕</button>
       </div>
     </div>
     <div class="tbl">
@@ -108,10 +119,10 @@ const hours = (s: number) => (s >= 3600 ? `${(s / 3600).toFixed(1)} soat` : `${M
 <style scoped>
 .rp { display: flex; flex-direction: column; gap: 14px; }
 .kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
-.k { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 2px; }
+.k { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .k b { font-size: 24px; font-weight: 800; font-family: var(--font-display); } .k b small { font-size: 14px; } .k span { font-size: 12px; color: var(--muted); font-weight: 700; } .k > small { font-size: 12px; color: var(--muted); }
 .k.warn b { color: var(--danger); } .k.info b { color: var(--info); }
-.bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; } .bar > :first-child { flex: 1; min-width: 200px; } .f { flex: 0 1 auto; }
+.bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; scroll-margin-top: calc(var(--topbar-h) + 16px); } .bar > :first-child { flex: 1; min-width: 200px; } .f { flex: 0 1 auto; }
 .acts { display: flex; gap: 8px; }
 .tbl { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
 .th, .tr { display: grid; grid-template-columns: 1.6fr 1.1fr .8fr 1fr .8fr 1fr .6fr 1fr; gap: 10px; align-items: center; padding: 10px 14px; }

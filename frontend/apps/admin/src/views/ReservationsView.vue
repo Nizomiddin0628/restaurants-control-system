@@ -14,6 +14,16 @@ const wait = ref<any[]>([])
 const stats = ref<any>(null)
 const day = ref(new Date().toISOString().slice(0, 10))
 const filter = ref('')
+/** KPI kartalar: bosilsa — ro'yxat shu holat bo'yicha filtrlanadi (yoki navbat kartasiga o'tadi) */
+const kf = ref<'' | 'active' | 'seated' | 'no_show'>('')
+const KF: Record<string, string> = { active: 'kutilmoqda', seated: "o'tirgan", no_show: 'kelmadi' }
+const waitEl = ref<any>(null)
+const rowsShown = computed(() => rows.value.filter((r: any) => !kf.value || (kf.value === 'active' ? ['new', 'confirmed'].includes(r.status) : r.status === kf.value)))
+function kpiGo(k: '' | 'active' | 'seated' | 'no_show' | 'wait') {
+  if (k === 'wait') { (waitEl.value?.$el ?? waitEl.value)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }); return }
+  if (filter.value) { filter.value = ''; load() }
+  kf.value = kf.value === k ? '' : k
+}
 const search = ref('')
 const open = ref(false)
 const form = ref<any>(null)
@@ -129,18 +139,19 @@ async function waitStatus(w: any, status: string, table_id?: number) {
     </header>
 
     <div class="kpis">
-      <div class="k"><span>Bronlar</span><b>{{ stats?.total ?? 0 }}</b></div>
-      <div class="k"><span>Kutilmoqda</span><b>{{ stats?.active ?? 0 }}</b></div>
-      <div class="k"><span>O'tirgan</span><b>{{ stats?.seated ?? 0 }}</b></div>
-      <div class="k"><span>Mehmon</span><b>{{ stats?.guests ?? 0 }}</b></div>
-      <div class="k"><span>Kelmadi</span><b :class="{ bad: stats?.no_show }">{{ stats?.no_show ?? 0 }}</b></div>
-      <div class="k"><span>Navbatda</span><b>{{ stats?.waitlist ?? 0 }}</b></div>
+      <button type="button" class="k kpi-click" :class="{ on: !kf && !filter }" @click="kpiGo('')"><span>Bronlar</span><b>{{ stats?.total ?? 0 }}</b></button>
+      <button type="button" class="k kpi-click" :class="{ on: kf === 'active' }" @click="kpiGo('active')"><span>Kutilmoqda</span><b>{{ stats?.active ?? 0 }}</b></button>
+      <button type="button" class="k kpi-click" :class="{ on: kf === 'seated' }" @click="kpiGo('seated')"><span>O'tirgan</span><b>{{ stats?.seated ?? 0 }}</b></button>
+      <button type="button" class="k kpi-click" @click="kpiGo('')"><span>Mehmon</span><b>{{ stats?.guests ?? 0 }}</b></button>
+      <button type="button" class="k kpi-click" :class="{ on: kf === 'no_show' }" @click="kpiGo('no_show')"><span>Kelmadi</span><b :class="{ bad: stats?.no_show }">{{ stats?.no_show ?? 0 }}</b></button>
+      <button type="button" class="k kpi-click" @click="kpiGo('wait')"><span>Navbatda</span><b>{{ stats?.waitlist ?? 0 }}</b></button>
     </div>
 
     <div class="cols">
       <UiCard title="Bronlar" subtitle="Kun bo'yicha, vaqt tartibida. Kechikkanlari qizil ko'rinadi.">
         <div class="list">
-          <article v-for="r in rows" :key="r.id" class="item" :class="{ late: r.is_late && (r.status === 'new' || r.status === 'confirmed') }">
+          <p v-if="kf" class="flt">Filtr: {{ KF[kf] }} — {{ rowsShown.length }} ta · <button type="button" @click="kf = ''">hammasi ✕</button></p>
+          <article v-for="r in rowsShown" :key="r.id" class="item" :class="{ late: r.is_late && (r.status === 'new' || r.status === 'confirmed') }">
             <div class="time">
               <b>{{ hhmm(r.starts_at) }}</b>
               <small>{{ r.duration_minutes }} daq</small>
@@ -164,11 +175,11 @@ async function waitStatus(w: any, status: string, table_id?: number) {
               <UiButton size="s" variant="ghost" @click="remove(r)"><UiIcon name="trash" :size="13" /></UiButton>
             </div>
           </article>
-          <UiEmpty v-if="!rows.length" title="Bu kunda bron yo'q" />
+          <UiEmpty v-if="!rowsShown.length" title="Bu kunda bron yo'q" />
         </div>
       </UiCard>
 
-      <UiCard title="Navbat" subtitle="Joy bo'shaganda chaqiriladi">
+      <UiCard ref="waitEl" title="Navbat" subtitle="Joy bo'shaganda chaqiriladi">
         <template #actions>
           <UiButton v-if="canManage" size="s" variant="secondary" @click="openWait()"><UiIcon name="plus" :size="13" /> Qo'shish</UiButton>
         </template>
@@ -254,6 +265,7 @@ async function waitStatus(w: any, status: string, table_id?: number) {
 .k { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .k span { font-size: var(--fs-xs); color: var(--muted); font-weight: 700; }
 .k b { font-family: var(--font-display); font-size: var(--fs-l); } .k b.bad { color: var(--danger); }
+.flt { margin: 0 0 4px; font-size: var(--fs-s); color: var(--ink-2); } .flt button { border: 0; background: none; color: var(--accent); font: inherit; font-weight: 700; cursor: pointer; padding: 0; }
 .cols { display: grid; grid-template-columns: 1.7fr 1fr; gap: 12px; align-items: start; }
 .list { display: flex; flex-direction: column; }
 .item { display: flex; gap: 12px; align-items: flex-start; padding: 10px 4px; border-top: 1px solid var(--line-2); }

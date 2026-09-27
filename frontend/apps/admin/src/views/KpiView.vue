@@ -29,8 +29,16 @@ async function load() {
 onMounted(async () => { load(); branches.value = (await api.get('/hr/meta').catch(() => ({ branches: [] }))).branches })
 watch([month, branch], load)
 
-const rows = computed(() => D.value?.rows ?? [])
-const top3 = computed(() => rows.value.filter((r: any) => r.score != null).slice(0, 3))
+const allRows = computed(() => D.value?.rows ?? [])
+/** KPI kartasi bosilsa — reyting jadvali shu bo'yicha filtrlanadi */
+type KF = '' | 'A' | 'D' | 'risk' | 'noreview' | 'bonus'
+const kf = ref<KF>('')
+const tblEl = ref<any>(null)
+const KFL: Record<string, string> = { A: 'A daraja', D: 'D daraja', risk: 'xavf ostida', noreview: 'baholanmagan', bonus: 'bonus tavsiya etilgan' }
+function kpiGo(k: KF) { kf.value = kf.value === k ? '' : k; requestAnimationFrame(() => (tblEl.value?.$el ?? tblEl.value)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })) }
+const rows = computed(() => allRows.value.filter((r: any) => !kf.value || (kf.value === 'A' || kf.value === 'D' ? r.grade === kf.value
+  : kf.value === 'risk' ? r.risk : kf.value === 'noreview' ? !r.reviewed : r.bonus_suggest > 0)))
+const top3 = computed(() => allRows.value.filter((r: any) => r.score != null).slice(0, 3))
 const tone = (v: number) => (v >= 85 ? 'a' : v >= 70 ? 'b' : v >= 50 ? 'c' : 'd')
 const brOpts = computed(() => [{ value: '', label: 'Barcha filiallar' }, ...branches.value.map((b: any) => ({ value: String(b.id), label: b.name }))])
 const isCurrent = computed(() => month.value === ym(now))
@@ -43,7 +51,7 @@ async function saveReview() {
   try { await api.post(`/hr/employees/${row.employee_id}/reviews`, b); rv.value = null; toast('Baho saqlandi'); await load() } catch (e: any) { toast(e.detail ?? 'Xato', 'danger') }
 }
 const pick = ref<Set<number>>(new Set())
-const bonusRows = computed(() => rows.value.filter((r: any) => r.bonus_suggest > 0))
+const bonusRows = computed(() => allRows.value.filter((r: any) => r.bonus_suggest > 0))
 function toggleAll() { pick.value = pick.value.size === bonusRows.value.length ? new Set() : new Set(bonusRows.value.map((r: any) => r.employee_id)) }
 async function applyBonus() {
   const ids = [...pick.value]
@@ -63,12 +71,12 @@ async function applyBonus() {
 
     <template v-if="D">
       <div class="kpis">
-        <UiKpi label="O'rtacha ball" :value="D.summary.avg ?? '—'" />
-        <UiKpi label="A daraja" :value="D.summary.grades.A" tone="ok" />
-        <UiKpi label="D daraja" :value="D.summary.grades.D" :tone="D.summary.grades.D ? 'danger' : 'muted'" />
-        <UiKpi label="Xavf ostida" :value="D.summary.risk" :tone="D.summary.risk ? 'warn' : 'muted'" note="kayfiyat yoki davomat past" />
-        <UiKpi label="Baholangan" :value="`${D.summary.reviewed}/${D.summary.total}`" note="menejer bahosi" />
-        <UiKpi label="Tavsiya bonus" :value="short(D.summary.bonus_total)" note="A — 10%, B — 5%" />
+        <UiKpi label="O'rtacha ball" :value="D.summary.avg ?? '—'" clickable :on="!kf" @click="kpiGo('')" />
+        <UiKpi label="A daraja" :value="D.summary.grades.A" tone="ok" clickable :on="kf === 'A'" @click="kpiGo('A')" />
+        <UiKpi label="D daraja" :value="D.summary.grades.D" :tone="D.summary.grades.D ? 'danger' : 'muted'" clickable :on="kf === 'D'" @click="kpiGo('D')" />
+        <UiKpi label="Xavf ostida" :value="D.summary.risk" :tone="D.summary.risk ? 'warn' : 'muted'" note="kayfiyat yoki davomat past" clickable :on="kf === 'risk'" @click="kpiGo('risk')" />
+        <UiKpi label="Baholangan" :value="`${D.summary.reviewed}/${D.summary.total}`" note="bosing — baholanmaganlar" clickable :on="kf === 'noreview'" @click="kpiGo('noreview')" />
+        <UiKpi label="Tavsiya bonus" :value="short(D.summary.bonus_total)" note="A — 10%, B — 5%" clickable :on="kf === 'bonus'" @click="kpiGo('bonus')" />
       </div>
 
       <div v-if="top3.length" class="podium">
@@ -80,7 +88,7 @@ async function applyBonus() {
         </button>
       </div>
 
-      <UiCard title="Reyting" :subtitle="`Og'irliklar: ${D.weights.map((w: any) => `${w.label} ${w.weight}`).join(' · ')}. Ma'lumot yo'q ko'rsatkich hisobga olinmaydi.`" :padded="false">
+      <UiCard ref="tblEl" title="Reyting" :subtitle="`Og'irliklar: ${D.weights.map((w: any) => `${w.label} ${w.weight}`).join(' · ')}. Ma'lumot yo'q ko'rsatkich hisobga olinmaydi.`" :padded="false">
         <template #actions>
           <UiButton v-if="a.can('hr.payroll') && bonusRows.length" size="s" variant="secondary" @click="toggleAll">{{ pick.size === bonusRows.length ? 'Belgini olish' : 'Bonuslilarni belgilash' }}</UiButton>
           <UiButton v-if="a.can('hr.payroll') && bonusRows.length" size="s" variant="brand" :disabled="!pick.size" @click="applyBonus">Bonusni oylikka yozish ({{ pick.size }})</UiButton>
@@ -89,6 +97,7 @@ async function applyBonus() {
           <table>
             <thead><tr><th></th><th>#</th><th>Xodim</th><th class="c">Ball</th><th v-for="p in PARTS" :key="p" class="c">{{ SHORT[p] }}</th><th class="c">Kayfiyat</th><th class="r">Bonus</th><th></th></tr></thead>
             <tbody>
+              <tr v-if="kf"><td colspan="20" class="kf-row">Filtr: <b>{{ KFL[kf] }}</b> — {{ rows.length }} kishi · <button type="button" @click="kf = ''">hammasi ✕</button></td></tr>
               <tr v-for="r in rows" :key="r.employee_id" :class="{ risk: r.risk }">
                 <td><input v-if="r.bonus_suggest" type="checkbox" :checked="pick.has(r.employee_id)" :aria-label="`${r.full_name} bonus`" @change="pick.has(r.employee_id) ? pick.delete(r.employee_id) : pick.add(r.employee_id)" /></td>
                 <td class="rk">{{ r.rank ?? '—' }}</td>
@@ -141,6 +150,7 @@ async function applyBonus() {
 table { width: 100%; border-collapse: collapse; font-size: var(--fs-s); }
 th { text-align: left; font-size: var(--fs-xs); color: var(--muted); font-weight: 700; padding: 10px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 td { padding: 8px; border-bottom: 1px solid var(--line-2); vertical-align: middle; }
+.kf-row { background: var(--warn-tint); font-size: var(--fs-s); } .kf-row button { border: 0; background: none; color: var(--accent); font: inherit; font-weight: 700; cursor: pointer; }
 tr.risk td:nth-child(3) { box-shadow: inset 3px 0 0 var(--danger); }
 .c { text-align: center; } .r { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; } .rk { color: var(--muted); font-weight: 800; }
 .who { display: flex; gap: 8px; align-items: center; border: 0; background: none; cursor: pointer; font: inherit; color: var(--ink); text-align: left; padding: 0; }

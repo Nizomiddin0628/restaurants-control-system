@@ -81,8 +81,8 @@ def sections(request, branch_id: int | None = None, period: str = "today") -> di
                 pq = pq.filter(paid_at__time__lte=timezone.localtime().time())
             y = int(pq.aggregate(s=Sum("total"))["s"] or 0)
             d = round(100 * (s - y) / y) if y else None
-            rows += [_k(f"Savdo · {plabel.lower()}", _m(s), f"{n} ta chek" + (f" · o'tgan davrga {d:+d}%" if d is not None else ""), "ok" if (d or 0) >= 0 else "warn", "/pos", "💰"),
-                     _k("O'rtacha chek", _m(s // n if n else 0), "so'm", "", "/reports", "🧾")]
+            rows += [_k(f"Savdo · {plabel.lower()}", _m(s), f"{n} ta chek" + (f" · o'tgan davrga {d:+d}%" if d is not None else ""), "ok" if (d or 0) >= 0 else "warn", "/reports?tab=sales", "💰"),
+                     _k("O'rtacha chek", _m(s // n if n else 0), "so'm", "", "/reports?tab=sales", "🧾")]
         if "kds" in on:
             from modules.kds.models import Ticket
             act = S(Ticket.objects.exclude(status__in=["served", "cancelled"]), "order__branch")
@@ -139,9 +139,9 @@ def sections(request, branch_id: int | None = None, period: str = "today") -> di
             ings = list(Ingredient.objects.filter(deleted_at__isnull=True, is_active=True))
             val = sum(float(i.stock) * float(i.price) for i in ings if i.stock > 0)
             low = [i for i in ings if i.is_low]
-            rows.append(_k("Ombor qiymati", _m(val), f"{len(ings)} xil xomashyo", "", "/inventory", "📦"))
+            rows.append(_k("Ombor qiymati", _m(val), f"{len(ings)} xil xomashyo", "", "/inventory?tab=ingredients", "📦"))
             rows.append(_k("Kam qolgan", len(low), ", ".join(str(i) for i in low[:3]) or "hammasi yetarli", "bad" if len(low) > 3 else "warn" if low else "ok",
-                           "/inventory", "⚠️"))
+                           "/inventory?tab=ingredients&low=1", "⚠️"))
             mp = int(L(Purchase.objects.filter(date__gte=ms, date__lte=d1)).aggregate(s=Sum("total"))["s"] or 0)
             rows.append(_k(f"Xarid · {mlabel.lower()}", _m(mp), "kirimlar jami", "", "/procurement" if "procurement" in on else "/inventory", "🛒"))
         if "procurement" in on and can("procurement.view"):
@@ -168,8 +168,8 @@ def sections(request, branch_id: int | None = None, period: str = "today") -> di
             planned = L(ShiftPlan.objects.filter(date=today)).count()
             late = att.filter(late_minutes__gt=0).count()
             rows.append(_k("Xodimlar", emps.count(), f"{emps.values('position').distinct().count()} lavozimda", "", "/hr", "👥"))
-            rows.append(_k("Bugun ishda", f"{att.values('employee').distinct().count()} / {planned}", "keldi / smenada", "", "/hr", "🕘"))
-            rows.append(_k("Kechikishlar", late, "bugun" if late else "bugun hamma o'z vaqtida", "warn" if late else "ok", "/hr", "⏰"))
+            rows.append(_k("Bugun ishda", f"{att.values('employee').distinct().count()} / {planned}", "keldi / smenada", "", "/hr?tab=attendance", "🕘"))
+            rows.append(_k("Kechikishlar", late, "bugun" if late else "bugun hamma o'z vaqtida", "warn" if late else "ok", "/hr?tab=attendance", "⏰"))
             if can("hr.recruit"):
                 from modules.hr.models import Application, Vacancy
                 vac = L(Vacancy.objects.filter(status="open")).count()
@@ -197,7 +197,7 @@ def sections(request, branch_id: int | None = None, period: str = "today") -> di
             late = sum(1 for e in en.exclude(status="completed").only("status", "due_at") if e.due_at and e.due_at < timezone.now())
             rows.append(_k("Kurslar", Course.objects.filter(is_published=True, is_archived=False).count(), f"{tot} ta biriktirish", "", "/training?tab=courses", "🎓"))
             rows.append(_k("Tugatganlar", f"{round(100 * done / tot) if tot else 0}%", f"{done} / {tot} kurs yakunlangan", "ok" if tot and done / tot > 0.6 else "warn", "/training?tab=report", "✅"))
-            rows.append(_k("Kechikkan o'qish", late, "muddati o'tgan kurslar" if late else "kechikkan yo'q", "bad" if late else "ok", "/training?tab=report", "⏳"))
+            rows.append(_k("Kechikkan o'qish", late, "muddati o'tgan kurslar" if late else "kechikkan yo'q", "bad" if late else "ok", "/training?tab=report&f=overdue", "⏳"))
             chk = Submission.objects.filter(status="submitted").count()
             rows.append(_k("Tekshirish kerak", chk, "topshiriq dalillari", "warn" if chk else "", "/training?tab=assignments", "📸"))
             stds = Standard.objects.count()
@@ -213,7 +213,7 @@ def sections(request, branch_id: int | None = None, period: str = "today") -> di
             from modules.tasks.models import ColumnKind, Task
             op = L(Task.objects.exclude(column__kind__in=[ColumnKind.DONE, ColumnKind.CANCELLED]))
             over = op.filter(due_at__lt=timezone.now()).count()
-            rows.append(_k("Ochiq vazifalar", op.count(), f"{over} tasi kechikkan" if over else "kechikkan yo'q", "bad" if over else "ok", "/tasks", "📋"))
+            rows.append(_k("Ochiq vazifalar", op.count(), f"{over} tasi kechikkan" if over else "kechikkan yo'q", "bad" if over else "ok", "/tasks?overdue=1" if over else "/tasks", "📋"))
             done = L(Task.objects.filter(done_at__date__gte=d0, done_at__date__lte=d1)).count()
             rows.append(_k(f"Bajarildi · {plabel.lower()}", done, "vazifa", "ok" if done else "", "/tasks", "✔️"))
         if "projects" in on and can("projects.view"):
@@ -226,7 +226,7 @@ def sections(request, branch_id: int | None = None, period: str = "today") -> di
                 over = sum(1 for x in tasks if x.due and x.due < today and x.status != "done")
                 if ps.health(p, prog, over, 25, ps.planned_progress(p, tasks)) in ("risk", "late"):
                     risk += 1
-            rows.append(_k("Faol loyihalar", len(live), f"{risk} tasi xavf ostida" if risk else "hammasi o'z vaqtida", "warn" if risk else "ok", "/projects", "🚩"))
+            rows.append(_k("Faol loyihalar", len(live), f"{risk} tasi xavf ostida" if risk else "hammasi o'z vaqtida", "warn" if risk else "ok", "/projects?filter=risk" if risk else "/projects", "🚩"))
         return rows
     block("work", work)
 
@@ -241,10 +241,10 @@ def sections(request, branch_id: int | None = None, period: str = "today") -> di
             from modules.finance.models import Expense
             exp = int(L(Expense.objects.filter(date__gte=ms, date__lte=d1)).aggregate(s=Sum("amount"))["s"] or 0)
             fc = round(100 * cost / rev, 1) if rev else 0
-            rows.append(_k(f"Savdo · {mlabel.lower()}", _m(rev), f"{q.count()} ta chek", "", "/reports", "📈"))
-            rows.append(_k("Food cost", f"{fc}%", "me'yor 28–35%", "ok" if 0 < fc <= 35 else "warn", "/reports", "🥘"))
-            rows.append(_k(f"Xarajatlar · {mlabel.lower()}", _m(exp), "ijara, kommunal, soliq…", "", "/reports", "💸"))
-            rows.append(_k("Yalpi foyda", _m(rev - cost - exp), "savdo − tannarx − xarajat", "ok" if rev - cost - exp > 0 else "bad", "/reports", "💵"))
+            rows.append(_k(f"Savdo · {mlabel.lower()}", _m(rev), f"{q.count()} ta chek", "", "/reports?tab=sales", "📈"))
+            rows.append(_k("Food cost", f"{fc}%", "me'yor 28–35%", "ok" if 0 < fc <= 35 else "warn", "/reports?tab=menu", "🥘"))
+            rows.append(_k(f"Xarajatlar · {mlabel.lower()}", _m(exp), "ijara, kommunal, soliq…", "", "/reports?tab=expenses", "💸"))
+            rows.append(_k("Yalpi foyda", _m(rev - cost - exp), "savdo − tannarx − xarajat", "ok" if rev - cost - exp > 0 else "bad", "/reports?tab=pnl", "💵"))
         return rows
     block("finance", finance)
 

@@ -26,7 +26,9 @@ const purchases = ref<any[]>([])
 const movements = ref<any[]>([])
 const suppliers = ref<any[]>([])
 const q = ref('')
-const onlyLow = ref(false)
+const onlyLow = ref(route.query.low === '1')
+const noRecipe = ref(false)
+const recipesShown = computed(() => (noRecipe.value ? recipes.value.filter((r: any) => !r.has_recipe) : recipes.value))
 const canEdit = computed(() => a.can('inventory.edit'))
 
 const UNIT: Record<string, string> = { kg: 'kg', l: 'l', dona: 'dona' }
@@ -167,11 +169,11 @@ const fmtDT = (s: string) => new Date(s).toLocaleString('uz-UZ', { day: '2-digit
 <template>
   <div class="inv">
     <div v-if="summary" class="kpis">
-      <div class="kpi"><b>{{ summary.ingredients }}</b><span>Xomashyo turi</span></div>
-      <div class="kpi" :class="{ warn: summary.low }"><b>{{ summary.low }}</b><span>Tugayapti</span></div>
-      <div class="kpi"><b>{{ money(summary.stock_value) }}</b><span>Ombor qiymati</span></div>
-      <div class="kpi"><b>{{ summary.recipes }}</b><span>Tex-karta</span></div>
-      <div class="kpi" :class="{ warn: summary.products_without_recipe }"><b>{{ summary.products_without_recipe }}</b><span>Tex-kartasiz taom</span></div>
+      <button type="button" class="kpi kpi-click" :class="{ on: tab === 'ingredients' && !onlyLow }" @click="tab = 'ingredients'; onlyLow = false"><b>{{ summary.ingredients }}</b><span>Xomashyo turi</span></button>
+      <button type="button" class="kpi kpi-click" :class="{ warn: summary.low, on: tab === 'ingredients' && onlyLow }" @click="tab = 'ingredients'; onlyLow = true"><b>{{ summary.low }}</b><span>Tugayapti</span></button>
+      <button type="button" class="kpi kpi-click" @click="tab = 'ingredients'; onlyLow = false"><b>{{ money(summary.stock_value) }}</b><span>Ombor qiymati</span></button>
+      <button type="button" class="kpi kpi-click" :class="{ on: tab === 'recipes' && !noRecipe }" @click="tab = 'recipes'; noRecipe = false"><b>{{ summary.recipes }}</b><span>Tex-karta</span></button>
+      <button type="button" class="kpi kpi-click" :class="{ warn: summary.products_without_recipe, on: tab === 'recipes' && noRecipe }" @click="tab = 'recipes'; noRecipe = true"><b>{{ summary.products_without_recipe }}</b><span>Tex-kartasiz taom</span></button>
     </div>
 
     <HolidayAlert v-for="al in (fc?.alerts ?? [])" :key="al.id" :a="al" @plan="openPlan" />
@@ -258,7 +260,8 @@ const fmtDT = (s: string) => new Date(s).toLocaleString('uz-UZ', { day: '2-digit
       <UiCard title="Taomlar" subtitle="Bosing — tex-kartani oching. Food cost: ≤32% yaxshi · 33–40% e'tibor · >40% narx yoki retseptni ko'ring" :padded="false">
         <div class="lst">
           <div class="l-h"><span>Taom</span><span>Narx</span><span>Tannarx</span><span>Food cost</span><span>Marja</span></div>
-          <button v-for="r in recipes" :key="r.product_id" class="l-r" :class="{ sel: recipe?.product_id === r.product_id }" @click="openRecipe(r.product_id)">
+          <p v-if="noRecipe" class="flt">Faqat tex-kartasiz taomlar: {{ recipesShown.length }} ta · <button type="button" @click="noRecipe = false">hammasi ✕</button></p>
+          <button v-for="r in recipesShown" :key="r.product_id" class="l-r" :class="{ sel: recipe?.product_id === r.product_id }" @click="openRecipe(r.product_id)">
             <span class="nm"><b>{{ t(r.name, ui.lang) }}</b><small>{{ t(r.category, ui.lang) }}{{ r.has_recipe ? ` · ${r.lines} xomashyo` : ' · tex-karta yo\'q' }}</small></span>
             <span>{{ money(r.price) }}</span>
             <span>{{ money(r.cost) }}</span>
@@ -409,7 +412,8 @@ const fmtDT = (s: string) => new Date(s).toLocaleString('uz-UZ', { day: '2-digit
 <style scoped>
 .inv { display: flex; flex-direction: column; gap: 14px; }
 .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
-.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-l); padding: 12px 14px; display: flex; flex-direction: column; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-l); padding: 12px 14px; display: flex; flex-direction: column; min-width: 0; }
+.flt { margin: 0; padding: 8px 14px; font-size: var(--fs-s); color: var(--ink-2); background: var(--warn-tint); } .flt button { border: 0; background: none; color: var(--accent); font: inherit; font-weight: 700; cursor: pointer; padding: 0; }
 .kpi b { font-family: var(--font-display); font-size: var(--fs-xl); font-weight: 800; } .kpi span { font-size: var(--fs-xs); color: var(--muted); }
 .kpi.warn { border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; }

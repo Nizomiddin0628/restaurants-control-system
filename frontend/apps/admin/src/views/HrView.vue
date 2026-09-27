@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 /**
  * Xodimlar: ro'yxat + karta (lavozim, maosh sharti, rol, vazifalari, davomati, oyliklari) ·
  * smena jadvali (hafta) · davomat (keldi/ketdi) · oylik (hisoblash → tasdiqlash → to'lash).
@@ -12,7 +12,16 @@ import { useAuth } from '@/stores/auth'
 
 const a = useAuth()
 type Tab = 'employees' | 'schedule' | 'attendance' | 'payroll'
-const tab = ref<Tab>('employees')
+const route = useRoute()
+const tab = ref<Tab>((['employees', 'schedule', 'attendance', 'payroll'] as Tab[]).includes(route.query.tab as Tab) ? route.query.tab as Tab : 'employees')
+const onlyShift = ref(false)
+const shown = computed(() => (onlyShift.value ? employees.value.filter((e: any) => e.on_shift) : employees.value))
+/** Tepadagi ko'rsatkich kartalari: bosilsa — tegishli tab yoki filtr */
+function kpiGo(k: 'all' | 'shift' | 'plan' | 'pay') {
+  if (k === 'all' || k === 'shift') { tab.value = 'employees'; onlyShift.value = k === 'shift' ? !onlyShift.value : false }
+  else if (k === 'plan') tab.value = 'schedule'
+  else tab.value = 'payroll'
+}
 const meta = ref<any>(null)
 const employees = ref<any[]>([])
 const card = ref<any>(null)
@@ -103,10 +112,10 @@ const fmtD = (s: string) => new Date(s).toLocaleDateString('uz-UZ', { day: '2-di
 <template>
   <div class="hr">
     <div v-if="meta" class="kpis">
-      <div class="kpi"><b>{{ meta.summary.employees }}</b><span>Xodim</span></div>
-      <div class="kpi"><b>{{ meta.summary.on_shift }}</b><span>Hozir smenada</span></div>
-      <div class="kpi"><b>{{ meta.summary.today_planned }}</b><span>Bugun rejada</span></div>
-      <div class="kpi"><b>{{ money(meta.summary.payroll_month) }}</b><span>Shu oy oylik fondi</span></div>
+      <button type="button" class="kpi kpi-click" :class="{ on: tab === 'employees' && !onlyShift }" @click="kpiGo('all')"><b>{{ meta.summary.employees }}</b><span>Xodim</span></button>
+      <button type="button" class="kpi kpi-click" :class="{ on: tab === 'employees' && onlyShift }" @click="kpiGo('shift')"><b>{{ meta.summary.on_shift }}</b><span>Hozir smenada</span></button>
+      <button type="button" class="kpi kpi-click" :class="{ on: tab === 'schedule' }" @click="kpiGo('plan')"><b>{{ meta.summary.today_planned }}</b><span>Bugun rejada</span></button>
+      <component :is="a.can('hr.payroll') ? 'button' : 'div'" type="button" class="kpi" :class="{ 'kpi-click': a.can('hr.payroll'), on: tab === 'payroll' }" @click="a.can('hr.payroll') && kpiGo('pay')"><b>{{ money(meta.summary.payroll_month) }}</b><span>Shu oy oylik fondi</span></component>
     </div>
     <nav class="tabs">
       <button :class="{ on: tab === 'employees' }" @click="tab = 'employees'"><UiIcon name="users" :size="15" /> Xodimlar</button>
@@ -120,14 +129,15 @@ const fmtD = (s: string) => new Date(s).toLocaleDateString('uz-UZ', { day: '2-di
       <div class="lst-wrap">
         <div class="bar"><UiInput v-model="q" placeholder="Ism yoki telefon" @keydown.enter="load()" /><UiButton v-if="canEdit" variant="brand" @click="openForm()"><UiIcon name="plus" :size="15" /> Xodim</UiButton></div>
         <div class="lst">
-          <button v-for="e in employees" :key="e.id" class="emp" :class="{ sel: card?.employee.id === e.id }" @click="openCard(e)">
+          <p v-if="onlyShift" class="flt">Faqat hozir smenada: {{ shown.length }} kishi · <button type="button" @click="onlyShift = false">hammasini ko'rsatish ✕</button></p>
+          <button v-for="e in shown" :key="e.id" class="emp" :class="{ sel: card?.employee.id === e.id }" @click="openCard(e)">
             <UiAvatar :name="e.full_name" :src="e.avatar" :online="e.on_shift" />
             <span class="nm"><b>{{ e.full_name }}</b><small>{{ e.position_name ?? '—' }} · {{ e.branch_name ?? '' }}</small></span>
             <UiChip :tone="ROLE_TONE[e.role_code] ?? 'neutral'">{{ e.role_name }}</UiChip>
             <span class="sal">{{ money(e.rate) }}<small>/{{ SAL[e.salary_type] }}</small></span>
             <span class="tk" :class="{ warn: e.tasks.overdue }"><UiIcon name="check" :size="12" /> {{ e.tasks.open ?? 0 }}<i v-if="e.tasks.overdue"> · {{ e.tasks.overdue }} kechikkan</i></span>
           </button>
-          <UiEmpty v-if="!employees.length" title="Xodim yo'q" text="«Xodim» tugmasi bilan qo'shing — telefon raqami bilan kiradi." />
+          <UiEmpty v-if="!shown.length" title="Xodim yo'q" text="«Xodim» tugmasi bilan qo'shing — telefon raqami bilan kiradi." />
         </div>
       </div>
 
@@ -246,7 +256,8 @@ const fmtD = (s: string) => new Date(s).toLocaleDateString('uz-UZ', { day: '2-di
 <style scoped>
 .hr { display: flex; flex-direction: column; gap: 14px; }
 .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-l); padding: 12px 14px; display: flex; flex-direction: column; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-l); padding: 12px 14px; display: flex; flex-direction: column; min-width: 0; }
+.flt { margin: 0 0 6px; font-size: var(--fs-s); color: var(--ink-2); } .flt button { border: 0; background: none; color: var(--accent); font: inherit; font-weight: 700; cursor: pointer; padding: 0; }
 .kpi b { font-family: var(--font-display); font-size: var(--fs-xl); font-weight: 800; } .kpi span { font-size: var(--fs-xs); color: var(--muted); }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; }
 .tabs button { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; padding: 9px 12px; font-weight: 700; font-size: var(--fs-s); color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }

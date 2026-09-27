@@ -249,7 +249,7 @@ const fmt = (d: string | null) => d ? d.split('-').reverse().join('.') : '—'
 .purp { margin: 0; line-height: 1.5; } .mut { color: var(--muted); font-size: var(--fs-s); margin: 0; }
 .kv { display: grid; grid-template-columns: 190px 1fr; gap: 8px 14px; margin: 0; font-size: var(--fs-s); } .kv dt { color: var(--muted); } .kv dd { margin: 0; font-weight: 600; display: flex; flex-wrap: wrap; gap: 4px 10px; }
 .kv a { color: var(--accent); text-decoration: none; } .sub { white-space: nowrap; }
-.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+.tiles { display: flex; flex-wrap: wrap; gap: 8px; } .tiles > * { flex: 1 1 88px; min-width: 0; }
 .tiles button { border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); padding: 12px 8px; display: flex; flex-direction: column; align-items: center; cursor: pointer; font: inherit; color: var(--ink); }
 .tiles button:hover { border-color: var(--accent); } .tiles b { font-family: var(--font-display); font-size: 22px; } .tiles span { font-size: var(--fs-xs); color: var(--muted); }
 .vac { padding: 10px 12px; border-radius: 10px; background: var(--info-tint); font-size: var(--fs-s); display: flex; gap: 8px; flex-wrap: wrap; } .vac a { color: var(--accent); font-weight: 700; }

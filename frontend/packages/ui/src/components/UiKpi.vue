@@ -1,12 +1,13 @@
 <script setup lang="ts">
-defineProps<{ label: string; value: string | number; note?: string; tone?: 'ok' | 'warn' | 'danger' | 'muted'; inverted?: boolean }>()
+/** clickable — karta tugmaga aylanadi (bosilsa filtr/sahifa), on — tanlangan holat (admin'dagi global .kpi-click uslubi) */
+defineProps<{ label: string; value: string | number; note?: string; tone?: 'ok' | 'warn' | 'danger' | 'muted'; inverted?: boolean; clickable?: boolean; on?: boolean }>()
 </script>
 <template>
-  <div class="kpi" :class="{ inv: inverted }">
+  <component :is="clickable ? 'button' : 'div'" :type="clickable ? 'button' : undefined" class="kpi" :class="{ inv: inverted, 'kpi-click': clickable, on }">
     <span class="l">{{ label }}</span>
     <span class="v">{{ value }}</span>
     <span v-if="note" class="n" :class="tone ?? 'muted'">{{ note }}</span>
-  </div>
+  </component>
 </template>
 <style scoped>
 .kpi { display: flex; flex-direction: column; gap: 4px; padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-l); min-width: 0; }
