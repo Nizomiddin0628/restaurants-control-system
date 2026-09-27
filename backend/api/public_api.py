@@ -15,6 +15,10 @@ from public.services import create_tenant
 
 public_api = NinjaAPI(title="RestoPOS Platform API", version="1.0", urls_namespace="public_api")
 
+from api.hq_api import router as hq_router  # noqa: E402
+
+public_api.add_router("/hq", hq_router)
+
 
 class SignupIn(Schema):
     name: str

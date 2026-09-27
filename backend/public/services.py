@@ -22,12 +22,12 @@ from .models import Domain, Plan, Tenant
 
 SYSTEM_ROLES = [
     ("owner", "Egasi", ["*"]),
-    ("manager", "Filial menejeri", ["catalog.*", "cms.view", "core.branches.manage", "core.settings.view", "finance.*", "pos.*", "kds.*", "inventory.*", "hr.*", "tasks.*", "tables.*", "reservations.*", "payments.view", "training.*", "telegram.*", "crm.*", "forecast.*"]),
+    ("manager", "Filial menejeri", ["catalog.*", "cms.view", "core.branches.manage", "core.settings.view", "finance.*", "pos.*", "kds.*", "inventory.*", "hr.*", "tasks.*", "tables.*", "reservations.*", "payments.view", "training.*", "telegram.*", "crm.*", "forecast.*", "ops.*"]),
     ("cashier", "Kassir", ["crm.view", "pos.sell", "pos.shift", "catalog.view", "tasks.view", "tasks.create", "hr.view", "tables.view", "tables.serve", "reservations.view", "reservations.manage"]),
     ("waiter", "Ofitsiant", ["crm.view", "tables.view", "tables.serve", "reservations.view", "reservations.manage", "pos.sell", "catalog.view", "kds.view", "tasks.view", "tasks.create", "hr.view"]),
     ("cook", "Oshpaz", ["kds.view", "kds.cook", "catalog.view", "inventory.view", "forecast.view", "tasks.view", "tasks.create", "hr.view"]),
     ("courier", "Kuryer", ["delivery.courier", "tasks.view", "tasks.create", "hr.view"]),
-    ("accountant", "Buxgalter", ["finance.*", "inventory.*", "forecast.view", "hr.payroll", "hr.view", "core.settings.view", "tasks.view", "tasks.create", "payments.view"]),
+    ("accountant", "Buxgalter", ["finance.*", "inventory.*", "forecast.view", "ops.view", "hr.payroll", "hr.view", "core.settings.view", "tasks.view", "tasks.create", "payments.view"]),
     ("marketer", "Marketolog", ["crm.*", "cms.*", "catalog.view", "tasks.view", "tasks.create", "tasks.edit", "telegram.view", "telegram.broadcast"]),
 ]
 # O'qitish: har bir xodim o'z kurslari, topshiriqlari va standartlarini ko'radi

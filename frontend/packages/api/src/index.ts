@@ -8,7 +8,9 @@ export class ApiError extends Error {
   constructor(public status: number, public detail: string, public body?: any) { super(detail) }
 }
 
-const TOKEN_KEY = 'restopos.token'
+/** HQ (platforma paneli, /hq) va restoran paneli (/admin) tokenlari alohida saqlanadi — bir-birini bosib ketmaydi. */
+export const IS_HQ = typeof location !== 'undefined' && location.pathname.startsWith('/hq')
+const TOKEN_KEY = IS_HQ ? 'restroos.hq.token' : 'restopos.token'
 let token: string | null = null
 try { token = localStorage.getItem(TOKEN_KEY) } catch {}
 
@@ -30,7 +32,7 @@ async function request<T = any>(method: string, path: string, body?: any, opts: 
   let payload: any
   if (opts.form) { payload = body } else if (body !== undefined) { headers['Content-Type'] = 'application/json'; payload = JSON.stringify(body) }
   const r = await fetch(url.toString(), { method, headers, body: payload })
-  if (r.status === 401) { auth.set(null); if (!location.pathname.endsWith('/admin/login')) location.href = '/admin/login' }
+  if (r.status === 401) { auth.set(null); const login = IS_HQ ? '/hq/login' : '/admin/login'; if (!location.pathname.endsWith(login)) location.href = login }
   const text = await r.text()
   const data = text ? (() => { try { return JSON.parse(text) } catch { return text } })() : null
   if (!r.ok) throw new ApiError(r.status, (data && (data.detail || data.message)) || `Xato ${r.status}`, data)

@@ -1,0 +1,17 @@
+{
+  "code": "ops",
+  "name": {"uz": "Tuzilma va standartlar", "ru": "Структура и стандарты", "en": "Structure & standards"},
+  "version": "1.0.0", "phase": 9, "implemented": true, "order": 71,
+  "depends": ["hr"],
+  "permissions": ["ops.view", "ops.edit", "ops.*"],
+  "nav": [
+    {"route": "/org", "label": {"uz": "Tashkiliy tuzilma", "ru": "Оргструктура", "en": "Org chart"}, "icon": "org", "order": 71, "perm": "ops.view"},
+    {"route": "/positions", "label": {"uz": "Lavozimlar", "ru": "Должности", "en": "Positions"}, "icon": "users", "order": 72, "perm": "ops.view"}
+  ],
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "company_title": {"type": "string", "title": "Tuzilma sarlavhasi (masalan: «Bosh ofis»)", "default": "Bosh ofis"}
+    }
+  }
+}

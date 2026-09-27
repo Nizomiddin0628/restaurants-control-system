@@ -19,7 +19,10 @@ const tail = [
   { route: '/users', label: { uz: 'Foydalanuvchilar', ru: 'Пользователи', en: 'Users' }, icon: 'users', order: 85, perm: 'core.users.manage' },
   { route: '/modules', label: { uz: 'Modullar', ru: 'Модули', en: 'Modules' }, icon: 'sliders', order: 95, perm: 'core.modules.manage' },
   { route: '/settings', label: { uz: 'Sozlamalar', ru: 'Настройки', en: 'Settings' }, icon: 'bars', order: 96, perm: 'core.settings.view' },
+  { route: '/support', label: { uz: 'Yordam', ru: 'Поддержка', en: 'Support' }, icon: 'headset', order: 97, perm: 'core.settings.view' },
 ]
+/** Platforma yordami rejimi — egasi bergan ruxsat bilan kirilgan; tepada ogohlantirish */
+const supportMode = computed(() => (a.me?.roles ?? []).includes('platform_support'))
 const nav = computed(() => [...core, ...(a.me?.nav ?? []), ...tail.filter(i => !i.perm || a.can(i.perm))].sort((x, y) => x.order - y.order))
 // telefon pastki paneli: 4 ta band; «O'qitish» bo'lsa — doim ko'rinadi (xodim eng ko'p shu yerga kiradi)
 const phoneNav = computed(() => {
@@ -62,6 +65,7 @@ const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d)
         <a class="link" :href="`/tv/menu-board/`" target="_blank" rel="noopener"><UiIcon name="tv" /><span class="hp">TV</span></a>
         <RouterLink to="/settings" class="me" :title="`${a.me?.full_name ?? ''} · ${a.me?.phone ?? ''} — profil`"><UiAvatar :name="a.me?.full_name || a.me?.phone" :src="a.me?.avatar" :size="36" /></RouterLink>
       </header>
+      <div v-if="supportMode" class="sup">🛟 Platforma yordami rejimi — egasi bergan ruxsat bilan. Barcha harakatlar «O'zgarishlar tarixi»ga yoziladi. <button type="button" @click="a.logout()">Chiqish</button></div>
       <main class="content"><RouterView /></main>
       <nav class="tabbar">
         <RouterLink v-for="n in phoneNav" :key="n.route" :to="n.route" class="tab" :class="{ on: isOn(n.route) }"><UiIcon :name="n.icon" :size="22" /><span>{{ t(n.label, ui.lang).split(' ')[0] }}</span></RouterLink>
@@ -71,6 +75,8 @@ const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d)
   </div>
 </template>
 <style scoped>
+.sup { background: #1D4ED8; color: #fff; padding: 8px 16px; font-size: var(--fs-s); font-weight: 700; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.sup button { border: 1px solid rgba(255,255,255,.6); background: transparent; color: #fff; border-radius: 8px; padding: 4px 10px; font: inherit; cursor: pointer; }
 .shell { display: flex; min-height: 100vh; }
 .side { width: var(--sidebar-w); flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 16px 12px; gap: 4px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
 .brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 14px; }

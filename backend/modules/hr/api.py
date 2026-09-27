@@ -319,6 +319,7 @@ def update_employee(request, eid: int, data: EmployeeIn):
         _guard(request, "hr.edit")
         e = get_object_or_404(_employee_qs(), pk=eid)
         before = snapshot(e)
+        old_position = e.position_id
         e.user.full_name = data.full_name
         if data.telegram_id is not None:
             e.user.telegram_id = data.telegram_id
@@ -338,6 +339,9 @@ def update_employee(request, eid: int, data: EmployeeIn):
             e.fire_date = timezone.localdate()
         e.save()
         record(request, "update", e, before=before)
+        if e.position_id != old_position:
+            emit("hr.position_changed", {"employee_id": e.pk, "user_id": str(e.user_id), "position_id": e.position_id,
+                                         "old_position_id": old_position}, tenant=request.tenant)
         return _employee_qs().get(pk=e.pk)
 
 

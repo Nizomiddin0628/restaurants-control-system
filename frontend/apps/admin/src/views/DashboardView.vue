@@ -107,6 +107,7 @@ const QUICK = [
 ]
 const quick = computed(() => QUICK.filter(q => (!q.mod || a.hasModule(q.mod)) && a.can(q.perm)).slice(0, 8))
 const F = computed(() => D.value?.forecast)
+const accessReq = computed(() => a.can('core.settings.edit') ? (a.me?.tenant.settings as any)?.platform?.access_request ?? null : null)
 const fmtD = (x: string) => x.split('-').reverse().join('.')
 const branchName = computed(() => D.value?.branches_list.find((b: any) => String(b.id) === branch.value)?.name)
 </script>
@@ -130,6 +131,7 @@ const branchName = computed(() => D.value?.branches_list.find((b: any) => String
       </div>
     </header>
 
+    <RouterLink v-if="accessReq" to="/support" class="setup req">🛟 <b>Platforma yordami panelingizga kirish uchun ruxsat so'rayapti</b> — {{ accessReq.reason }}. Ko'rib chiqish →</RouterLink>
     <RouterLink v-if="setupLeft.length" :to="setupLeft[0].route" class="setup">
       <UiIcon name="alert" :size="16" /> <b>Ishga tushirish: {{ (S?.checklist.length ?? 0) - setupLeft.length }}/{{ S?.checklist.length }} tayyor.</b>
       Keyingi qadam: {{ setupLeft[0].label }} <UiIcon name="chevron" :size="14" style="transform: rotate(-90deg)" />
@@ -305,6 +307,7 @@ const branchName = computed(() => D.value?.branches_list.find((b: any) => String
 .seg button { border: 0; background: transparent; padding: 0 12px; min-height: 34px; border-radius: 8px; font: inherit; font-weight: 700; font-size: var(--fs-s); color: var(--muted); cursor: pointer; white-space: nowrap; }
 .seg button.on { background: var(--ink); color: var(--surface); }
 .seg.sm button { min-height: 28px; padding: 0 10px; font-size: var(--fs-xs); } .seg.sm button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.setup.req { background: #DBE7FF; color: #1E3A8A; }
 .setup { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 12px; background: var(--warn-tint); color: var(--warn-ink); text-decoration: none; font-size: var(--fs-s); flex-wrap: wrap; }
 
 .r0 { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; align-items: stretch; } .r0.solo { grid-template-columns: minmax(0, 1fr); }

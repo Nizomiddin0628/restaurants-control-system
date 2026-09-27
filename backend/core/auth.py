@@ -28,7 +28,10 @@ class JWTAuth(HttpBearer):
             payload = jwt.decode(token, settings.JWT_SECRET, algorithms=["HS256"])
         except jwt.PyJWTError:
             return None
-        schema = getattr(getattr(request, "tenant", None), "schema_name", "public")
+        tenant = getattr(request, "tenant", None)
+        if tenant is not None and getattr(tenant, "is_active", True) is False:   # HQ to'xtatgan (masalan, to'lov)
+            raise HttpError(403, "Restoran obunasi vaqtincha to'xtatilgan. Platforma bilan bog'laning.")
+        schema = getattr(tenant, "schema_name", "public")
         if payload.get("sch") != schema:      # boshqa tenant tokeni bu yerda ishlamaydi
             return None
         try:

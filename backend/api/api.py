@@ -475,6 +475,7 @@ from modules.forecast.api import router as forecast_router  # noqa: E402
 from modules.hr.api import router as hr_router  # noqa: E402
 from modules.inventory.api import router as inventory_router  # noqa: E402
 from modules.kds.api import router as kds_router  # noqa: E402
+from modules.ops.api import router as ops_router  # noqa: E402
 from modules.payments.api import router as payments_router  # noqa: E402
 from modules.pos.api import router as pos_router  # noqa: E402
 from modules.reservations.api import router as reservations_router  # noqa: E402
@@ -499,6 +500,11 @@ api.add_router("/training", training_router)
 api.add_router("/bot", bot_router)
 api.add_router("/crm", crm_router)
 api.add_router("/forecast", forecast_router)
+api.add_router("/ops", ops_router)
+
+from api.platform_api import router as platform_router  # noqa: E402
+
+api.add_router("/platform", platform_router)
 
 
 @api.get("/health", tags=["system"])

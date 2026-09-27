@@ -29,3 +29,17 @@ def completed(payload: dict) -> None:
     best = QuizAttempt.objects.filter(quiz__course=c, user=u, finished_at__isnull=False).order_by("-score").first()
     services.notify(getattr(connection, "tenant", None), c.responsible,
                     f"🎓 <b>{u.full_name or u.phone}</b> kursni tugatdi: <b>{c.title}</b>" + (f" · test {best.score}%" if best else ""))
+
+
+@on("hr.employee_created")
+@on("hr.position_changed")
+def assign_by_position(payload: dict) -> None:
+    """Xodim lavozimga qo'yildi → shu lavozimga biriktirilgan kurs va topshiriqlar unga o'zi beriladi."""
+    from django.db import connection
+
+    from core.models import User
+
+    from . import services
+    u = User.objects.filter(pk=payload.get("user_id")).first()
+    if u is not None:
+        services.sync_user(u, getattr(connection, "tenant", None))

@@ -57,7 +57,11 @@ class Command(BaseCommand):
                 seed_demo_crm(t)            # mijozlar, bonus tarixi, aksiyalar
                 from modules.forecast.demo import seed_demo_forecast
                 seed_demo_forecast(t)       # bayramlar + ob-havo
+                from modules.ops.demo import seed_demo_ops
+                seed_demo_ops(t, demo=True)            # tashkiliy tuzilma
             from public.services import set_modules
-            set_modules(t, [*t.enabled_modules, "training", "crm", "forecast"])
+            set_modules(t, [*t.enabled_modules, "training", "crm", "forecast", "ops"])
             self.stdout.write(self.style.SUCCESS("Demo tenant: http://lazzat.localhost:8000  (egasi: +998901234567, OTP dev rejimida javobda qaytadi)"))
+        call_command("seed_hq", "--demo", verbosity=0)   # RESTROOS HQ: http://localhost:8000/hq/ (+998901234567)
+        self.stdout.write(self.style.SUCCESS("HQ: http://localhost:8000/hq/  (+998901234567)"))
         self.stdout.write(self.style.SUCCESS("Tayyor."))
