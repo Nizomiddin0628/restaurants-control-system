@@ -32,6 +32,8 @@ const PRIO: Record<string, { label: string; tone: any }> = {
   normal: { label: "O'rta", tone: 'info' }, low: { label: 'Past', tone: 'neutral' },
 }
 const userOptions = computed(() => [{ value: '', label: '— tanlanmagan —' }, ...props.meta.users.map(u => ({ value: u.id, label: u.full_name || u.phone }))])
+const KORD: Record<string, number> = { backlog: 0, active: 1, review: 2, done: 3, cancelled: 4 }
+const statusCols = computed(() => [...props.meta.columns].sort((x, y) => (KORD[x.kind] ?? 9) - (KORD[y.kind] ?? 9)))
 const columnOptions = computed(() => props.meta.columns.map(c => ({ value: String(c.id), label: t(c.name as any, ui.lang) })))
 
 const fmtDate = (s?: string | null) => s ? new Date(s).toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
@@ -113,6 +115,12 @@ const ACTION_LABEL: Record<string, string> = {
       <textarea v-if="canEdit" class="desc" rows="2" placeholder="Muammo tavsifi…" :value="task.description"
                 @change="patch({ description: ($event.target as HTMLTextAreaElement).value })"></textarea>
       <p v-else-if="task.description" class="desc as-text">{{ task.description }}</p>
+
+      <!-- holat: bir bosishda ko'chirish (telefonda sudrashdan qulay) -->
+      <div v-if="canEdit" class="stat" role="radiogroup" aria-label="Holat">
+        <button v-for="c in statusCols" :key="c.id" type="button" role="radio" :aria-checked="c.id === task.column_id" :class="{ on: c.id === task.column_id }"
+                :disabled="busy" @click="c.id !== task.column_id && act('move', { column_id: c.id })">{{ t(c.name as any, ui.lang) }}</button>
+      </div>
 
       <!-- muammo rasmlari -->
       <section class="blk">
@@ -321,6 +329,9 @@ dd select:hover, dd input:hover { border-color: var(--line); background: var(--s
 .danger-zone { display: flex; gap: 8px; border-top: 1px solid var(--line); padding-top: 10px; }
 .ft { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--line); }
 .ft input { flex: 1; border: 1px solid var(--line); border-radius: var(--radius); padding: 0 12px; min-height: var(--touch); background: var(--surface-2); }
+.stat { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; flex-shrink: 0; padding: 2px 0; }
+.stat button { flex-shrink: 0; border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 7px 12px; font: inherit; font-size: var(--fs-s); font-weight: 700; color: var(--ink-2); cursor: pointer; }
+.stat button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 @media (max-width: 1024px) {
   .panel { position: fixed; inset: 0; width: 100%; max-height: none; border-radius: 0; z-index: 60; }
 }

@@ -15,7 +15,7 @@ export const useAuth = defineStore('auth', {
   },
   actions: {
     async load() { if (!tokenStore.token) throw new Error('no token'); this.me = await api.get<Me>('/me') },
-    async requestOtp(phone: string) { return api.post<{ ok: boolean; dev_code?: string }>('/auth/otp', { phone }) },
+    async requestOtp(phone: string) { return api.post<{ ok: boolean; dev_code?: string; via?: string }>('/auth/otp', { phone }) },
     async verify(phone: string, code: string) { const r = await api.post<{ token: string; user: Me }>('/auth/verify', { phone, code }); tokenStore.set(r.token); this.me = r.user },
     async login(phone: string, password: string) { const r = await api.post<{ token: string; user: Me }>('/auth/login', { phone, password }); tokenStore.set(r.token); this.me = r.user },
     async switchIn(code: string) { const r = await api.post<{ token: string; user: Me }>('/auth/switch', { code }); tokenStore.set(r.token); this.me = r.user },

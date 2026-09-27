@@ -2,13 +2,15 @@
 /** Foydalanuvchilar (rasm, rol, oxirgi kirish) va rollar matritsasi (rol × ruxsat). Egasi rolini o'zgartirib bo'lmaydi. */
 import { onMounted, ref } from 'vue'
 import { api } from '@restopos/api'
+import AccessCard from '@/components/users/AccessCard.vue'
+import type { Access } from '@/components/users/access'
 import { UiAvatar, UiButton, UiCard, UiChip, UiDrawer, UiIcon, UiInput, UiSelect, toast } from '@restopos/ui'
 import { useAuth } from '@/stores/auth'
 
 type Role = { id: number; code: string; name: string; permissions: string[]; is_system: boolean }
-type U = { id: string; phone: string; full_name: string; avatar: string | null; roles: string[]; branch_ids: number[]; is_active: boolean; last_seen_at: string | null; has_password?: boolean }
+type U = { id: string; phone: string; full_name: string; avatar: string | null; roles: string[]; branch_ids: number[]; is_active: boolean; last_seen_at: string | null; has_password?: boolean; telegram_linked?: boolean }
 const users = ref<U[]>([]), roles = ref<Role[]>([]), perms = ref<string[]>([])
-const open = ref(false), u = ref({ phone: '+998 ', full_name: '', role_code: 'cashier', password: '' }), roleOpen = ref(false), r = ref<Role | null>(null)
+const open = ref(false), u = ref({ phone: '+998 ', full_name: '', role_code: 'cashier', password: '', autoPw: true }), roleOpen = ref(false), r = ref<Role | null>(null)
 const load = async () => { [users.value, roles.value, perms.value] = await Promise.all([api.get('/users'), api.get('/roles'), api.get('/permissions')]) }
 onMounted(load)
 const a = useAuth()
@@ -24,14 +26,25 @@ async function pickPhoto(e: Event) {
   catch (err: any) { toast(err.detail ?? 'Rasm yuklanmadi', 'danger') }
 }
 async function removePhoto(x: U) { Object.assign(x, await api.del<U>(`/users/${x.id}/avatar`)); if (x.id === a.me?.id) await a.load() }
-async function save() { try { await api.post('/users', u.value); open.value = false; await load(); toast('Xodim qo\'shildi — telefon raqami bilan kiradi') } catch (e: any) { toast(e.detail ?? 'Xato', 'danger') } }
+async function save() {
+  try {
+    const x = await api.post<U>('/users', { phone: u.value.phone, full_name: u.value.full_name, role_code: u.value.role_code })
+    open.value = false; await load()
+    if (u.value.autoPw || u.value.password) {
+      pwFor.value = x
+      access.value = await api.post<Access>(`/users/${x.id}/password`, u.value.autoPw ? { generate: true } : { password: u.value.password })
+      await load()
+    } else toast('Xodim qo\'shildi — SMS/Telegram kod bilan kiradi')
+    u.value = { phone: '+998 ', full_name: '', role_code: u.value.role_code, password: '', autoPw: true }
+  } catch (e: any) { toast(e.detail ?? 'Xato', 'danger') }
+}
 // parol qo'yish (rahbar xodimga): xodim keyin o'zi «Sozlamalar»da almashtiradi
-const pwFor = ref<U | null>(null), pwVal = ref(''), pwErr = ref('')
-function askPw(x: U) { pwFor.value = x; pwVal.value = ''; pwErr.value = '' }
-async function savePw() {
+const pwFor = ref<U | null>(null), pwVal = ref(''), pwErr = ref(''), access = ref<Access | null>(null)
+function askPw(x: U) { pwFor.value = x; pwVal.value = ''; pwErr.value = ''; access.value = null }
+async function savePw(generate = false) {
   if (!pwFor.value) return
-  if (pwVal.value.length < 6) { pwErr.value = 'Kamida 6 ta belgi'; return }
-  try { Object.assign(pwFor.value, await api.post<U>(`/users/${pwFor.value.id}/password`, { password: pwVal.value })); toast(`Parol o'rnatildi: ${pwFor.value.full_name || pwFor.value.phone}`); pwFor.value = null }
+  if (!generate && pwVal.value.length < 6) { pwErr.value = 'Kamida 6 ta belgi'; return }
+  try { access.value = await api.post<Access>(`/users/${pwFor.value.id}/password`, generate ? { generate: true } : { password: pwVal.value }); await load() }
   catch (e: any) { pwErr.value = e.detail ?? 'Xato' }
 }
 async function deactivate(x: U) { if (!confirm(`${x.full_name || x.phone} ni o'chirasizmi?`)) return; try { await api.del(`/users/${x.id}`); await load() } catch (e: any) { toast(e.detail ?? 'Xato', 'danger') } }
@@ -48,7 +61,7 @@ async function saveRole() { if (!r.value) return; try { r.value.id ? await api.p
             <UiAvatar :name="x.full_name || x.phone" :src="x.avatar" :size="44" /><span class="cam">📷</span>
           </button>
           <span class="nm"><b>{{ x.full_name || 'Ismsiz' }}</b><small>{{ x.phone }}</small></span>
-          <span class="rl"><UiChip v-for="r in x.roles" :key="r" :tone="r === 'owner' ? 'accent' : 'neutral'">{{ roleName(r) }}</UiChip></span>
+          <span class="rl"><UiChip v-for="r in x.roles" :key="r" :tone="r === 'owner' ? 'accent' : 'neutral'">{{ roleName(r) }}</UiChip><UiChip :tone="x.has_password ? 'ok' : 'warn'" :title="x.has_password ? 'Parol o\'rnatilgan' : 'Parol yo\'q — faqat SMS/Telegram kod bilan kiradi'">{{ x.has_password ? '🔑 parol bor' : 'parol yo\'q' }}</UiChip><UiChip v-if="x.telegram_linked" tone="info">✈️ Telegram</UiChip></span>
           <span class="ls">{{ seen(x.last_seen_at) }}</span>
           <span class="act">
             <UiButton size="s" variant="ghost" :title="x.has_password ? 'Parolni almashtirish' : 'Parol qo\'yish'" @click="askPw(x)">🔑 {{ x.has_password ? 'Parol' : 'Parol qo\'yish' }}</UiButton>
@@ -67,13 +80,20 @@ async function saveRole() { if (!r.value) return; try { r.value.id ? await api.p
     <UiDrawer :open="open" title="Yangi xodim" width="420px" @close="open = false">
       <UiInput v-model="u.phone" label="Telefon" type="tel" /><UiInput v-model="u.full_name" label="Ism familiya" />
       <UiSelect v-model="u.role_code" label="Rol" :options="roles.map(x => ({ value: x.code, label: x.name }))" />
-      <UiInput v-model="u.password" label="Parol (ixtiyoriy, kamida 6 belgi)" type="text" autocomplete="off" hint="Bo'sh qoldirsangiz — xodim SMS kod bilan kiradi va parolni o'zi qo'yadi" />
+      <label class="chk"><input v-model="u.autoPw" type="checkbox" /> Parolni tizim yaratsin (tavsiya) — keyin xodimga Telegram'da yuborasiz</label>
+      <UiInput v-if="!u.autoPw" v-model="u.password" label="Parol (kamida 6 belgi)" type="text" autocomplete="off" hint="Bo'sh qoldirsangiz — xodim SMS/Telegram kod bilan kiradi" />
       <template #footer><UiButton @click="save()">Qo'shish</UiButton></template>
     </UiDrawer>
-    <UiDrawer :open="!!pwFor" :title="`Parol: ${pwFor?.full_name || pwFor?.phone || ''}`" width="380px" @close="pwFor = null">
-      <p class="hint">Xodim telefon raqami <b>{{ pwFor?.phone }}</b> va shu parol bilan kiradi. Parolni unga ayting — keyin u «Sozlamalar»da o'zi almashtira oladi.</p>
-      <UiInput v-model="pwVal" label="Yangi parol (kamida 6 belgi)" type="text" autocomplete="off" :error="pwErr" @keyup.enter="savePw()" />
-      <template #footer><UiButton @click="savePw()">Saqlash</UiButton></template>
+    <UiDrawer :open="!!pwFor" :title="`Kirish: ${pwFor?.full_name || pwFor?.phone || ''}`" width="400px" @close="pwFor = null; access = null">
+      <AccessCard v-if="access" :a="access" />
+      <template v-else>
+        <p class="hint">Xodim <b>{{ pwFor?.phone }}</b> raqami va parol bilan kiradi. Eng osoni — tizim parol yaratsin, siz uni xodimga Telegram'da yuborasiz.</p>
+        <UiButton variant="brand" @click="savePw(true)">🎲 Parol yaratish</UiButton>
+        <p class="or">yoki o'zingiz yozing</p>
+        <UiInput v-model="pwVal" label="Parol (kamida 6 belgi)" type="text" autocomplete="off" :error="pwErr" @keyup.enter="savePw()" />
+        <UiButton variant="secondary" @click="savePw()">Saqlash</UiButton>
+      </template>
+      <template v-if="access" #footer><UiButton @click="pwFor = null; access = null">Tayyor</UiButton></template>
     </UiDrawer>
     <UiDrawer :open="roleOpen" :title="r?.id ? 'Rol: ' + r.name : 'Yangi rol'" @close="roleOpen = false">
       <template v-if="r">
@@ -96,9 +116,11 @@ async function saveRole() { if (!r.value) return; try { r.value.id ? await api.p
 .rl { display: flex; gap: 4px; flex-wrap: wrap; }
 .ls { font-size: var(--fs-xs); color: var(--muted); }
 .act { display: flex; gap: 4px; justify-content: flex-end; }
-@media (max-width: 700px) { .ur { grid-template-columns: auto 1fr auto; } .rl { grid-column: 2 / -1; } .ls { grid-column: 2 / 3; } }
+@media (max-width: 700px) { .ur { grid-template-columns: 44px minmax(0, 1fr); row-gap: 6px; align-items: start; } .rl, .ls, .act { grid-column: 2; } .act { justify-content: flex-start; flex-wrap: wrap; margin-left: -8px; } .nm b { white-space: normal; } }
 .roles { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
 .role { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); cursor: pointer; text-align: left; }
 .role span { font-size: var(--fs-xs); color: var(--muted); }
 .perms { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px; } .p { display: flex; gap: 8px; align-items: center; min-height: 32px; font-size: var(--fs-xs); }
+.chk { display: flex; gap: 8px; align-items: flex-start; font-size: var(--fs-s); font-weight: 600; } .chk input { margin-top: 3px; }
+.or { text-align: center; color: var(--muted); font-size: var(--fs-xs); margin: 4px 0; }
 </style>

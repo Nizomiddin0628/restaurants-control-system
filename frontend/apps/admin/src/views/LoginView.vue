@@ -4,7 +4,7 @@
  * Parol hali qo'yilmagan bo'lsa yoki esdan chiqqan bo'lsa — «SMS kod bilan kirish».
  * Boshqa restorandan o'tish havolasi (?switch=...) — hech narsa so'ramasdan kiradi.
  */
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { UiButton, UiInput, UiCard, toast } from '@restopos/ui'
 import { useAuth } from '@/stores/auth'
@@ -14,7 +14,7 @@ const LAST = 'restopos.phone'
 const saved = (() => { try { return localStorage.getItem(LAST) || '' } catch { return '' } })()
 const mode = ref<'password' | 'otp'>('password')
 const phone = ref(saved || '+998 '), password = ref(''), showPw = ref(false)
-const code = ref(''), step = ref<'phone' | 'code'>('phone'), loading = ref(false), err = ref(''), devCode = ref('')
+const via = ref(''), code = ref(''), step = ref<'phone' | 'code'>('phone'), loading = ref(false), err = ref(''), devCode = ref('')
 
 function remember() { try { localStorage.setItem(LAST, phone.value) } catch { /* private */ } }
 function done() { remember(); toast('Xush kelibsiz!'); router.push('/') }
@@ -26,7 +26,7 @@ async function loginPw() {
 }
 async function sendOtp() {
   loading.value = true; err.value = ''
-  try { const r = await a.requestOtp(phone.value); step.value = 'code'; if (r.dev_code) devCode.value = r.dev_code }
+  try { const r = await a.requestOtp(phone.value); step.value = 'code'; via.value = r.via ?? ''; if (r.dev_code) devCode.value = r.dev_code }
   catch (e: any) { err.value = e.detail ?? 'Xato' } finally { loading.value = false }
 }
 async function verify() {
@@ -34,6 +34,9 @@ async function verify() {
   try { await a.verify(phone.value, code.value); done() }
   catch (e: any) { err.value = e.detail ?? 'Kod noto\'g\'ri' } finally { loading.value = false }
 }
+const hint = computed(() => via.value === 'telegram' ? '✈️ Kod Telegram\'ingizga (restoran boti) yuborildi'
+  : via.value === 'sms' ? `💬 ${phone.value} raqamiga SMS yuborildi`
+  : devCode.value ? `Sinov rejimi — kod: ${devCode.value}` : 'SMS xizmati hali ulanmagan. Rahbaringizdan parol so\'rang yoki restoran botiga ulaning.')
 function setMode(m: 'password' | 'otp') { mode.value = m; err.value = ''; step.value = 'phone'; code.value = '' }
 
 const switching = ref(false)
@@ -72,7 +75,7 @@ onMounted(async () => {
           <p class="muted sm">Kirgandan keyin «Sozlamalar»da parol qo'ying — keyingi safar SMS kerak bo'lmaydi.</p>
         </form>
         <form v-else @submit.prevent="verify">
-          <UiInput v-model="code" label="SMS kod" inputmode="numeric" placeholder="123456" :error="err" :hint="devCode ? `Sinov rejimi — kod: ${devCode}` : `${phone} raqamiga yuborildi`" autocomplete="one-time-code" />
+          <UiInput v-model="code" label="SMS kod" inputmode="numeric" placeholder="123456" :error="err" :hint="hint" autocomplete="one-time-code" />
           <UiButton type="submit" :loading="loading" block size="l">Kirish</UiButton>
           <UiButton variant="ghost" block @click="step = 'phone'">Raqamni o'zgartirish</UiButton>
         </form>

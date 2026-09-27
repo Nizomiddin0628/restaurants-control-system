@@ -4,6 +4,7 @@ audit, dashboard. Modullar o'z routerlarini qo'shadi (catalog, cms, ...).
 """
 from __future__ import annotations
 
+import os
 from typing import Optional
 
 from django.conf import settings
@@ -45,8 +46,13 @@ def request_otp(request, data: OtpRequest):
     if not User.objects.filter(phone=phone, is_active=True).exists():
         raise HttpError(404, "Bu raqam ushbu restoranda ro'yxatdan o'tmagan")
     otp = OtpCode.issue(phone)
-    send_otp(phone, otp.code)
-    out = {"ok": True, "ttl": settings.OTP_TTL_SECONDS}
+    user = User.objects.filter(phone=phone, is_active=True).first()
+    # 1) xodim restoran botiga ulangan bo'lsa — kod Telegram'ga (bepul, tez); 2) aks holda SMS (Eskiz ulangan bo'lsa)
+    via = "telegram" if _tg_send(request.tenant, user, f"🔐 <b>{request.tenant.name}</b> — kirish kodi: <b>{otp.code}</b>\n5 daqiqa amal qiladi. Hech kimga aytmang.") else ""
+    if not via:
+        send_otp(phone, otp.code)
+        via = "sms" if os.environ.get("SMS_PROVIDER") == "eskiz" else "none"
+    out = {"ok": True, "ttl": settings.OTP_TTL_SECONDS, "via": via}
     if settings.OTP_DEV_ECHO:
         out["dev_code"] = otp.code   # faqat dev: SMS shart emas
     return out
@@ -68,6 +74,17 @@ def verify_otp(request, data: OtpVerify):
     user.last_seen_at = timezone.now()
     user.save(update_fields=["last_seen_at"])
     return {"token": issue_token(user, request.tenant.schema_name), "user": _me(request, user)}
+
+
+def _tg_send(tenant, user, text: str) -> bool:
+    """Xodimga restoran boti orqali xabar (bot ulangan va xodim botda telefonini ulashgan bo'lsa)."""
+    if user is None or not getattr(user, "telegram_id", None) or not tenant.module_enabled("telegram"):
+        return False
+    try:
+        from modules.telegram.services import say, token
+        return bool(token(tenant)) and bool(say(tenant, user.telegram_id, text))
+    except Exception:
+        return False
 
 
 # ------------------------------------------------------------------ parol bilan kirish (SMS har safar shart emas)
@@ -456,6 +473,11 @@ class UserOut(Schema):
     branch_ids: list[int]
     last_seen_at: Optional[str] = None
     has_password: bool = False
+    telegram_linked: bool = False
+
+    @staticmethod
+    def resolve_telegram_linked(obj):
+        return bool(getattr(obj, "telegram_id", None))
 
     @staticmethod
     def resolve_has_password(obj):
@@ -508,22 +530,37 @@ def create_user(request, data: UserIn):
 
 
 class PasswordSet(Schema):
-    password: str
+    password: str = ""
+    generate: bool = False          # true — tizim oson eslanadigan 6 xonali parol yaratadi
+    send_telegram: bool = True      # xodim botga ulangan bo'lsa — kirish ma'lumotlari Telegram'ga ham boradi
 
 
-@api.post("/users/{uid}/password", response=UserOut, auth=auth, tags=["users"])
+def _login_url(request) -> str:
+    return f"{request.scheme}://{request.get_host()}/admin/login"
+
+
+@api.post("/users/{uid}/password", auth=auth, tags=["users"])
 def set_user_password(request, uid: str, data: PasswordSet):
-    """Rahbar xodimga parol qo'yadi (xodim keyin o'zi «Sozlamalar»da almashtiradi)."""
-    require_perm(request, "core.users.manage")
-    u = get_object_or_404(User, pk=uid, is_active=True)
+    """Rahbar xodimga parol qo'yadi yoki yangisini yaratadi. Javobda kirish ma'lumotlari (parol faqat shu yerda bir marta ko'rinadi)."""
     me = request.auth
+    if not (me.has_perm_code("core.users.manage") or me.has_perm_code("hr.edit")):
+        raise HttpError(403, "Ruxsat yo'q: core.users.manage")
+    u = get_object_or_404(User, pk=uid, is_active=True)
     if u.pk != me.pk and u.memberships.filter(role__code="owner").exists() and not me.memberships.filter(role__code="owner").exists():
         raise HttpError(403, "Egasining parolini faqat egasining o'zi o'zgartira oladi")
-    _check_new_password(data.password)
-    u.set_password(data.password)
+    if data.generate:
+        import secrets
+        pw = f"{secrets.randbelow(900000) + 100000}"
+    else:
+        pw = data.password
+        _check_new_password(pw)
+    u.set_password(pw)
     u.save(update_fields=["password"])
     record(request, "update", u)
-    return u
+    url = _login_url(request)
+    sent = data.send_telegram and _tg_send(request.tenant, u, f"👋 <b>{request.tenant.name}</b> — tizimga kirish\n\nManzil: {url}\nLogin (telefon): <b>{u.phone}</b>\nParol: <b>{pw}</b>\n\nKirgach «Sozlamalar»da parolni o'zingizniki qilib almashtiring.")
+    return {"user_id": str(u.pk), "full_name": u.full_name, "phone": u.phone, "password": pw, "login_url": url,
+            "telegram_linked": bool(u.telegram_id), "telegram_sent": sent, "restaurant": request.tenant.name}
 
 
 @api.post("/users/{uid}/avatar", response=UserOut, auth=auth, tags=["users"])

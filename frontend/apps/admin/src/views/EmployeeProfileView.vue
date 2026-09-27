@@ -9,11 +9,13 @@ import { api } from '@restopos/api'
 import { UiAvatar, UiButton, UiCard, UiChip, UiDrawer, UiEmpty, UiIcon, UiInput, UiSelect, money, toast } from '@restopos/ui'
 import { useAuth } from '@/stores/auth'
 import { uploadWithProgress } from '@/components/training/upload'
+import AccessDrawer from '@/components/users/AccessDrawer.vue'
 
 const a = useAuth(), route = useRoute(), router = useRouter()
 const P = ref<any>(null)
 const tab = ref<'info' | 'kpi' | 'history' | 'docs'>((route.query.tab as any) || 'info')
 const canEdit = computed(() => a.can('hr.edit'))
+const accessFor = ref<{ id: string; full_name?: string; phone?: string } | null>(null)
 const eid = computed(() => Number(route.params.id))
 async function load() {
   try { P.value = await api.get(`/hr/employees/${eid.value}/profile`) } catch (e: any) { toast(e.detail ?? 'Xato', 'danger'); router.replace('/hr') }
@@ -81,6 +83,7 @@ const crit = (k: string) => P.value?.criteria.find((c: any) => c.key === k)?.lab
 
 <template>
   <div v-if="P" class="pf">
+    <AccessDrawer :user="accessFor" @close="accessFor = null" />
     <RouterLink to="/hr" class="back"><UiIcon name="chevron" :size="16" style="transform: rotate(90deg)" /> Xodimlar</RouterLink>
 
     <header class="hero">
@@ -91,6 +94,7 @@ const crit = (k: string) => P.value?.criteria.find((c: any) => c.key === k)?.lab
         <div class="chips">
           <UiChip tone="neutral">Ishda: {{ P.profile.tenure_text }}</UiChip>
           <UiChip v-if="P.employee.telegram_id" tone="ok">Telegram ulangan</UiChip>
+          <button v-if="canEdit" type="button" class="acc" @click="accessFor = { id: P.employee.user_id, full_name: P.employee.full_name, phone: P.employee.phone }">🔑 Kirish (parol)</button>
           <UiChip v-if="P.profile.medical_expired" tone="danger">⚠ Tibbiy daftarcha muddati o'tgan</UiChip>
           <UiChip v-else-if="P.profile.medical_expiring" tone="warn">Tibbiy daftarcha tugayapti: {{ dmy(P.profile.medical_book_until) }}</UiChip>
           <UiChip v-if="!P.employee.is_active" tone="danger">Ishdan ketgan · {{ dmy(P.profile.fire_date) }}</UiChip>
@@ -304,4 +308,5 @@ const crit = (k: string) => P.value?.criteria.find((c: any) => c.key === k)?.lab
 .star { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 0; font-size: var(--fs-s); font-weight: 600; }
 .st button { border: 0; background: none; font-size: 26px; color: var(--line); cursor: pointer; padding: 0 2px; line-height: 1; } .st button.on { color: var(--series-4); }
 @media (max-width: 900px) { .two { grid-template-columns: 1fr; } .dl { grid-template-columns: 120px 1fr; } .kp { grid-template-columns: minmax(0, 1fr) 80px 34px; } }
+.acc { border: 1px solid var(--accent); background: var(--accent-tint); color: var(--accent); border-radius: 99px; padding: 3px 10px; font: inherit; font-size: var(--fs-xs); font-weight: 700; cursor: pointer; }
 </style>

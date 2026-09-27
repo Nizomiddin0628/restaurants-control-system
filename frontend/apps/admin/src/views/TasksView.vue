@@ -22,7 +22,25 @@ const stats = ref<TaskStats | null>(null)
 const listRows = ref<TaskCard[]>([])
 const selected = ref<Task | null>(null)
 const loading = ref(false)
-const showStats = ref(true)
+/** Telefon: Trello kabi — ustunlar ekran kengligida, surib almashtiriladi; statistika va filtrlar yig'ilgan */
+const isPhone = window.matchMedia('(max-width: 600px)').matches
+const showStats = ref(!isPhone)
+const filtersOpen = ref(false)
+const activeFilters = computed(() => [f.value.branch_id, f.value.department_id, f.value.priority, f.value.assignee_id, f.value.overdue].filter(Boolean).length)
+const boardEl = ref<HTMLElement | null>(null)
+const activeCol = ref(0)
+function onBoardScroll() {
+  const b = boardEl.value; if (!b) return
+  const cols = Array.from(b.querySelectorAll<HTMLElement>('.col'))
+  let best = 0, dist = Infinity
+  cols.forEach((c, i) => { const d = Math.abs(c.offsetLeft - b.offsetLeft - b.scrollLeft - 16); if (d < dist) { dist = d; best = i } })
+  activeCol.value = best
+}
+function goCol(i: number) {
+  const b = boardEl.value; const c = b?.querySelectorAll<HTMLElement>('.col')[i]
+  if (b && c) b.scrollTo({ left: c.offsetLeft - b.offsetLeft - 16, behavior: 'smooth' })
+  activeCol.value = i
+}
 
 const f = ref({ branch_id: '', department_id: '', priority: '', assignee_id: '', q: '', overdue: false })
 const query = computed(() => ({
@@ -173,11 +191,11 @@ const initials = (n?: string) => (n || '?').split(' ').map(x => x[0]).slice(0, 2
   <div class="tasks">
     <header class="page-h">
       <div>
-        <p>Restoranning barcha operatsion ishlari bitta joyda: ko'ring, nazorat qiling, bajaring.</p>
+        <p class="lead">Restoranning barcha operatsion ishlari bitta joyda: ko'ring, nazorat qiling, bajaring.</p>
       </div>
       <div class="page-a">
         <UiButton variant="ghost" size="s" @click="showStats = !showStats"><UiIcon name="chart" :size="15" /> {{ showStats ? 'Statistikani yashirish' : 'Statistika' }}</UiButton>
-        <UiButton v-if="meta?.can.create" variant="brand" @click="openNew()"><UiIcon name="plus" :size="16" /> Yangi vazifa</UiButton>
+        <UiButton v-if="meta?.can.create" class="newbtn" variant="brand" @click="openNew()"><UiIcon name="plus" :size="16" /> Yangi vazifa</UiButton>
       </div>
     </header>
 
@@ -190,20 +208,32 @@ const initials = (n?: string) => (n || '?').split(' ').map(x => x[0]).slice(0, 2
       </button>
     </nav>
 
-    <div class="filters">
-      <UiInput v-model="f.q" placeholder="Vazifa, muammo, joy…" />
-      <UiSelect v-model="f.branch_id" :options="branchOptions" />
-      <UiSelect v-model="f.department_id" :options="depOptions" />
-      <UiSelect v-model="f.priority" :options="prioOptions" />
-      <UiSelect v-model="f.assignee_id" :options="userOptions" />
-      <button class="chip-btn" :class="{ on: f.overdue }" @click="f.overdue = !f.overdue">
+    <div class="filters" :class="{ open: filtersOpen }">
+      <div class="srch">
+        <UiInput v-model="f.q" placeholder="Vazifa, muammo, joy…" />
+        <button type="button" class="ftog" :class="{ on: filtersOpen || activeFilters }" @click="filtersOpen = !filtersOpen">
+          <UiIcon name="filter" :size="16" /> Filtr<span v-if="activeFilters" class="fc">{{ activeFilters }}</span>
+        </button>
+      </div>
+      <UiSelect v-model="f.branch_id" class="fx" :options="branchOptions" />
+      <UiSelect v-model="f.department_id" class="fx" :options="depOptions" />
+      <UiSelect v-model="f.priority" class="fx" :options="prioOptions" />
+      <UiSelect v-model="f.assignee_id" class="fx" :options="userOptions" />
+      <button class="chip-btn fx" :class="{ on: f.overdue }" @click="f.overdue = !f.overdue">
         <UiIcon name="alert" :size="14" /> Kechikkanlar
       </button>
     </div>
 
+    <!-- telefon: ustunlar orasida tez o'tish -->
+    <nav v-if="tab === 'kanban' && columns.length" class="colnav" aria-label="Ustunlar">
+      <button v-for="(col, i) in columns" :key="col.id" type="button" :class="{ on: activeCol === i }" :style="{ '--c': `var(${KIND_VAR[col.kind] ?? '--chart-bar'})` }" @click="goCol(i)">
+        <span class="cdot"></span>{{ t(col.name as any, ui.lang) }}<b>{{ col.count }}</b>
+      </button>
+    </nav>
+
     <div class="work">
       <!-- KANBAN -->
-      <div v-if="tab === 'kanban'" class="board" :class="{ loading }">
+      <div v-if="tab === 'kanban'" ref="boardEl" class="board" :class="{ loading }" @scroll.passive="onBoardScroll">
         <section v-for="col in columns" :key="col.id" class="col">
           <header class="col-h" :style="{ '--c': `var(${KIND_VAR[col.kind] ?? '--chart-bar'})` }">
             <span class="cdot"></span>
@@ -212,7 +242,7 @@ const initials = (n?: string) => (n || '?').split(' ').map(x => x[0]).slice(0, 2
             <span v-if="col.wip_limit" class="wip" :class="{ over: col.count > col.wip_limit }">max {{ col.wip_limit }}</span>
           </header>
           <draggable v-model="col.tasks" :group="{ name: 'tasks' }" item-key="id" class="cards"
-                     :animation="150" ghost-class="ghost" @change="onDrop(col, $event)">
+                     :animation="150" ghost-class="ghost" :delay="250" :delay-on-touch-only="true" :touch-start-threshold="6" @change="onDrop(col, $event)">
             <template #item="{ element: c }">
               <article class="card" :class="{ sel: selected?.id === c.id, late: c.is_overdue }" @click="open(c.id)">
                 <div class="c-top">
@@ -288,6 +318,9 @@ const initials = (n?: string) => (n || '?').split(' ').map(x => x[0]).slice(0, 2
       <TaskDetail v-if="selected && meta" :task="selected" :meta="meta"
                   @close="selected = null" @changed="onChanged" @deleted="selected = null; reload()" />
     </div>
+
+    <!-- telefon: pastda yumaloq «+» tugma -->
+    <button v-if="meta?.can.create" type="button" class="fab" aria-label="Yangi vazifa" @click="openNew(tab === 'kanban' ? columns[activeCol]?.id : undefined)"><UiIcon name="plus" :size="26" /></button>
 
     <!-- yangi vazifa / muammo -->
     <UiDrawer :open="drawer" title="Yangi vazifa yoki muammo" width="560px" @close="drawer = false">
@@ -395,10 +428,37 @@ const initials = (n?: string) => (n || '?').split(' ').map(x => x[0]).slice(0, 2
 .fl span { color: var(--muted); font-size: var(--fs-xs); font-weight: 700; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .tip { display: flex; gap: 6px; align-items: flex-start; font-size: var(--fs-xs); color: var(--muted); background: var(--surface-2); border-radius: var(--radius); padding: 8px 10px; margin: 0; }
+.colnav, .ftog, .fab { display: none; }
+.srch { display: contents; }
 @media (max-width: 1024px) { .work { display: block; } .l-h, .l-r { grid-template-columns: 54px 1fr 100px; } .hp { display: none; } }
 @media (max-width: 600px) {
-  .col { flex: 0 0 84vw; max-height: none; }
-  .filters > * { min-width: 46%; flex: 1; }
+  .tasks { gap: 10px; }
+  .lead, .newbtn { display: none; }
+  .page-h { justify-content: flex-end; }
+  /* qidiruv + filtr tugmasi; qolgan filtrlar faqat ochilganda */
+  .srch { display: flex; gap: 8px; width: 100%; align-items: flex-end; } .srch > :first-child { flex: 1; min-width: 0; }
+  .ftog { display: inline-flex; align-items: center; gap: 6px; min-height: var(--touch); padding: 0 12px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--surface); font: inherit; font-weight: 700; font-size: var(--fs-s); color: var(--ink-2); cursor: pointer; flex-shrink: 0; }
+  .ftog.on { border-color: var(--accent); color: var(--accent); }
+  .fc { background: var(--accent); color: #fff; border-radius: 99px; font-size: 10px; padding: 1px 6px; }
+  .filters > .fx { display: none; }
+  .filters.open > .fx { display: flex; min-width: 46%; flex: 1; }
+  .filters.open > .fx:is(.chip-btn) { justify-content: center; }
+  /* ustunlar orasida tez o'tish (Trello kabi) */
+  .colnav { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; position: sticky; top: var(--topbar-h); z-index: 4; background: var(--bg); padding: 6px 0; margin: 0 calc(-1 * var(--gutter)); padding-inline: var(--gutter); }
+  .colnav::-webkit-scrollbar { display: none; }
+  .colnav button { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 7px 12px; font: inherit; font-size: var(--fs-s); font-weight: 700; color: var(--ink-2); cursor: pointer; }
+  .colnav button b { background: var(--surface-3); border-radius: 99px; padding: 0 7px; font-size: 11px; }
+  .colnav button.on { border-color: var(--c); background: color-mix(in srgb, var(--c) 14%, var(--surface)); color: var(--ink); }
+  .board { scroll-snap-type: x mandatory; gap: 10px; margin: 0 calc(-1 * var(--gutter)); padding: 0 var(--gutter) 8px; scroll-padding-inline: var(--gutter); scrollbar-width: none; }
+  .board::-webkit-scrollbar { display: none; }
+  .col { flex: 0 0 calc(100vw - 2 * var(--gutter) - 20px); max-height: none; scroll-snap-align: start; scroll-snap-stop: always; padding: 8px; }
+  .col-h { padding: 4px 4px 2px; }
+  .cards { overflow: visible; }
+  .card { padding: 12px; gap: 8px; }
+  .card h4 { font-size: var(--fs-b); }
+  .add { padding: 12px; font-size: var(--fs-s); }
+  .fab { display: grid; place-items: center; position: fixed; right: 16px; bottom: calc(84px + env(safe-area-inset-bottom)); width: 56px; height: 56px; border-radius: 18px; border: 0; background: var(--brand); color: var(--brand-ink); box-shadow: 0 8px 24px rgba(0, 0, 0, .25); z-index: 15; cursor: pointer; }
+  .tabs { margin: 0 calc(-1 * var(--gutter)); padding: 0 var(--gutter); scrollbar-width: none; }
   .grid2 { grid-template-columns: 1fr; }
   .cal-d { min-height: 64px; }
 }
