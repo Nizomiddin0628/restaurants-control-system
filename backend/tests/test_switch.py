@@ -61,3 +61,18 @@ def test_set_platform_domain():
     assert not Domain.objects.get(domain="lazzat.testserver").is_primary
     call_command("set_platform_domain", "demo.example.uz")       # qayta ishga tushirsa ham xato yo'q
     assert Domain.objects.filter(domain="lazzat.demo.example.uz").count() == 1
+
+
+@pytest.mark.django_db
+def test_caddy_hosts(settings, capsys):
+    from django.core.management import call_command
+    settings.PLATFORM_DOMAIN = "demo.example.uz"
+    call_command("set_platform_domain", "demo.example.uz")
+    capsys.readouterr()
+    call_command("caddy_hosts")
+    out = capsys.readouterr().out.strip()
+    hosts = out.split(", ")
+    assert {"demo.example.uz", "lazzat.demo.example.uz", "chopar.demo.example.uz"} <= set(hosts)
+    assert all(h.endswith("demo.example.uz") for h in hosts)
+    call_command("caddy_hosts", "--http")
+    assert capsys.readouterr().out.startswith("http://")

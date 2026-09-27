@@ -55,6 +55,7 @@ ENV
   chmod 600 $ENVF
 fi
 sed -i "s/^PLATFORM_DOMAIN=.*/PLATFORM_DOMAIN=$BASE/" $ENVF
+if [ "${HTTPS_ON:-1}" = 1 ]; then sed -i "s/^HTTPS=.*/HTTPS=1/" $ENVF; else sed -i "s/^HTTPS=.*/HTTPS=0/" $ENVF; fi
 set -a; . $ENVF; set +a
 sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$POSTGRES_USER'" | grep -q 1 \
   || sudo -u postgres psql -qc "CREATE ROLE $POSTGRES_USER LOGIN PASSWORD '$POSTGRES_PASSWORD'"
@@ -112,10 +113,17 @@ systemctl daemon-reload
 systemctl enable restopos >/dev/null
 systemctl restart restopos
 
-say "8/9 Caddy (eski saytlarga tegmaydi)"
-if [ "${HTTPS_ON:-0}" = 1 ]; then SITE="$BASE, *.$BASE"; else SITE="http://$BASE, http://*.$BASE"; fi
+say "8/9 Caddy + HTTPS (eski saytlarga tegmaydi)"
+# restopos-caddy — domenlar ro'yxatidan Caddy blokini yangilaydi (yangi restoran qo'shilganda ham shuni ishga tushiring)
+cat > /usr/local/bin/restopos-caddy <<'SYNC'
+#!/usr/bin/env bash
+set -euo pipefail
+APP=/srv/restopos; PORT=8010
+set -a; . $APP/.env; set +a
+cd $APP/backend
+if [ "${HTTPS:-0}" = 1 ]; then SITE=$($APP/.venv/bin/python manage.py caddy_hosts); else SITE=$($APP/.venv/bin/python manage.py caddy_hosts --http); fi
 cat > /etc/caddy/restopos.caddy <<CADDY
-# RestoPOS — deploy/install.sh yaratgan
+# RestoPOS — restopos-caddy yaratgan. Qo'lda o'zgartirmang.
 $SITE {
 	encode gzip
 	request_body {
@@ -134,24 +142,35 @@ cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak-restopos
 grep -q "import /etc/caddy/restopos.caddy" /etc/caddy/Caddyfile || printf '\nimport /etc/caddy/restopos.caddy\n' >> /etc/caddy/Caddyfile
 if caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/tmp/caddy-check.log 2>&1; then
   systemctl reload caddy
+  echo "   Caddy: $SITE"
 else
   cp /etc/caddy/Caddyfile.bak-restopos /etc/caddy/Caddyfile
-  cat /tmp/caddy-check.log | tail -5
-  die "Caddy sozlamasi xato — eski holatga qaytarildi (eski saytlar ishlayapti)"
+  tail -5 /tmp/caddy-check.log
+  echo "XATO: Caddy sozlamasi xato — eski holatga qaytarildi (eski saytlar ishlayapti)"; exit 1
 fi
+SYNC
+chmod +x /usr/local/bin/restopos-caddy
+/usr/local/bin/restopos-caddy || die "Caddy sozlanmadi"
 
 say "9/9 Tekshiruv"
 for i in $(seq 1 20); do curl -fs -o /dev/null -H "Host: $BASE" http://127.0.0.1:$PORT/healthz/ && break; sleep 1; done
 curl -fs -o /dev/null -H "Host: $BASE" http://127.0.0.1:$PORT/healthz/ || { journalctl -u restopos -n 30 --no-pager; die "Sayt ishga tushmadi (yuqoridagi log)"; }
-code=$(curl -s -o /dev/null -w "%{http_code}" "http://namuna.$BASE/admin/" || true)
-echo "   namuna.$BASE/admin/ → HTTP $code"
+if [ "$HTTPS" = 1 ]; then SCH=https; else SCH=http; fi
+echo "   SSL sertifikat olinmoqda (1-2 daqiqa)…"
+code=000
+for i in $(seq 1 24); do
+  code=$(curl -s -o /dev/null -w "%{http_code}" "$SCH://namuna.$BASE/admin/" || true)
+  [ "$code" = 200 ] && break; sleep 5
+done
+echo "   $SCH://namuna.$BASE/admin/ → HTTP $code"
+[ "$code" = 200 ] || echo "   (sertifikat hali tayyor bo'lmasa, 2-3 daqiqadan keyin brauzerda oching; log: journalctl -u caddy -n 50)"
 cat <<DONE
 
 $(printf '\033[1;32m')TAYYOR!$(printf '\033[0m')  Kirish telefoni: +998901234567 (kod ekranda chiqadi — SMS ulanmaguncha)
-  Namuna restoran:  http://namuna.$BASE/admin/
-  Lazzat:           http://lazzat.$BASE/admin/
-  Sayt (mijozlar):  http://namuna.$BASE/
-  Platforma (HQ):   http://$BASE/hq/
-Yangilash (GitHub'ga push qilgandan keyin) — xuddi shu buyruq.
+  Namuna restoran:  $SCH://namuna.$BASE/admin/
+  Lazzat:           $SCH://lazzat.$BASE/admin/
+  Sayt (mijozlar):  $SCH://namuna.$BASE/
+  Platforma (HQ):   $SCH://$BASE/hq/
+Yangilash (GitHub'ga push qilgandan keyin) — xuddi shu buyruq. Yangi restoran qo'shilsa: restopos-caddy
 Log: journalctl -u restopos -f
 DONE
