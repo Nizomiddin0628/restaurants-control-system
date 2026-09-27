@@ -64,12 +64,32 @@ def used_today(user=None) -> int:
     return qs.count()
 
 
+def daily_limit(tenant) -> int:
+    """0 — cheklovsiz (sinov davri). Keyin panelda kunlik chegara qo'yiladi."""
+    try:
+        return max(0, int(gemini.conf(tenant).get("daily_limit") or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
 def limit_left(tenant) -> int:
-    lim = int(gemini.conf(tenant).get("daily_limit") or 60)
-    return max(0, lim - used_today())
+    lim = daily_limit(tenant)
+    return 10**6 if lim == 0 else max(0, lim - used_today())
 
 
-def ask(tenant, user, question: str, *, channel: str = "telegram", kind: str = "ask") -> dict:
+def _history(history: list[dict] | None) -> list[dict]:
+    """Oldingi suhbat (panel chati): so'nggi 8 ta xabar — «bu haqida batafsil», «filiallar bo'yicha-chi?» kabi davom savollari uchun."""
+    out: list[dict] = []
+    for h in (history or [])[-8:]:
+        txt = re.sub(r"<[^>]+>", "", str(h.get("text") or ""))[:1500].strip()
+        if txt:
+            out.append({"role": "model" if h.get("role") == "ai" else "user", "parts": [{"text": txt}]})
+    while out and out[0]["role"] != "user":          # suhbat foydalanuvchi xabari bilan boshlanishi kerak
+        out.pop(0)
+    return out
+
+
+def ask(tenant, user, question: str, *, channel: str = "telegram", kind: str = "ask", history: list[dict] | None = None) -> dict:
     """Savolga javob. Natija: {"ok", "answer" (HTML), "error", "tasks": [...]}; har holda AiLog yoziladi."""
     t0 = time.monotonic()
     lg = AiLog(user=user, channel=channel, kind=kind, question=question[:4000])
@@ -82,7 +102,7 @@ def ask(tenant, user, question: str, *, channel: str = "telegram", kind: str = "
     system = SYSTEM.format(restaurant=tenant.name, user=user.full_name or user.phone, role=_role(user), today=now.strftime("%Y-%m-%d"),
                            weekday=report.WD[now.weekday()], time=now.strftime("%H:%M"), scope=report._scope_name(ctx.branch_ids) or "bitta filial")
     decls = tools.available(tenant)
-    contents: list[dict] = [{"role": "user", "parts": [{"text": question}]}]
+    contents: list[dict] = [*_history(history), {"role": "user", "parts": [{"text": question}]}]
     created: list[dict] = []
     answer, calls, tokens, model = "", 0, 0, ""
     try:

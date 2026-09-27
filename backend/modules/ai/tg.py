@@ -92,6 +92,14 @@ def staff_user(tenant, chat_id) -> User | None:
     return u if eligible(tenant, u) else None
 
 
+def _known_buttons() -> set[str]:
+    try:
+        from modules.telegram import services as tgs
+        return {tgs.BTN_MENU, tgs.BTN_BOOK, tgs.BTN_ORDERS, tgs.BTN_CONTACT, tgs.BTN_BONUS, tgs.BTN_PHONE, tgs.BTN_CANCEL, "💼 Vakansiyalar", *tgs.STAFF_BUTTONS}
+    except Exception:
+        return set()
+
+
 def keyboard_row() -> list[dict]:
     return [{"text": BTN_AI}, {"text": BTN_REPORT}]
 
@@ -240,8 +248,14 @@ def maybe_handle(tenant, upd: dict, base_url: str | None = None) -> bool:
         c.refresh_from_db()
     active = c is not None and c.state != ChatState.IDLE
     trig = cmd in TRIG_AI or cmd in TRIG_REPORT
+    direct = False
     if not trig and not active:
-        return False
+        # rahbar/menejer tugma bosmasdan ovozli xabar (yoki oddiy gap) yuborsa ham — AI Kotibga (tasdiq bilan)
+        if not (voice or (text and not text.startswith("/"))) or text in _known_buttons():
+            return False
+        if staff_user(tenant, chat_id) is None:
+            return False
+        direct = True
     user = staff_user(tenant, chat_id)
     if not user:
         if trig:
@@ -283,15 +297,13 @@ def maybe_handle(tenant, upd: dict, base_url: str | None = None) -> bool:
         send(tenant, chat_id, PROMPT + (f"\n\n<i>Bugun yana {left} ta so'rov mumkin.</i>" if left < 10 else "") + extra, WAIT_KB)
         return True
 
-    # 5) ovozli xabar yoki matn (kutish yoki tasdiq holatida)
+    # 5) ovozli xabar yoki matn (kutish yoki tasdiq holatida; yoki to'g'ridan-to'g'ri yuborilgan)
+    if direct:
+        _set(chat_id, ChatState.WAIT, pending="", confirm_msg_id=None)
+        c.state = ChatState.WAIT
     if c.state in (ChatState.WAIT, ChatState.CONFIRM):
         # boshqa bot tugmasi bosildi — AI suhbatini yopib, oddiy menyuga o'tkazamiz
-        try:
-            from modules.telegram import services as tgs
-            menu_btns = {tgs.BTN_MENU, tgs.BTN_BOOK, tgs.BTN_ORDERS, tgs.BTN_CONTACT, tgs.BTN_BONUS, "💼 Vakansiyalar"}
-        except Exception:
-            menu_btns = set()
-        if text in menu_btns or (text.startswith("/") and not voice):
+        if text in _known_buttons() or (text.startswith("/") and not voice):
             _drop_buttons(tenant, chat_id, c.confirm_msg_id)
             _set(chat_id, ChatState.IDLE, pending="", confirm_msg_id=None)
             return False

@@ -40,6 +40,7 @@ def _mask(v: str) -> str:
 # ------------------------------------------------------------------ sozlamalar
 class SettingsIn(Schema):
     bot_token: Optional[str] = None
+    staff_only: bool = True
     bot_username: str = ""
     welcome_text: str = ""
     notify_staff_chat_id: str = ""

@@ -87,6 +87,11 @@ def process_update(tenant, upd: dict, base_url: str | None = None) -> None:
         return
 
     user = User.objects.filter(telegram_id=chat_id).first()
+    try:                                     # xodim klaviaturasidagi tugmalar = buyruqlar
+        from modules.telegram.services import STAFF_BUTTONS
+        text = STAFF_BUTTONS.get(text, text)
+    except Exception:
+        pass
     if text.startswith("/start") or not user:
         send_message(chat_id, f"Salom! Bu <b>{tenant.name}</b> xodimlari uchun bot.\nTelefon raqamingizni ulashing:",
                      reply_markup=CONTACT_KEYBOARD)

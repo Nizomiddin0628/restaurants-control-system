@@ -22,6 +22,7 @@ def crm(tenant):
         mods = dict(tenant.settings.get("modules") or {})
         mods["crm"] = {"cashback_percent": 3, "welcome_bonus": 5000, "max_pay_percent": 50, "birthday_bonus": 30000,
                        "silver_from": 1_000_000, "silver_percent": 5, "gold_from": 3_000_000, "gold_percent": 8}
+        mods["telegram"] = {**(mods.get("telegram") or {}), "staff_only": False}     # mijoz rejimi (bonus tugmasi)
         tenant.settings = {**tenant.settings, "modules": mods}
         tenant.save()
     with schema_context("lazzat"):

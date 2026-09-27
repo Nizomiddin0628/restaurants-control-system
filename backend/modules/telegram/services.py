@@ -35,6 +35,9 @@ STAFF_COMMANDS = ("/vazifalar", "/keldim", "/ketdim")
 BTN_MENU, BTN_BOOK, BTN_ORDERS, BTN_CONTACT, BTN_PHONE, BTN_CANCEL = (
     "🍔 Menyu va buyurtma", "📅 Stol bron qilish", "🧾 Buyurtmalarim", "☎️ Aloqa", "📱 Telefonni ulashish", "✖️ Bekor qilish")
 BTN_BONUS, BTN_SKIP = "🎁 Bonuslarim", "⏭ O'tkazib yuborish"
+# xodimlar (rahbar/menejer) klaviaturasi — mijoz tugmalari ularga kerak emas
+BTN_TASKS, BTN_IN, BTN_OUT = "📋 Vazifalarim", "🕘 Keldim", "🏁 Ketdim"
+STAFF_BUTTONS = {BTN_TASKS: "/vazifalar", BTN_IN: "/keldim", BTN_OUT: "/ketdim"}
 
 
 # ------------------------------------------------------------------ sozlamalar
@@ -58,17 +61,31 @@ def miniapp_url(base_url: str | None) -> str | None:
     return None
 
 
+def staff_keyboard(tenant, bu: BotUser) -> dict:
+    """Xodim klaviaturasi: AI Kotib (rahbar/menejer), vazifalar, keldim/ketdim."""
+    rows: list[list] = []
+    if _ai_ok(tenant, bu.staff):
+        from modules.ai.tg import keyboard_row
+        rows.append(keyboard_row())
+    if tenant.module_enabled("tasks"):
+        rows.append([{"text": BTN_TASKS}])
+    if tenant.module_enabled("hr"):
+        rows.append([{"text": BTN_IN}, {"text": BTN_OUT}])
+    return {"keyboard": rows or [[{"text": BTN_TASKS}]], "resize_keyboard": True, "is_persistent": True}
+
+
+def staff_only(tenant) -> bool:
+    return bool(conf(tenant).get("staff_only", True))
+
+
 def main_keyboard(tenant, bu: BotUser, base_url: str | None) -> dict:
+    if bu.staff_id:
+        return staff_keyboard(tenant, bu)
+    if staff_only(tenant):
+        return {"keyboard": [[{"text": BTN_PHONE, "request_contact": True}]], "resize_keyboard": True}
     cfg = conf(tenant)
     url = miniapp_url(base_url)
     rows = [[{"text": BTN_MENU, "web_app": {"url": url}} if url else {"text": BTN_MENU}]]
-    if bu.staff_id:                           # rahbar/menejer — «🤖 AI Kotib» va «📊 Bugungi hisobot» eng tepada
-        try:
-            from modules.ai.tg import eligible, keyboard_row
-            if eligible(tenant, bu.staff):
-                rows.insert(0, keyboard_row())
-        except Exception:
-            log.exception("AI tugmalari")
     second = []
     if cfg.get("enable_booking") and tenant.module_enabled("reservations"):
         second.append({"text": BTN_BOOK})
@@ -88,6 +105,18 @@ def main_keyboard(tenant, bu: BotUser, base_url: str | None) -> dict:
 
 
 # ------------------------------------------------------------------ yordamchilar
+def _staff_help(tenant, user) -> str:
+    lines = []
+    if _ai_ok(tenant, user):
+        lines += ["🤖 <b>AI Kotib</b> — ovozli yoki yozma buyruq bering: «kecha savdo qancha?», «Rustamga vazifa ber»…",
+                  "📊 <b>Bugungi hisobot</b> — kecha, bugun va nimadan boshlash kerak (har kuni ertalab o'zi ham keladi)"]
+    if tenant.module_enabled("tasks"):
+        lines.append("📋 <b>Vazifalarim</b> — ochiq vazifalaringiz")
+    if tenant.module_enabled("hr"):
+        lines.append("🕘 <b>Keldim</b> / 🏁 <b>Ketdim</b> — davomat")
+    return "\n".join(lines) or "Vazifalar va tasdiqlar shu yerga keladi."
+
+
 def _ai_ok(tenant, user) -> bool:
     try:
         from modules.ai.tg import eligible
@@ -166,10 +195,13 @@ def handle_update(tenant, update: dict, base_url: str | None = None) -> bool:
             bu.staff = staff
         bu.save()
         if staff:
-            say(tenant, bu.chat_id, f"✅ <b>{staff.full_name or bu.phone}</b>, siz <b>{tenant.name}</b> xodimi sifatida ulandingiz.\n"
-                                    "Vazifalar, o'qitish va tasdiqlar shu yerga keladi.\n/vazifalar · /keldim · /ketdim"
-                                    + ("\n\n🤖 <b>AI Kotib</b> — ovozli buyruq bering, har kuni ertalab hisobot shu yerga keladi." if _ai_ok(tenant, staff) else ""),
+            say(tenant, bu.chat_id, f"✅ <b>{staff.full_name or bu.phone}</b>, siz <b>{tenant.name}</b> xodimi sifatida ulandingiz.\n\n" + _staff_help(tenant, staff),
                 main_keyboard(tenant, bu, base_url))
+            return True
+        if staff_only(tenant):
+            say(tenant, bu.chat_id, "Bu raqam xodimlar ro'yxatida topilmadi. Bot hozircha faqat restoran xodimlari uchun — menejerga murojaat qiling.",
+                main_keyboard(tenant, bu, base_url))
+            return True
         else:
             say(tenant, bu.chat_id, "✅ Rahmat! Raqamingiz saqlandi — endi buyurtmalaringiz va bonuslaringiz shu yerda.",
                 main_keyboard(tenant, bu, base_url))
@@ -185,9 +217,22 @@ def handle_update(tenant, update: dict, base_url: str | None = None) -> bool:
                     {"keyboard": [[BTN_SKIP]], "resize_keyboard": True})
         return True
 
-    # --- xodim buyruqlari — eski ishlovchiga
-    if bu.staff_id and text.split(" ")[0].split("@")[0] in STAFF_COMMANDS:
+    # --- xodim buyruqlari (tugmalar ham) — eski ishlovchiga
+    if bu.staff_id and (text.split(" ")[0].split("@")[0] in STAFF_COMMANDS or text in STAFF_BUTTONS):
         return False
+
+    # --- xodim: /start va boshqa gaplar — xodim menyusi
+    if bu.staff_id and (text.startswith("/start") or text in ("/menu", BTN_CANCEL, "/cancel") or not text):
+        bu.state = {}
+        bu.save(update_fields=["state"])
+        say(tenant, bu.chat_id, f"<b>{tenant.name}</b> — xodimlar boti\n\n" + _staff_help(tenant, bu.staff), staff_keyboard(tenant, bu))
+        return True
+
+    # --- bot hozircha faqat xodimlar uchun: mijoz menyusi yopiq (vakansiyaga ariza — yuqorida, ishlayveradi)
+    if staff_only(tenant) and not bu.staff_id:
+        say(tenant, bu.chat_id, f"Assalomu alaykum! Bu <b>{tenant.name}</b> xodimlari uchun bot.\n"
+                                "Xodim bo'lsangiz — telefon raqamingizni ulashing 👇", main_keyboard(tenant, bu, base_url))
+        return True
 
     # --- bekor qilish / start
     if text in (BTN_CANCEL, "/cancel"):

@@ -28,10 +28,13 @@ export const SECTIONS: Section[] = [
     routes: ['/training'] },
   { code: 'work', title: 'Vazifa va loyihalar', icon: 'check', emoji: '✅', color: '#7C3AED', desc: 'Kundalik vazifalar, muammolar va katta loyihalar',
     routes: ['/tasks', '/projects'] },
-  { code: 'finance', title: 'Moliya va hisobot', icon: 'chart', emoji: '📊', color: '#0891B2', desc: 'Savdo, foyda-zarar, food cost, AI Kotib',
-    routes: ['/reports', '/ai'] },
+  { code: 'finance', title: 'Moliya va hisobot', icon: 'chart', emoji: '📊', color: '#0891B2', desc: 'Savdo, foyda-zarar, food cost, menyu tahlili',
+    routes: ['/reports'] },
   { code: 'settings', title: 'Sozlamalar', icon: 'sliders', emoji: '⚙️', color: '#64748B', desc: 'Filiallar, modullar, restoran sozlamalari, yordam',
     routes: ['/branches', '/modules', '/settings', '/support', '/audit'] },
+  // AI Kotib — asosiy menyuning eng oxirida (rahbar/menejer; bitta sahifa — to'g'ridan-to'g'ri ochiladi)
+  { code: 'ai', title: 'AI Kotib', icon: 'spark', emoji: '🤖', color: '#7C3AED', desc: "Hisobot, savol-javob, Telegram'da ovozli buyruq",
+    routes: ['/ai'] },
 ]
 
 /** Har modul kartasi uchun bir qatorli tushuntirish (bo'lim sahifasida) */
@@ -90,7 +93,7 @@ export function useNav() {
       return { ...s, items: its.map(i => ({ ...i, desc: DESC[i.route] ?? '' })) }
     })
     const rest = items.value.filter(i => !used.has(i.route))
-    if (rest.length) out.splice(out.length - 1, 0, { code: 'other', title: 'Boshqa', icon: 'bars', emoji: '🧩', color: '#475569', desc: 'Qo\'shimcha modullar', routes: rest.map(r => r.route), items: rest.map(i => ({ ...i, desc: DESC[i.route] ?? '' })) })
+    if (rest.length) out.splice(out.length - 2, 0, { code: 'other', title: 'Boshqa', icon: 'bars', emoji: '🧩', color: '#475569', desc: 'Qo\'shimcha modullar', routes: rest.map(r => r.route), items: rest.map(i => ({ ...i, desc: DESC[i.route] ?? '' })) })
     return out.filter(s => s.items.length)
   })
   /** Joriy sahifa qaysi bo'limda: /s/<kod> yoki modul yo'li bo'yicha (ichki sahifalar ham, masalan /projects/5) */

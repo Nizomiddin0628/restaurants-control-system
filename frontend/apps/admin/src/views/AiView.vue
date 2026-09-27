@@ -13,7 +13,7 @@ const S = ref<any>(null)
 const R = ref<any>(null)
 const logs = ref<any[]>([])
 const rLoading = ref(false)
-const form = ref({ api_key: '', morning_enabled: true, morning_time: '08:30', daily_limit: 60 })
+const form = ref({ api_key: '', morning_enabled: true, morning_time: '08:30', daily_limit: 0 })
 const saving = ref(false), testing = ref(false), sending = ref(false)
 const q = ref(''), asking = ref(false), answer = ref<{ q: string; html: string; ok: boolean } | null>(null)
 const EX = ['Kecha qancha savdo bo\'ldi, o\'tgan haftadan farqi qancha?', 'Omborda nima tugayapti va qancha xarid kerak?', 'Bugun kim smenada va nechta bron bor?', 'Shu oy foyda qancha, eng katta xarajat nima?']
@@ -33,7 +33,7 @@ onMounted(async () => { await loadStatus(); loadReport(); loadLogs() })
 async function save(extra: any = {}) {
   saving.value = true
   try {
-    const body: any = { morning_enabled: form.value.morning_enabled, morning_time: form.value.morning_time, daily_limit: Number(form.value.daily_limit) || 60, ...extra }
+    const body: any = { morning_enabled: form.value.morning_enabled, morning_time: form.value.morning_time, daily_limit: Number(form.value.daily_limit) || 0, ...extra }
     if (form.value.api_key.trim()) body.api_key = form.value.api_key.trim()
     S.value = await api.put('/ai/settings', body)
     form.value.api_key = ''
@@ -82,7 +82,7 @@ const ready = computed(() => S.value?.recipients?.filter((r: any) => r.telegram)
       </div>
       <div class="ai-st">
         <UiChip :tone="S.has_key ? 'ok' : 'warn'">{{ S.has_key ? 'AI ulangan' : 'Kalit kerak' }}</UiChip>
-        <small>Bugun: <b>{{ S.used_today }}</b> / {{ S.daily_limit }} so'rov</small>
+        <small>Bugun: <b>{{ S.used_today }}</b> so'rov{{ S.daily_limit ? ` / ${S.daily_limit}` : ' · cheklovsiz' }}</small>
       </div>
     </header>
 
@@ -148,7 +148,7 @@ const ready = computed(() => S.value?.recipients?.filter((r: any) => r.telegram)
             <UiToggle v-model="form.morning_enabled" label="Har kuni ertalab hisobot yuborish" />
             <div class="ai-row two">
               <UiInput v-model="form.morning_time" type="time" label="Soat nechada" />
-              <UiInput v-model="form.daily_limit" type="number" label="Kunlik so'rov chegarasi" hint="Bepul tarif uchun 60 yetarli" />
+              <UiInput v-model="form.daily_limit" type="number" label="Kunlik so'rov chegarasi" hint="0 — cheklovsiz (sinov davri). Keyin masalan 60" />
             </div>
             <UiButton variant="secondary" :loading="saving" @click="save()">Saqlash</UiButton>
           </div>

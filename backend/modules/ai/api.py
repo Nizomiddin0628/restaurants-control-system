@@ -5,8 +5,9 @@ import re
 from typing import Optional
 
 from django.utils import timezone
-from ninja import Router, Schema
+from ninja import File, Router, Schema
 from ninja.errors import HttpError
+from ninja.files import UploadedFile
 
 from core.auth import auth, require_module, require_perm
 
@@ -38,7 +39,7 @@ def _status(request) -> dict:
         "has_key": bool(key), "key_source": gemini.key_source(t), "key_masked": _mask(key),
         "model": (c.get("model") or "").strip(), "models": gemini.MODELS,
         "morning_enabled": services.morning_on(t), "morning_time": services.morning_time(t).strftime("%H:%M"),
-        "daily_limit": int(c.get("daily_limit") or 60), "used_today": agent.used_today(), "bot_connected": bool(tg._tok(t)),
+        "daily_limit": agent.daily_limit(t), "used_today": agent.used_today(), "bot_connected": bool(tg._tok(t)),
         "recipients": [{"id": str(u.pk), "name": u.full_name or u.phone, "telegram": bool(u.telegram_id),
                         "role": ", ".join(m.role.name for m in u.memberships.filter(is_active=True).select_related("role")),
                         "sent_today": (got[u.pk].ok if u.pk in got else None)} for u in staff],
@@ -85,7 +86,7 @@ def put_settings(request, data: SettingsIn):
     if data.model is not None:
         c["model"] = data.model.strip()
     if data.daily_limit is not None:
-        c["daily_limit"] = max(5, min(int(data.daily_limit), 1000))
+        c["daily_limit"] = 0 if int(data.daily_limit) <= 0 else max(5, min(int(data.daily_limit), 5000))
     mods["ai"] = c
     s["modules"] = mods
     t.settings = s
@@ -141,18 +142,47 @@ def send_report(request):
     return {"ok": True, **r}
 
 
+class Turn(Schema):
+    role: str = "user"
+    text: str = ""
+
+
 class AskIn(Schema):
     question: str
+    history: list[Turn] = []
 
 
 @router.post("/ask", auth=auth)
 def ask(request, data: AskIn):
     _guard(request)
     q = (data.question or "").strip()
-    if len(q) < 3:
+    if len(q) < 2:
         raise HttpError(400, "Savolni yozing")
-    res = agent.ask(request.tenant, request.auth, q[:1500], channel="panel")
-    return res
+    return agent.ask(request.tenant, request.auth, q[:1500], channel="panel", history=[h.dict() for h in data.history])
+
+
+@router.post("/transcribe", auth=auth)
+def transcribe(request, file: UploadedFile = File(...)):
+    """Paneldagi mikrofon: ovoz → matn (keyin foydalanuvchi ko'rib, «Yuborish»ni bosadi — tasdiq)."""
+    _guard(request)
+    if file.size and file.size > 12 * 1024 * 1024:
+        raise HttpError(400, "Ovozli xabar juda katta (12 MB gacha)")
+    if agent.limit_left(request.tenant) <= 0:
+        raise HttpError(429, "Bugungi AI so'rovlar chegarasi tugadi")
+    mime = (file.content_type or "audio/webm").split(";")[0].strip() or "audio/webm"
+    lg = AiLog(user=request.auth, channel="panel", kind="voice", question="(ovozli xabar)")
+    try:
+        tr = gemini.transcribe(request.tenant, file.read(), mime)
+    except gemini.AiError as e:
+        lg.ok, lg.error = False, str(e)[:240]
+        lg.save()
+        raise HttpError(400, str(e)) from None
+    text = (tr["text"] or "").strip()
+    lg.answer, lg.model, lg.calls, lg.tokens, lg.ms = text[:4000], tr["model"], 1, tr["tokens"], tr["ms"]
+    lg.save()
+    if not text or "[tushunarsiz]" in text.lower():
+        raise HttpError(400, "Ovozni tushunib bo'lmadi — aniqroq gapirib qayta yozing")
+    return {"text": text}
 
 
 @router.get("/logs", auth=auth)

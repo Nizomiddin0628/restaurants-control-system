@@ -11,6 +11,7 @@
     "type": "object",
     "properties": {
       "bot_token": {"type": "string", "title": "Bot tokeni (@BotFather)", "default": ""},
+      "staff_only": {"type": "boolean", "title": "Bot hozircha faqat xodimlar (rahbar va menejerlar) uchun", "default": true},
       "bot_username": {"type": "string", "title": "Bot nomi (@ belgisiz)", "default": ""},
       "welcome_text": {"type": "string", "title": "Salomlashish matni", "default": "Assalomu alaykum! Menyuni ko'ring, buyurtma bering yoki stol bron qiling 👇"},
       "notify_staff_chat_id": {"type": "string", "title": "Xodimlar guruhi chat ID (yangi buyurtmalar shu yerga)", "default": ""},

@@ -116,7 +116,11 @@ const when = (v?: string | null) => (v ? new Date(v).toLocaleString('uz-UZ', { d
         </div>
       </UiCard>
 
-      <UiCard title="2. Bot sozlamalari" subtitle="Mijoz botda nimani ko'radi">
+      <UiCard title="2. Bot sozlamalari" subtitle="Kim botda nimani ko'radi">
+        <div class="so" :class="{ on: form.staff_only }">
+          <UiToggle v-model="form.staff_only" label="Bot hozircha faqat xodimlar uchun" />
+          <small>{{ form.staff_only ? "Rahbar va menejerlar: 🤖 AI Kotib, 📊 hisobot, vazifalar, keldim/ketdim. Mijoz menyusi, bron va buyurtma botda yopiq (sayt va Mini App ishlayveradi)." : "Mijozlar ham botdan foydalanadi: menyu, buyurtma, bron, bonus. Xodimlar o'z tugmalarini ko'radi." }}</small>
+        </div>
         <UiInput v-model="form.bot_username" label="Bot nomi" placeholder="lazzat_bot" />
         <label class="fld"><span>Salomlashish matni</span><textarea v-model="form.welcome_text" rows="3"></textarea></label>
         <UiInput v-model="form.notify_staff_chat_id" label="Xodimlar guruhi chat ID" placeholder="-1001234567890" hint="Guruhga botni qo'shing — yangi buyurtma va bronlar shu yerga keladi" />
@@ -219,4 +223,6 @@ code { background: var(--surface-3); padding: 1px 6px; border-radius: 6px; font-
 @media (max-width: 600px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .k:last-child { grid-column: span 2; } .g3, .g2 { grid-template-columns: 1fr; } .ur { grid-template-columns: 1fr auto; padding: 10px 16px; } .ur .n, .ur .ls { font-size: var(--fs-xs); } .bar { padding: 12px 16px; } .urls span { width: auto; } .urls div { flex-wrap: wrap; } }
 /* 5 ta KPI planshetda: 3 + 2 (oxirgi ikkitasi kengroq) — bo'sh katak qolmaydi */
 @media (min-width: 601px) and (max-width: 1100px) { .kpis.k5 { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; } .kpis.k5 > * { grid-column: span 2; } .kpis.k5 > :nth-child(n+4) { grid-column: span 3; } }
+.so { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); }
+.so.on { border-color: color-mix(in srgb, #7C3AED 35%, var(--line)); background: color-mix(in srgb, #7C3AED 6%, var(--surface)); } .so small { color: var(--ink-2); font-size: var(--fs-xs); }
 </style>

@@ -13,6 +13,7 @@ import { useAuth } from '@/stores/auth'
 import { useUi } from '@/stores/ui'
 import { HOME, matches, useNav } from '@/nav/sections'
 import AccountSwitcher from '@/components/shell/AccountSwitcher.vue'
+import AiChat from '@/components/ai/AiChat.vue'
 
 const a = useAuth(), ui = useUi(), route = useRoute(), router = useRouter()
 const { items, sections, current, currentItem, sectionLink } = useNav()
@@ -36,6 +37,8 @@ const title = computed(() => {
   const it = currentItem.value ?? items.value.find(i => matches(i.route, route.path))
   return it ? t(it.label, ui.lang) : ((route.meta.title as string) ?? (route.path === '/' ? 'Boshqaruv paneli' : ''))
 })
+/** AI Kotib chati — rahbar/menejer (ai.use) uchun o'ng pastki burchakda; kassa va oshxona ekranida yashirin */
+const showAi = computed(() => a.hasModule('ai') && a.can('ai.use') && !['/pos', '/kds'].some(r => route.path.startsWith(r)))
 const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d) return null; return Math.max(0, Math.ceil((new Date(d).getTime() - Date.now()) / 86400000)) })
 </script>
 <template>
@@ -87,6 +90,7 @@ const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d)
       </header>
       <div v-if="supportMode" class="sup">🛟 Platforma yordami rejimi — egasi bergan ruxsat bilan. Barcha harakatlar «O'zgarishlar tarixi»ga yoziladi. <button type="button" @click="a.logout()">Chiqish</button></div>
       <main class="content"><RouterView /></main>
+      <AiChat v-if="showAi" />
       <nav class="tabbar">
         <RouterLink to="/" class="tab" :class="{ on: route.path === '/' }"><UiIcon name="home" :size="22" /><span>Panel</span></RouterLink>
         <RouterLink v-for="n in phoneNav" :key="n.route" :to="n.route" class="tab" :class="{ on: matches(n.route, route.path) }"><UiIcon :name="n.icon" :size="22" /><span>{{ t(n.label, ui.lang).split(' ')[0] }}</span></RouterLink>

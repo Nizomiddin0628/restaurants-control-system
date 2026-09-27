@@ -14,7 +14,7 @@
       "morning_time": {"type": "string", "title": "Ertalabki hisobot vaqti (SS:DD)", "default": "08:30"},
       "api_key": {"type": "string", "title": "Gemini API kaliti (bo'sh bo'lsa — server kaliti)", "default": ""},
       "model": {"type": "string", "title": "Model (bo'sh — avtomatik)", "default": ""},
-      "daily_limit": {"type": "integer", "title": "Kunlik AI so'rovlar chegarasi", "default": 60}
+      "daily_limit": {"type": "integer", "title": "Kunlik AI so'rovlar chegarasi (0 — cheklovsiz)", "default": 0}
     }
   }
 }

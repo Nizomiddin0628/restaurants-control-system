@@ -149,8 +149,14 @@ def test_telegram_voice_confirm_answer_flow(ai_env, monkeypatch):
     # 5) eski tasdiq tugmasi qayta bosilsa — bajarilmaydi
     assert tg.maybe_handle(t, {"callback_query": {"id": "q3", "data": "ai:yes", "message": {"chat": chat, "message_id": c.confirm_msg_id}}})
     assert len(asked) == 1
-    # 6) oddiy xabarlar AI'ga tegmaydi
-    assert tg.maybe_handle(t, {"message": {"chat": chat, "text": "salom"}}) is False
+    # 6) rahbar tugmasiz yozsa ham — AI Kotibga, lekin avval tasdiq so'raladi
+    assert tg.maybe_handle(t, {"message": {"chat": chat, "text": "Bugun nechta bron bor?"}})
+    assert AiChat.objects.get(chat_id=777001).state == ChatState.CONFIRM and len(asked) == 1
+    # boshqa tugma bosilsa — AI rejimi yopiladi, xabar oddiy ishlovchiga o'tadi
+    assert tg.maybe_handle(t, {"message": {"chat": chat, "text": "📋 Vazifalarim"}}) is False
+    assert AiChat.objects.get(chat_id=777001).state == ChatState.IDLE
+    # mijoz (xodim emas) yozsa — AI'ga tegmaydi
+    assert tg.maybe_handle(t, {"message": {"chat": {"id": 12345, "type": "private"}, "text": "salom"}}) is False
 
 
 @pytest.mark.django_db
@@ -162,7 +168,7 @@ def test_telegram_busy_stale_and_permissions(ai_env):
     assert tg.maybe_handle(t, {"message": {"chat": chat, "text": "salom"}})
     assert "bajarilmoqda" in _texts(ai_env["sent"])[-1]
     AiChat.objects.filter(chat_id=777001).update(updated_at=timezone.now() - timedelta(minutes=10))   # ip o'lgan — tiklanadi
-    assert tg.maybe_handle(t, {"message": {"chat": chat, "text": "salom"}}) is False
+    assert tg.maybe_handle(t, {"message": {"chat": chat, "text": "📋 Vazifalarim"}}) is False
     assert AiChat.objects.get(chat_id=777001).state == ChatState.IDLE
     # ruxsatsiz odam
     assert tg.maybe_handle(t, {"message": {"chat": {"id": 999, "type": "private"}, "text": "🤖 AI Kotib"}})

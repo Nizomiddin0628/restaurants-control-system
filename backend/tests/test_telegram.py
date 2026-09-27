@@ -20,7 +20,7 @@ def bot(tenant):
     with schema_context("public"):
         set_modules(tenant, sorted({*tenant.enabled_modules, "telegram", "pos", "catalog", "tables", "reservations"}))
         tenant.settings = {**tenant.settings, "modules": {**(tenant.settings.get("modules") or {}),
-                                                          "telegram": {"min_order": 20000, "delivery_fee": 9000, "free_delivery_from": 100000}}}
+                                                          "telegram": {"min_order": 20000, "delivery_fee": 9000, "free_delivery_from": 100000, "staff_only": False}}}
         tenant.save()
     with schema_context("lazzat"):
         from modules.catalog.models import Category, Product
@@ -188,3 +188,26 @@ def test_polling_command_handles_start(bot, tenant, monkeypatch):
         from modules.telegram.models import BotUser
         assert BotUser.objects.filter(chat_id=9001).exists()
     assert sent and sent[0]["chat_id"] == 9001
+
+
+@pytest.mark.django_db
+def test_staff_only_mode(client, bot, tenant, monkeypatch):
+    """«Faqat xodimlar» rejimi: mijozga menyu yo'q; xodim (egasi) — AI Kotib, vazifalar, keldim/ketdim tugmalari."""
+    from public.services import set_modules
+    with schema_context("public"):
+        set_modules(tenant, sorted({*tenant.enabled_modules, "ai", "tasks", "hr"}))
+        tenant.settings["modules"]["telegram"]["staff_only"] = True
+        tenant.save()
+    sent = []
+    import modules.telegram.services as tgs
+    monkeypatch.setattr(tgs, "send_message", lambda chat_id, text, token=None, reply_markup=None, **kw: sent.append((text, reply_markup)) or True)
+    # begona odam
+    assert _hook(client, {"message": {"chat": {"id": 31, "type": "private"}, "from": {"id": 31, "first_name": "Ali"}, "text": "/start"}}).status_code == 200
+    text, kb = sent[-1]
+    assert "xodimlari uchun" in text and kb["keyboard"][0][0].get("request_contact")
+    # egasi telefonini ulashdi → xodim menyusi
+    _hook(client, {"message": {"chat": {"id": 32, "type": "private"}, "from": {"id": 32}, "contact": {"phone_number": "998901234567", "user_id": 32}}})
+    text, kb = sent[-1]
+    flat = [b["text"] for row in kb["keyboard"] for b in row]
+    assert "🤖 AI Kotib" in flat and "📋 Vazifalarim" in flat and "🍔 Menyu va buyurtma" not in flat
+    assert "AI Kotib" in text
