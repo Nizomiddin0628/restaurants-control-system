@@ -9,7 +9,7 @@ import logging
 from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, F, Q, Sum
 from django.utils import timezone
 
 from . import report
@@ -68,9 +68,10 @@ def top_products(ctx, args):
     a, b = _rng(args)
     limit = max(1, min(int(args.get("limit") or 10), 30))
     qs = _bf(OrderItem.objects.filter(order__status="paid", order__paid_at__date__gte=a, order__paid_at__date__lte=b), ctx, "order__branch")
-    rows = qs.values("name").annotate(q=Sum("qty"))
+    rows = qs.values("name").annotate(q=Sum("qty"), s=Sum(F("qty") * F("price")))
     rows = rows.order_by("q" if args.get("order") == "least" else "-q")[:limit]
-    return {"from": a.isoformat(), "to": b.isoformat(), "items": [{"name": r["name"], "qty": int(r["q"] or 0)} for r in rows]}
+    return {"from": a.isoformat(), "to": b.isoformat(),
+            "items": [{"name": r["name"], "qty": int(r["q"] or 0), "revenue": int(r["s"] or 0)} for r in rows]}
 
 
 def stock(ctx, args):
@@ -227,6 +228,23 @@ def create_task(ctx, args):
             "due": timezone.localtime(due).strftime("%d.%m.%Y %H:%M") if due else None}
 
 
+def make_chart(ctx, args):
+    """Diagramma: AI raqamlarni beradi, server PNG chizadi (javob bilan birga yuboriladi). Bitta javobda ko'pi bilan 2 ta."""
+    from . import charts
+    lst = getattr(ctx, "charts", None)
+    if lst is None:
+        return {"ok": False, "error": "bu kanalda diagramma yuborib bo'lmaydi"}
+    if len(lst) >= 2:
+        return {"ok": False, "error": "bitta javobda 2 tadan ortiq diagramma kerak emas"}
+    try:
+        spec = charts.validate(args or {})
+        png = charts.render(spec)
+    except Exception as e:
+        return {"ok": False, "error": f"diagramma chizilmadi: {e}"}
+    lst.append({"title": spec["title"], "png": png})
+    return {"ok": True, "note": "Diagramma foydalanuvchiga rasm sifatida yuboriladi. Matnda uni qisqa izohla, raqamlarni takrorlama."}
+
+
 # ------------------------------------------------------------------ Gemini uchun e'lonlar
 _D = {"type": "string", "description": "sana YYYY-MM-DD"}
 DECLS = [
@@ -250,13 +268,22 @@ DECLS = [
      "parameters": {"type": "object", "properties": {"days": {"type": "integer", "description": "1–14"}}}},
     {"name": "finance", "description": "Moliya: davr bo'yicha tushum, tannarx, xarajatlar (turlari bilan), yalpi foyda. Standart — shu oy.",
      "parameters": {"type": "object", "properties": {"date_from": _D, "date_to": _D}}},
+    {"name": "make_chart", "description": "Diagramma (rasm) chizish. FAQAT foydali bo'lganda: dinamika (kunlar bo'yicha savdo — line/bar), taqqoslash (filiallar, "
+     "bu hafta va o'tgan hafta — bar), reyting (top taomlar — hbar), ulush (to'lov turlari — pie) yoki foydalanuvchi grafik so'rasa. "
+     "Oddiy bitta raqamli savolga chizma. Raqamlarni avval boshqa asbobdan ol, o'zingdan to'qima. labels va har series.values uzunligi bir xil.",
+     "parameters": {"type": "object", "properties": {
+         "kind": {"type": "string", "enum": ["bar", "hbar", "line", "pie"]}, "title": {"type": "string"},
+         "unit": {"type": "string", "description": "masalan so'm, ta, %"},
+         "labels": {"type": "array", "items": {"type": "string"}},
+         "series": {"type": "array", "items": {"type": "object", "properties": {"name": {"type": "string"}, "values": {"type": "array", "items": {"type": "number"}}}}}},
+         "required": ["kind", "title", "labels", "series"]}},
     {"name": "create_task", "description": "Xodimga vazifa berish (faqat foydalanuvchi aniq buyursa). assignee — xodim ismi, due — muddat ISO formatda (YYYY-MM-DDTHH:MM), priority: urgent|high|normal|low.",
      "parameters": {"type": "object", "properties": {"title": {"type": "string"}, "assignee": {"type": "string"}, "due": {"type": "string"},
                                                      "priority": {"type": "string", "enum": ["urgent", "high", "normal", "low"]}, "description": {"type": "string"}},
                     "required": ["title"]}},
 ]
 FUNCS = {"daily_report": daily_report, "sales": sales, "top_products": top_products, "stock": stock, "tasks": tasks, "staff": staff,
-         "bookings": bookings, "supply": supply, "forecast": forecast, "finance": finance, "create_task": create_task}
+         "bookings": bookings, "supply": supply, "forecast": forecast, "finance": finance, "create_task": create_task, "make_chart": make_chart}
 NEEDS = {"sales": "pos", "top_products": "pos", "stock": "inventory", "tasks": "tasks", "staff": "hr", "bookings": "reservations",
          "supply": "procurement", "forecast": "forecast", "finance": "finance", "create_task": "tasks"}
 

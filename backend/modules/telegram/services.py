@@ -108,7 +108,7 @@ def main_keyboard(tenant, bu: BotUser, base_url: str | None) -> dict:
 def _staff_help(tenant, user) -> str:
     lines = []
     if _ai_ok(tenant, user):
-        lines += ["🤖 <b>AI Kotib</b> — ovozli yoki yozma buyruq bering: «kecha savdo qancha?», «Rustamga vazifa ber»…",
+        lines += ["🤖 <b>AI Kotib</b> — ovozli yoki yozma buyruq bering: «kecha savdo qancha?», «7 kunlik savdoni diagrammada ko'rsat», «Rustamga vazifa ber»…",
                   "📊 <b>Bugungi hisobot</b> — kecha, bugun va nimadan boshlash kerak (har kuni ertalab o'zi ham keladi)"]
     if tenant.module_enabled("tasks"):
         lines.append("📋 <b>Vazifalarim</b> — ochiq vazifalaringiz")
@@ -116,6 +116,41 @@ def _staff_help(tenant, user) -> str:
         lines.append("🕘 <b>Keldim</b> / 🏁 <b>Ketdim</b> — davomat")
     lines.append("💻 <b>Saytga kirish</b>: panelda telefon raqamingizni yozing → «Telegram orqali kirish» → shu yerda «✅ Ha» ni bosing")
     return "\n".join(lines)
+
+
+def staff_card(tenant, user, *, first: bool = False) -> str:
+    """Xodim tasdiqlanganda / /start bosganda: ismi, lavozimi, roli, filiali, AI Kotib ruxsati va nimalar qila olishi."""
+    name = (user.full_name or "").strip()
+    first_name = name.split()[0] if name else ""
+    ms = list(user.memberships.filter(is_active=True).select_related("role").prefetch_related("branches"))
+    roles = ", ".join(m.role.name for m in sorted(ms, key=lambda m: -m.role.level)) or "—"
+    position = ""
+    try:
+        from modules.hr.models import Employee
+        e = Employee.objects.filter(user=user).select_related("position", "branch").first()
+        if e and e.position_id:
+            position = e.position.name
+    except Exception:
+        pass
+    scope = user.branch_scope()
+    if scope is None:
+        from core.models import Branch
+        many = Branch.objects.filter(deleted_at__isnull=True, is_active=True).count() > 1
+        branch = "barcha filiallar" if many else (Branch.objects.filter(deleted_at__isnull=True).values_list("name", flat=True).first() or "—")
+    else:
+        from core.models import Branch
+        branch = ", ".join(Branch.objects.filter(pk__in=scope).values_list("name", flat=True)) or "—"
+    ai = _ai_ok(tenant, user)
+    head = (f"👋 <b>Xush kelibsiz, {first_name or 'hurmatli xodim'}!</b>\n"
+            + (f"✅ Raqamingiz tekshirildi — siz <b>{tenant.name}</b> xodimisiz.\n" if first else f"<b>{tenant.name}</b> — xodimlar boti\n"))
+    card = [f"👤 <b>{name or user.phone}</b> · {user.phone}"]
+    if position:
+        card.append(f"💼 Lavozim: <b>{position}</b>")
+    card.append(f"🏷 Tizimdagi roli: <b>{roles}</b>")
+    card.append(f"📍 Filial: <b>{branch}</b>")
+    if tenant.module_enabled("ai"):
+        card.append("🤖 AI Kotib: <b>✅ ruxsat berilgan</b>" if ai else "🤖 AI Kotib: ruxsat yo'q <i>(kerak bo'lsa — rahbaringiz yoqib beradi)</i>")
+    return head + "\n" + "\n".join(card) + "\n\n<b>Nimalar qila olasiz:</b>\n" + _staff_help(tenant, user)
 
 
 def _ai_ok(tenant, user) -> bool:
@@ -189,15 +224,15 @@ def handle_update(tenant, update: dict, base_url: str | None = None) -> bool:
             say(tenant, bu.chat_id, "Iltimos, o'zingizning raqamingizni ulashing — tugmani bosing 👇", main_keyboard(tenant, bu, base_url))
             return True
         bu.phone = normalize(contact["phone_number"])
-        staff = User.objects.filter(phone=bu.phone, is_active=True).first()
+        # rostdan ham shu restoran xodimimi: faol va kamida bitta faol lavozimi bor
+        staff = User.objects.filter(phone=bu.phone, is_active=True, memberships__is_active=True).distinct().first()
         if staff:
             staff.telegram_id = bu.chat_id
             staff.save(update_fields=["telegram_id"])
             bu.staff = staff
         bu.save()
         if staff:
-            say(tenant, bu.chat_id, f"✅ <b>{staff.full_name or bu.phone}</b>, siz <b>{tenant.name}</b> xodimi sifatida ulandingiz.\n\n" + _staff_help(tenant, staff),
-                main_keyboard(tenant, bu, base_url))
+            say(tenant, bu.chat_id, staff_card(tenant, staff, first=True), main_keyboard(tenant, bu, base_url))
             return True
         if staff_only(tenant):
             say(tenant, bu.chat_id, "Bu raqam xodimlar ro'yxatida topilmadi. Bot hozircha faqat restoran xodimlari uchun — menejerga murojaat qiling.",
@@ -226,7 +261,7 @@ def handle_update(tenant, update: dict, base_url: str | None = None) -> bool:
     if bu.staff_id and (text.startswith("/start") or text in ("/menu", BTN_CANCEL, "/cancel") or not text):
         bu.state = {}
         bu.save(update_fields=["state"])
-        say(tenant, bu.chat_id, f"<b>{tenant.name}</b> — xodimlar boti\n\n" + _staff_help(tenant, bu.staff), staff_keyboard(tenant, bu))
+        say(tenant, bu.chat_id, staff_card(tenant, bu.staff), staff_keyboard(tenant, bu))
         return True
 
     # --- bot hozircha faqat xodimlar uchun: mijoz menyusi yopiq (vakansiyaga ariza — yuqorida, ishlayveradi)

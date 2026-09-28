@@ -11,6 +11,7 @@ whitenoise>=6.7
 PyJWT>=2.9
 openpyxl>=3.1
 Pillow>=10.4
+matplotlib>=3.8          # AI Kotib: diagrammalar (rasm sifatida Telegram va saytga)
 gunicorn>=22
 uvicorn[standard]>=0.30
 python-dotenv>=1.0

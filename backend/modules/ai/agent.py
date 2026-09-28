@@ -19,15 +19,20 @@ from . import gemini, report, tools
 from .models import AiLog
 
 log = logging.getLogger("ai")
-MAX_STEPS = 4
+MAX_STEPS = 5
 
 SYSTEM = """Sen — «{restaurant}» restoranining AI kotibisan. Seni {user} ({role}) ishlatyapti. Bugun: {today}, {weekday}, soat {time} (Toshkent).
 Ko'radigan filiallar: {scope}.
 Qoidalar:
 1. Raqam, ism, sana — faqat asboblardan (funksiyalardan) ol. O'zingdan hech narsa to'qima. Ma'lumot bo'lmasa — «tizimda bu ma'lumot yo'q» de.
-2. Javob — o'zbek tilida (lotin), qisqa va tartibli: avval asosiy javob (1–2 gap), keyin kerak bo'lsa 3–7 ta punkt. Pul — «so'm», katta summalar «12,5 mln so'm» ko'rinishida.
-3. Formatlash: faqat <b>qalin</b> va <i>kursiv</i>. Markdown (**, #, jadval) ishlatma. Punktlar «• » bilan.
-4. Oxirida, foydali bo'lsa, 1 ta aniq maslahat yoki keyingi qadam yoz (🎯 bilan).
+2. Javob — o'zbek tilida (lotin), to'liq va tushunarli (rahbar saytga kirmasdan hammasini bilsin):
+   • boshida 1–2 gapli xulosa — eng muhim raqam bilan;
+   • keyin tafsilotlar: 4–10 punkt — raqamlar, taqqoslash (o'tgan hafta/oy, filiallar), o'zgarish foizi;
+   • ma'lumotdan sabab ko'rinsa — «Nima uchun» qisqa izoh;
+   • oxirida 🎯 1–3 ta aniq tavsiya (kim, nima, qachongacha).
+   To'liqroq javob uchun bir nechta asbobni birga chaqir (masalan sales + top_products + finance). Pul — «so'm», katta summalar «12,5 mln so'm».
+3. Formatlash: faqat <b>qalin</b> va <i>kursiv</i>. Markdown (**, #, jadval) ishlatma. Bo'lim sarlavhalari — mos emoji + <b>sarlavha</b> (📊 Savdo, ⚠️ E'tibor, 🎯 Tavsiya). Punktlar «• » bilan, bo'limlar orasida bo'sh qator.
+4. Diagramma: dinamika (kunlar bo'yicha), taqqoslash (filiallar, davrlar), reyting (top taomlar) yoki ulush bo'lsa — make_chart bilan 1 ta diagramma qo'sh (juda zarur bo'lsa 2 ta). Oddiy bitta raqamli savolga yoki ro'yxatga chizma. Rasm chizma — faqat make_chart.
 5. Foydalanuvchi aniq buyursa (masalan «Rustamga ertaga 10:00 gacha ... vazifa ber») — create_task asbobini chaqir va natijasini ayt. Buyruq bo'lmasa vazifa yaratma.
 6. Ovozdan yozilgan matnda xatolar bo'lishi mumkin — ma'nosini tushunishga harakat qil. Juda noaniq bo'lsa, qisqa aniqlashtiruvchi savol ber.
 7. «Kecha», «bugun», «o'tgan hafta», «shu oy» kabi so'zlarni aniq sanaga aylantir (YYYY-MM-DD)."""
@@ -56,7 +61,7 @@ def clean(text: str) -> str:
     t = re.sub(r"(?m)^\s*[\*\-]\s+", "• ", t)
     t = re.sub(r"(?<!\w)\*(?!\s)(.+?)(?<!\s)\*(?!\w)", r"<i>\1</i>", t)
     t = re.sub(r"\n{3,}", "\n\n", t)
-    return t[:3800]
+    return t[:12000]
 
 
 def used_today(user=None) -> int:
@@ -91,8 +96,11 @@ def _history(history: list[dict] | None) -> list[dict]:
     return out
 
 
-def ask(tenant, user, question: str, *, channel: str = "telegram", kind: str = "ask", history: list[dict] | None = None) -> dict:
-    """Savolga javob. Natija: {"ok", "answer" (HTML), "error", "tasks": [...]}; har holda AiLog yoziladi."""
+def ask(tenant, user, question: str, *, channel: str = "telegram", kind: str = "ask", history: list[dict] | None = None,
+        on_text=None, stop=None) -> dict:
+    """Savolga javob. Natija: {"ok", "answer" (HTML), "error", "tasks": [...], "charts": [{"title", "png"}]}; har holda AiLog yoziladi.
+    on_text(delta) — javob matni tayyor bo'lgani sari (oqim); on_text(None) — oldingi qoralama bekor (model asbob chaqirdi).
+    stop() True bo'lsa — to'xtatiladi: {"ok": False, "stopped": True}."""
     t0 = time.monotonic()
     lg = AiLog(user=user, channel=channel, kind=kind, question=question[:4000])
     if limit_left(tenant) <= 0:
@@ -101,6 +109,7 @@ def ask(tenant, user, question: str, *, channel: str = "telegram", kind: str = "
         return {"ok": False, "error": "Bugungi AI so'rovlar chegarasi tugadi. Ertaga qayta urinib ko'ring (yoki panelda chegarani oshiring)."}
     now = timezone.localtime()
     ctx = _ctx(tenant, user)
+    ctx.charts = []
     system = SYSTEM.format(restaurant=tenant.name, user=user.full_name or user.phone, role=_role(user), today=now.strftime("%Y-%m-%d"),
                            weekday=report.WD[now.weekday()], time=now.strftime("%H:%M"), scope=report._scope_name(ctx.branch_ids) or "bitta filial")
     decls = tools.available(tenant)
@@ -110,7 +119,10 @@ def ask(tenant, user, question: str, *, channel: str = "telegram", kind: str = "
     try:
         for step in range(MAX_STEPS + 1):
             final = step == MAX_STEPS
-            res = gemini.generate(tenant, contents, system=system, tools=None if final else [{"function_declarations": decls}], temperature=0.3)
+            if stop and stop():
+                raise gemini.Stopped()
+            res = gemini.generate(tenant, contents, system=system, tools=None if final else [{"function_declarations": decls}], temperature=0.3,
+                                  on_text=on_text, stop=stop)
             calls += 1
             tokens += gemini.tokens_of(res["data"])
             model = res["model"]
@@ -118,6 +130,8 @@ def ask(tenant, user, question: str, *, channel: str = "telegram", kind: str = "
             if not fcalls:
                 answer = gemini.text_of(res["data"])
                 break
+            if on_text:
+                on_text(None)
             content = (res["data"]["candidates"][0].get("content") or {})
             contents.append({"role": "model", "parts": content.get("parts") or []})
             out_parts = []
@@ -136,12 +150,17 @@ def ask(tenant, user, question: str, *, channel: str = "telegram", kind: str = "
         lg.answer, lg.model, lg.calls, lg.tokens = answer[:8000], model, calls, tokens
         lg.ms = int((time.monotonic() - t0) * 1000)
         lg.save()
-        return {"ok": True, "answer": clean(answer), "tasks": created}
+        return {"ok": True, "answer": clean(answer), "tasks": created, "charts": ctx.charts}
+    except gemini.Stopped:
+        lg.ok, lg.error, lg.calls, lg.tokens, lg.model = False, "to'xtatildi", calls, tokens, model
+        lg.ms = int((time.monotonic() - t0) * 1000)
+        lg.save()
+        return {"ok": False, "stopped": True, "error": "To'xtatildi", "tasks": created, "charts": []}
     except gemini.AiError as e:
         lg.ok, lg.error, lg.calls, lg.tokens, lg.model = False, str(e)[:240], calls, tokens, model
         lg.ms = int((time.monotonic() - t0) * 1000)
         lg.save()
-        return {"ok": False, "error": str(e), "tasks": created}
+        return {"ok": False, "error": str(e), "tasks": created, "charts": []}
 
 
 def morning(tenant, user, *, channel: str = "morning", use_ai: bool = True) -> tuple[list[str], dict]:

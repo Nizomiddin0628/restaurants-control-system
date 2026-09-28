@@ -1,9 +1,10 @@
 <script setup lang="ts">
 /**
  * AI Kotib chati — rahbar/menejer panelning istalgan sahifasida o'ng pastki burchakdagi tugma orqali.
- *   • yozma savol yoki 🎙 ovoz (ovoz matnga aylanadi → foydalanuvchi ko'rib, «Yuborish»ni bosadi — tasdiq);
- *   • «📊 Hisobot» — bugungi hisobot;
- *   • bitta so'rov qoidasi: javob kelmaguncha yangi savol yuborilmaydi;
+ *   • yozma savol yoki 🎙 ovoz (ovoz matnga aylanib, darhol yuboriladi);
+ *   • javob chatdagidek yozila boradi (oqim), kerak bo'lsa diagramma (rasm) ham keladi;
+ *   • «⏹ To'xtatish» — AI ishi to'xtaydi, savol maydonga qaytadi (o'zgartirib qayta yuborish mumkin);
+ *   • «📊 Hisobot» — bugungi hisobot; javob kelmaguncha yangi savol yuborilmaydi;
  *   • suhbat shu brauzer oynasida saqlanadi (sessionStorage), oxirgi xabarlar AI'ga kontekst sifatida boradi.
  */
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
@@ -11,7 +12,8 @@ import { RouterLink, useRoute } from 'vue-router'
 import { api } from '@restopos/api'
 import { UiIcon } from '@restopos/ui'
 
-type Msg = { role: 'user' | 'ai'; html: string; text: string; err?: boolean; at: string }
+type Chart = { title: string; src: string }
+type Msg = { role: 'user' | 'ai'; html: string; text: string; err?: boolean; at: string; live?: boolean; charts?: Chart[] }
 const KEY = 'restopos.aichat'
 const route = useRoute()
 const open = ref(false)
@@ -21,9 +23,9 @@ const busy = ref(false)
 const status = ref<any>(null)
 const listEl = ref<HTMLElement | null>(null), inputEl = ref<HTMLTextAreaElement | null>(null)
 const hint = ref('')
-const SUG = ['Kecha savdo qancha bo\'ldi?', 'Omborda nima tugayapti?', 'Bugun nechta bron bor?', 'Kechikkan vazifalar kimda?']
+const SUG = ['Kecha savdo qancha bo\'ldi?', 'Oxirgi 7 kun savdosini diagrammada ko\'rsat', 'Omborda nima tugayapti?', 'Kechikkan vazifalar kimda?']
 
-watch(msgs, (v) => { try { sessionStorage.setItem(KEY, JSON.stringify(v.slice(-40))) } catch { /* private */ } }, { deep: true })
+watch(msgs, (v) => { try { sessionStorage.setItem(KEY, JSON.stringify(v.slice(-30).map(m => ({ ...m, live: false })))) } catch { /* to'lsa — saqlanmaydi */ } }, { deep: true })
 const now = () => new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })
 const esc = (s: string) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string))
 async function scroll() { await nextTick(); listEl.value?.scrollTo({ top: listEl.value.scrollHeight, behavior: 'smooth' }) }
@@ -37,18 +39,49 @@ async function toggle() {
 }
 function push(m: Omit<Msg, 'at'>) { msgs.value.push({ ...m, at: now() }); scroll() }
 
+/** Yozilayotgan javob qoralamasi → xavfsiz HTML (faqat <b>, <i>) */
+function fmt(raw: string) {
+  let t = esc(raw).replace(/&lt;(\/?)(b|i)&gt;/g, '<$1$2>')
+  t = t.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/^#{1,6}\s*(.+)$/gm, '<b>$1</b>').replace(/^\s*[*-]\s+/gm, '• ')
+  return t
+}
+let ctrl: AbortController | null = null
+let lastQ = ''
 async function send(text?: string) {
   const question = (text ?? q.value).trim()
   if (!question || busy.value) return
   const history = msgs.value.filter(m => !m.err).slice(-8).map(m => ({ role: m.role, text: m.text }))
   push({ role: 'user', html: esc(question), text: question })
-  q.value = ''; hint.value = ''
+  q.value = ''; hint.value = ''; lastQ = question
   busy.value = true
+  msgs.value.push({ role: 'ai', html: '', text: '', at: now(), live: true })
+  const m = msgs.value[msgs.value.length - 1]
+  let raw = ''
+  ctrl = new AbortController()
   try {
-    const r = await api.post('/ai/ask', { question, history })
-    if (r.ok) push({ role: 'ai', html: r.answer, text: r.answer.replace(/<[^>]+>/g, '') })
-    else push({ role: 'ai', html: `⚠️ ${esc(r.error)}`, text: r.error, err: true })
-  } catch (e: any) { push({ role: 'ai', html: `⚠️ ${esc(e.detail ?? 'Xato')}`, text: '', err: true }) } finally { busy.value = false; nextTick(() => inputEl.value?.focus()) }
+    await api.stream('/ai/ask-stream', { question, history }, (x) => {
+      if (x.reset) { raw = ''; m.html = '' }
+      else if (typeof x.t === 'string') { raw += x.t; m.html = fmt(raw); scroll() }
+      else if (x.done) {
+        m.live = false
+        if (x.ok) { m.html = x.answer; m.text = String(x.answer).replace(/<[^>]+>/g, ''); m.charts = x.charts?.length ? x.charts : undefined }
+        else { m.html = `⚠️ ${esc(x.error || 'Xato')}`; m.text = x.error || ''; m.err = true }
+        scroll()
+      }
+    }, ctrl.signal)
+    if (m.live) { m.live = false; if (!m.html) { m.html = '⚠️ Javob kelmadi — qayta urinib ko\'ring'; m.err = true } }
+  } catch (e: any) {
+    m.live = false
+    if (e?.name === 'AbortError') { m.html = (raw ? fmt(raw) + '\n\n' : '') + '⏹ <i>To\'xtatildi.</i>'; m.err = true }
+    else { m.html = `⚠️ ${esc(e.detail ?? 'Xato')}`; m.err = true }
+  } finally { busy.value = false; ctrl = null; nextTick(() => inputEl.value?.focus()) }
+}
+/** ⏹ To'xtatish: AI ishi to'xtaydi, savol maydonga qaytadi — o'zgartirib qayta yuborish mumkin */
+function stop() {
+  if (!ctrl) return
+  ctrl.abort()
+  q.value = lastQ
+  hint.value = '⏹ To\'xtatildi. Savolingiz maydonda — o\'zgartirib yuboring yoki yangisini yozing.'
 }
 async function report() {
   if (busy.value) return
@@ -79,9 +112,8 @@ async function mic() {
     try {
       const f = new File([blob], `ovoz.${(r.mimeType || 'audio/webm').includes('mp4') ? 'm4a' : 'webm'}`, { type: (r.mimeType || 'audio/webm').split(';')[0] })
       const res = await api.upload('/ai/transcribe', f)
-      q.value = res.text
-      hint.value = '📝 Tekshiring: to\'g\'ri eshitilgan bo\'lsa — «Yuborish». Xato bo\'lsa — tuzating yoki qayta yozing.'
-      nextTick(() => inputEl.value?.focus())
+      transcribing.value = false
+      send(res.text)            // tasdiqsiz: eshitilgan matn darhol yuboriladi (xato bo'lsa — ⏹ va tuzatish)
     } catch (e: any) { hint.value = `⚠️ ${e.detail ?? 'Ovozni o\'qib bo\'lmadi'}` } finally { transcribing.value = false }
   }
   r.start(); rec.value = r
@@ -115,9 +147,11 @@ const lifted = computed(() => route.path.startsWith('/tasks'))     // telefonda 
           <div class="aic-sug"><button v-for="s in SUG" :key="s" type="button" :disabled="busy" @click="send(s)">{{ s }}</button></div>
         </div>
         <div v-for="(m, i) in msgs" :key="i" class="aic-m" :class="[m.role, { err: m.err }]">
-          <div class="aic-b" v-html="m.html"></div><small>{{ m.at }}</small>
+          <div v-if="m.live && !m.html" class="aic-b aic-typing"><i></i><i></i><i></i></div>
+          <div v-else class="aic-b" :class="{ live: m.live }" v-html="m.html"></div>
+          <a v-for="(c, k) in m.charts ?? []" :key="k" class="aic-chart" :href="c.src" :download="`${c.title || 'diagramma'}.png`" :title="`${c.title} — yuklab olish`"><img :src="c.src" :alt="c.title" loading="lazy" /></a>
+          <small>{{ m.at }}</small>
         </div>
-        <div v-if="busy" class="aic-m ai"><div class="aic-b aic-typing"><i></i><i></i><i></i></div></div>
       </div>
 
       <p v-if="hint" class="aic-hint">{{ hint }}</p>
@@ -126,9 +160,10 @@ const lifted = computed(() => route.path.startsWith('/tasks'))     // telefonda 
                 :title="rec ? 'To\'xtatish' : 'Ovoz bilan'" @click="mic">
           <UiIcon :name="rec ? 'x' : 'mic'" :size="18" /><span v-if="rec" class="aic-sec">{{ secs }}s</span>
         </button>
-        <textarea ref="inputEl" v-model="q" rows="1" :placeholder="rec ? 'Gapiring… tugatgach ⏹ bosing' : transcribing ? 'Ovoz matnga aylanmoqda…' : busy ? 'Javob kelguncha kuting…' : 'Savol yozing…'"
+        <textarea ref="inputEl" v-model="q" rows="1" :placeholder="rec ? 'Gapiring… tugatgach ⏹ bosing' : transcribing ? 'Eshityapman…' : busy ? 'Javob yozilyapti… (⏹ — to\'xtatish)' : 'Savol yozing yoki 🎙 gapiring…'"
                   :disabled="busy || transcribing" @keydown.enter.exact.prevent="send()"></textarea>
-        <button type="submit" class="aic-send" :disabled="busy || transcribing || !q.trim()" aria-label="Yuborish"><UiIcon name="send" :size="18" /></button>
+        <button v-if="busy" type="button" class="aic-send aic-stop" aria-label="To'xtatish" title="To'xtatish" @click="stop"><span class="aic-sq"></span></button>
+        <button v-else type="submit" class="aic-send" :disabled="transcribing || !q.trim()" aria-label="Yuborish"><UiIcon name="send" :size="18" /></button>
       </form>
     </section>
   </div>
@@ -170,7 +205,12 @@ const lifted = computed(() => route.path.startsWith('/tasks'))     // telefonda 
 .aic-mic { background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); }
 .aic-mic.rec { background: var(--danger); color: #fff; border-color: transparent; animation: aic-p .8s infinite alternate; width: auto; padding: 0 10px; display: flex; gap: 4px; align-items: center; }
 .aic-mic.wait { opacity: .6; } .aic-sec { font-size: 12px; font-weight: 800; }
-.aic-send { background: #7C3AED; color: #fff; } .aic-send:disabled, .aic-mic:disabled { opacity: .45; cursor: default; }
+.aic-send { background: #7C3AED; color: #fff; }
+.aic-stop { background: var(--danger); } .aic-sq { width: 14px; height: 14px; border-radius: 3px; background: #fff; }
+.aic-b.live::after { content: '▍'; animation: aic-bl 1s steps(2) infinite; color: #7C3AED; } @keyframes aic-bl { 50% { opacity: 0; } }
+.aic-chart { display: block; margin-top: 6px; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: #fff; max-width: 100%; }
+.aic-chart img { display: block; width: 100%; height: auto; }
+.aic-m.ai:has(.aic-chart) { max-width: 96%; } .aic-send:disabled, .aic-mic:disabled { opacity: .45; cursor: default; }
 @media (max-width: 1024px) and (min-width: 601px) { .aic-fab { bottom: 20px; } }
 @media (max-width: 600px) {
   .aic-fab { right: 14px; bottom: calc(78px + env(safe-area-inset-bottom)); width: 52px; height: 52px; }

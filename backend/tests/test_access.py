@@ -233,3 +233,25 @@ def test_manager_cannot_revive_owner(client, api, branches):
     mgr = _as(client, "+998907000042")
     assert mgr.put(f"/api/v1/access/users/{own2.pk}", {"role_codes": ["owner"], "is_active": True}).status_code == 403
     assert mgr.post("/api/v1/access/users", {"phone": "+998907000041", "role_codes": ["owner"]}).status_code == 403
+
+
+@pytest.mark.django_db
+def test_bot_contact_welcome_card(api, tenant, monkeypatch):
+    from public.services import set_modules
+    with schema_context("public"):
+        set_modules(tenant, sorted({*tenant.enabled_modules, "telegram", "ai"}))
+    api.post("/api/v1/access/users", {"phone": "+998907000051", "full_name": "Aziz Karimov", "role_codes": ["cashier"]})
+    said = []
+    from modules.telegram import services
+    monkeypatch.setattr(services, "say", lambda t, chat, text, markup=None: said.append(text) or True)
+    with schema_context("lazzat"):
+        from public.models import Tenant
+        t = Tenant.objects.get(slug="lazzat")
+        msg = {"message_id": 1, "chat": {"id": 880001, "type": "private"}, "from": {"id": 880001, "first_name": "Aziz"},
+               "contact": {"phone_number": "998907000051", "user_id": 880001}}
+        services.handle_update(t, {"update_id": 1, "message": msg})
+        assert "Xush kelibsiz, Aziz" in said[-1] and "Kassir" in said[-1] and "AI Kotib: ruxsat yo'q" in said[-1]
+        # ro'yxatda yo'q raqam — tasdiqlanmaydi
+        msg2 = {**msg, "chat": {"id": 880002, "type": "private"}, "from": {"id": 880002}, "contact": {"phone_number": "998900000000", "user_id": 880002}}
+        services.handle_update(t, {"update_id": 2, "message": msg2})
+        assert "topilmadi" in said[-1]

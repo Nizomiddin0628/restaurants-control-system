@@ -90,12 +90,19 @@ def process_update(tenant, upd: dict, base_url: str | None = None) -> None:
 
     if contact and contact.get("phone_number"):
         phone = User.objects.normalize_phone(contact["phone_number"])
-        user = User.objects.filter(phone=phone).first()
+        user = User.objects.filter(phone=phone, is_active=True, memberships__is_active=True).distinct().first()
+        if contact.get("user_id") and contact["user_id"] != chat_id:
+            send_message(chat_id, "Iltimos, o'zingizning raqamingizni ulashing.", reply_markup=CONTACT_KEYBOARD)
+            return
         if user:
             user.telegram_id = chat_id
             user.save(update_fields=["telegram_id"])
-            send_message(chat_id, f"✅ <b>{user.full_name or phone}</b>, siz <b>{tenant.name}</b> tizimiga ulandingiz.\n"
-                                  "Endi vazifalar, muddatlar va tasdiqlar shu yerga keladi.\n/vazifalar — ochiq vazifalarim")
+            try:
+                from modules.telegram.services import staff_card
+                text = staff_card(tenant, user, first=True)
+            except Exception:
+                text = f"✅ <b>{user.full_name or phone}</b>, siz <b>{tenant.name}</b> tizimiga ulandingiz.\n/vazifalar — ochiq vazifalarim"
+            send_message(chat_id, text)
         else:
             send_message(chat_id, "Bu raqam xodimlar ro'yxatida yo'q. Menejerga murojaat qiling.")
         return

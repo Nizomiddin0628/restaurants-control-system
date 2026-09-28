@@ -39,7 +39,33 @@ async function request<T = any>(method: string, path: string, body?: any, opts: 
   return data as T
 }
 
+/** Oqimli javob (AI Kotib): har JSON qator kelishi bilan onLine chaqiriladi. signal — «⏹ To'xtatish» uchun. */
+async function stream(path: string, body: any, onLine: (x: Json) => void, signal?: AbortSignal): Promise<void> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'text/event-stream' }
+  if (token) headers.Authorization = `Bearer ${token}`
+  const r = await fetch(new URL(BASE + '/api/v1' + path, location.origin).toString(), { method: 'POST', headers, body: JSON.stringify(body), signal })
+  if (!r.ok || !r.body) {
+    const text = await r.text().catch(() => '')
+    let d: any = null; try { d = JSON.parse(text) } catch { /* matn */ }
+    throw new ApiError(r.status, (d && d.detail) || `Xato ${r.status}`, d)
+  }
+  const reader = r.body.getReader(), dec = new TextDecoder()
+  let buf = ''
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buf += dec.decode(value, { stream: true })
+    let i: number
+    while ((i = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1)
+      if (line) { try { onLine(JSON.parse(line)) } catch { /* yarim qator */ } }
+    }
+  }
+  if (buf.trim()) { try { onLine(JSON.parse(buf)) } catch { /* */ } }
+}
+
 export const api = {
+  stream,
   get: <T = any>(p: string, query?: Json) => request<T>('GET', p, undefined, { query }),
   post: <T = any>(p: string, b?: any) => request<T>('POST', p, b),
   put: <T = any>(p: string, b?: any) => request<T>('PUT', p, b),

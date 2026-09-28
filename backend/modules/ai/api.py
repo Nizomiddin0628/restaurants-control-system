@@ -155,13 +155,77 @@ class AskIn(Schema):
     history: list[Turn] = []
 
 
+def _web(res: dict) -> dict:
+    """Panel uchun: diagrammalar rasm-manzil (data URL) ko'rinishida."""
+    from . import charts
+    return {**{k: v for k, v in res.items() if k != "charts"},
+            "charts": [{"title": c["title"], "src": charts.data_url(c["png"])} for c in res.get("charts") or []]}
+
+
 @router.post("/ask", auth=auth)
 def ask(request, data: AskIn):
     _guard(request)
     q = (data.question or "").strip()
     if len(q) < 2:
         raise HttpError(400, "Savolni yozing")
-    return agent.ask(request.tenant, request.auth, q[:1500], channel="panel", history=[h.dict() for h in data.history])
+    return _web(agent.ask(request.tenant, request.auth, q[:1500], channel="panel", history=[h.dict() for h in data.history]))
+
+
+@router.post("/ask-stream", auth=auth)
+def ask_stream(request, data: AskIn):
+    """Chatdagidek: javob yozila boradi. Qatorlar (JSON): {"t": bo'lak} | {"reset": true} | {"done": true, ...natija}.
+    Brauzer ulanishni uzsa («⏹ To'xtatish») — AI ishi ham to'xtaydi."""
+    import json
+    import queue
+    import threading
+
+    from django.db import connection
+    from django.http import StreamingHttpResponse
+    from django_tenants.utils import schema_context
+    _guard(request)
+    q = (data.question or "").strip()
+    if len(q) < 2:
+        raise HttpError(400, "Savolni yozing")
+    tenant, user, hist = request.tenant, request.auth, [h.dict() for h in data.history]
+    box: queue.Queue = queue.Queue()
+    flag = {"stop": False}
+
+    def work():
+        try:
+            with schema_context(tenant.schema_name):
+                connection.set_tenant(tenant)
+                res = agent.ask(tenant, user, q[:1500], channel="panel", history=hist,
+                                on_text=lambda d: box.put(("t", d)), stop=lambda: flag["stop"])
+                box.put(("done", _web(res)))
+        except Exception as e:  # noqa: BLE001 — foydalanuvchiga tushunarli xato
+            box.put(("done", {"ok": False, "error": f"Ichki xato: {type(e).__name__}"}))
+        finally:
+            connection.close()
+
+    threading.Thread(target=work, daemon=True).start()
+
+    def gen():
+        try:
+            yield json.dumps({"start": True}) + "\n"
+            while True:
+                try:
+                    kind, val = box.get(timeout=170)
+                except queue.Empty:
+                    flag["stop"] = True
+                    yield json.dumps({"done": True, "ok": False, "error": "AI juda uzoq javob bermadi — qayta urinib ko'ring"}) + "\n"
+                    return
+                if kind == "t":
+                    yield json.dumps({"reset": True} if val is None else {"t": val}, ensure_ascii=False) + "\n"
+                else:
+                    yield json.dumps({"done": True, **val}, ensure_ascii=False) + "\n"
+                    return
+        finally:
+            flag["stop"] = True          # brauzer uzdi yoki tugadi — AI ishini to'xtatish
+
+    resp = StreamingHttpResponse(gen(), content_type="text/event-stream; charset=utf-8")
+    resp["Cache-Control"] = "no-cache"
+    resp["X-Accel-Buffering"] = "no"
+    return resp
 
 
 @router.post("/transcribe", auth=auth)

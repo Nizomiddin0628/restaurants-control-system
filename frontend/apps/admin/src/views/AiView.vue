@@ -15,7 +15,7 @@ const logs = ref<any[]>([])
 const rLoading = ref(false)
 const form = ref({ api_key: '', morning_enabled: true, morning_time: '08:30', daily_limit: 0 })
 const saving = ref(false), testing = ref(false), sending = ref(false)
-const q = ref(''), asking = ref(false), answer = ref<{ q: string; html: string; ok: boolean } | null>(null)
+const q = ref(''), asking = ref(false), answer = ref<{ q: string; html: string; ok: boolean; charts?: { title: string; src: string }[] } | null>(null)
 const EX = ['Kecha qancha savdo bo\'ldi, o\'tgan haftadan farqi qancha?', 'Omborda nima tugayapti va qancha xarid kerak?', 'Bugun kim smenada va nechta bron bor?', 'Shu oy foyda qancha, eng katta xarajat nima?']
 
 async function loadStatus() {
@@ -76,7 +76,7 @@ async function ask(text?: string) {
   answer.value = { q: question, html: '', ok: true }
   try {
     const r = await api.post('/ai/ask', { question })
-    answer.value = { q: question, html: r.ok ? r.answer : `⚠️ ${r.error}`, ok: r.ok }
+    answer.value = { q: question, html: r.ok ? r.answer : `⚠️ ${r.error}`, ok: r.ok, charts: r.charts }
     if (r.ok) q.value = ''
   } catch (e: any) { answer.value = { q: question, html: `⚠️ ${e.detail ?? 'Xato'}`, ok: false } } finally { asking.value = false; loadLogs(); loadStatus() }
 }
@@ -145,6 +145,7 @@ const ready = computed(() => S.value?.recipients?.filter((r: any) => r.telegram)
             <small>❓ {{ answer.q }}</small>
             <div v-if="asking" class="ai-typing"><i></i><i></i><i></i> <span>Tahlil qilyapman… javob kelguncha yangi savol berilmaydi</span></div>
             <div v-else class="ai-bubble sm" v-html="answer.html"></div>
+            <img v-for="(c, k) in answer.charts ?? []" :key="k" class="ai-chart" :src="c.src" :alt="c.title" />
           </div>
         </UiCard>
 
@@ -236,6 +237,7 @@ const ready = computed(() => S.value?.recipients?.filter((r: any) => r.telegram)
 .ai-ask { display: flex; gap: 8px; align-items: flex-end; }
 .ai-ask textarea { flex: 1; min-width: 0; resize: vertical; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font: inherit; background: var(--surface); color: var(--ink); min-height: 48px; }
 .ai-ans { margin-top: 12px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); } .ai-ans small { color: var(--muted); font-size: var(--fs-xs); }
+.ai-chart { display: block; width: 100%; max-width: 760px; margin-top: 10px; border-radius: 12px; border: 1px solid var(--line); background: #fff; }
 .ai-ans.bad { border-color: color-mix(in srgb, var(--danger) 40%, var(--line)); }
 .ai-typing { display: flex; align-items: center; gap: 4px; padding: 8px 0; color: var(--muted); font-size: var(--fs-xs); }
 .ai-typing i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: ai-dot 1s infinite ease-in-out; } .ai-typing i:nth-child(2) { animation-delay: .15s; } .ai-typing i:nth-child(3) { animation-delay: .3s; }
