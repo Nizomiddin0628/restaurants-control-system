@@ -54,14 +54,31 @@ def webhook(request):
 def process_update(tenant, upd: dict, base_url: str | None = None) -> None:
     """Bitta Telegram xabarini qayta ishlaydi — webhook ham, polling (telegram_polling) ham shuni chaqiradi."""
 
-    # Saytga kirishni tasdiqlash tugmalari (login:ok:<id> / login:no:<id>)
+    # Saytga kirishni tasdiqlash (login:…) va xavfsizlik (sec:…) tugmalari
     cq = upd.get("callback_query") or {}
-    if str(cq.get("data") or "").startswith("login:"):
+    data = str(cq.get("data") or "")
+    if data.startswith(("login:", "sec:")):
         try:
-            from core.tglogin import handle_callback
+            if data.startswith("login:"):
+                from core.tglogin import handle_callback
+            else:
+                from core.security import handle_callback
             handle_callback(tenant, cq)
         except Exception:
-            log.exception("tg-login xato")
+            log.exception("tg callback xato")
+        return
+
+    # Taklif havolasi: t.me/<bot>?start=inv_<kod> — xodim bir bosishda ulanadi (telegram moduli o'chiq bo'lsa ham)
+    m0 = upd.get("message") or {}
+    t0 = (m0.get("text") or "").strip()
+    if t0.startswith("/start inv_") and not tenant.module_enabled("telegram"):
+        from core.security import accept_invite
+        u = accept_invite(tenant, (m0.get("chat") or {}).get("id"), t0.split("inv_", 1)[1])
+        if u:
+            from modules.telegram.services import staff_card
+            send_message(m0["chat"]["id"], staff_card(tenant, u, first=True))
+        else:
+            send_message(m0["chat"]["id"], "⌛ Taklif havolasi eskirgan yoki noto'g'ri. Rahbaringizdan yangisini so'rang.")
         return
 
     # AI Kotib (rahbar/menejer): «🤖 AI Kotib», «📊 Bugungi hisobot», ovozli buyruq va tasdiq tugmalari

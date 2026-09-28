@@ -36,7 +36,7 @@ BTN_MENU, BTN_BOOK, BTN_ORDERS, BTN_CONTACT, BTN_PHONE, BTN_CANCEL = (
     "🍔 Menyu va buyurtma", "📅 Stol bron qilish", "🧾 Buyurtmalarim", "☎️ Aloqa", "📱 Telefonni ulashish", "✖️ Bekor qilish")
 BTN_BONUS, BTN_SKIP = "🎁 Bonuslarim", "⏭ O'tkazib yuborish"
 # xodimlar (rahbar/menejer) klaviaturasi — mijoz tugmalari ularga kerak emas
-BTN_TASKS, BTN_IN, BTN_OUT = "📋 Vazifalarim", "🕘 Keldim", "🏁 Ketdim"
+BTN_TASKS, BTN_IN, BTN_OUT, BTN_ME = "📋 Vazifalarim", "🕘 Keldim", "🏁 Ketdim", "👤 Profilim"
 STAFF_BUTTONS = {BTN_TASKS: "/vazifalar", BTN_IN: "/keldim", BTN_OUT: "/ketdim"}
 
 
@@ -71,7 +71,8 @@ def staff_keyboard(tenant, bu: BotUser) -> dict:
         rows.append([{"text": BTN_TASKS}])
     if tenant.module_enabled("hr"):
         rows.append([{"text": BTN_IN}, {"text": BTN_OUT}])
-    return {"keyboard": rows or [[{"text": BTN_TASKS}]], "resize_keyboard": True, "is_persistent": True}
+    rows.append([{"text": BTN_ME}])
+    return {"keyboard": rows, "resize_keyboard": True, "is_persistent": True}
 
 
 def staff_only(tenant) -> bool:
@@ -115,7 +116,8 @@ def _staff_help(tenant, user) -> str:
         lines.append("📋 <b>Vazifalarim</b> — ochiq vazifalaringiz")
     if tenant.module_enabled("hr"):
         lines.append("🕘 <b>Keldim</b> / 🏁 <b>Ketdim</b> — davomat")
-    lines.append("💻 <b>Saytga kirish</b>: panelda telefon raqamingizni yozing → «Telegram orqali kirish» → shu yerda «✅ Ha» ni bosing")
+    lines.append("👤 <b>Profilim</b> — saytga kirish havolasi, yangi parol, hamma qurilmalardan chiqish")
+    lines.append("💻 <b>Saytga kirish</b>: telefon raqamingiz → «Telegram orqali kirish» → shu yerda «✅ Ha»")
     return "\n".join(lines)
 
 
@@ -213,6 +215,25 @@ def handle_update(tenant, update: dict, base_url: str | None = None) -> bool:
         from . import hr_flow
         if hr_flow.step(tenant, bu, msg, text):
             return True
+    # --- xodim taklif havolasi: t.me/<bot>?start=inv_<kod> — telefon ulashmasdan, bir bosishda ulanadi
+    if text.startswith("/start inv_"):
+        from core.security import accept_invite
+        staff = accept_invite(tenant, bu.chat_id, text.split("inv_", 1)[1])
+        if staff:
+            bu.staff, bu.phone, bu.state = staff, staff.phone, {}
+            bu.save()
+            say(tenant, bu.chat_id, staff_card(tenant, staff, first=True), staff_keyboard(tenant, bu))
+        else:
+            say(tenant, bu.chat_id, "⌛ Taklif havolasi eskirgan yoki noto'g'ri. Rahbaringizdan yangisini so'rang yoki telefon raqamingizni ulashing 👇",
+                main_keyboard(tenant, bu, base_url))
+        return True
+
+    # --- «👤 Profilim»: kirish ma'lumotlari, saytga havola, yangi parol, hamma qurilmalardan chiqish
+    if bu.staff_id and text in (BTN_ME, "/profil", "/profile"):
+        from core.security import profile_markup, profile_text
+        say(tenant, bu.chat_id, staff_card(tenant, bu.staff) + "\n\n" + profile_text(tenant, bu.staff), profile_markup(tenant))
+        return True
+
     if text.startswith("/start job_") and tenant.module_enabled("hr"):
         from . import hr_flow
         vid = text.split("job_", 1)[1].split()[0]

@@ -67,6 +67,9 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStamped):
     is_staff = models.BooleanField(default=False)
     telegram_id = models.BigIntegerField(null=True, blank=True)
     last_seen_at = models.DateTimeField(null=True, blank=True)
+    token_version = models.PositiveIntegerField(default=0, help_text="oshsa — barcha qurilmalardagi kirishlar bekor bo'ladi")
+    tg_invite = models.CharField(max_length=24, blank=True, db_index=True, help_text="Telegram taklif havolasi kodi (t.me/<bot>?start=inv_<kod>)")
+    tg_invite_at = models.DateTimeField(null=True, blank=True)
     extra_permissions = models.JSONField(default=list, blank=True,
                                          help_text="Roldan tashqari shaxsiy ruxsatlar (masalan ['ai.use', 'inventory.view'])")
 
@@ -250,6 +253,20 @@ class LoginRequest(models.Model):
     @property
     def expired(self) -> bool:
         return (timezone.now() - self.created_at).total_seconds() > self.TTL
+
+
+class LoginEvent(models.Model):
+    """Kim, qachon, qaysi usul bilan, qaysi qurilmadan kirdi — «Kirish tarixi» va xavfsizlik ogohlantirishlari uchun."""
+
+    METHODS = [("telegram", "Telegram tasdig'i"), ("password", "Parol"), ("code", "Bir martalik kod"), ("switch", "Restoranlar orasida o'tish"), ("support", "Platforma yordami")]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="login_events")
+    method = models.CharField(max_length=10, choices=METHODS)
+    ip = models.CharField(max_length=64, blank=True)
+    device = models.CharField(max_length=160, blank=True)
+    at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-at"]
 
 
 class Device(TimeStamped):

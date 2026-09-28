@@ -8,6 +8,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { api } from '@restopos/api'
 import { UiAvatar, UiButton, UiChip, UiDrawer, UiEmpty, UiIcon, UiInput, UiSelect, money, toast } from '@restopos/ui'
 import AccessDrawer from '@/components/users/AccessDrawer.vue'
+import AccessPanel from '@/components/users/AccessPanel.vue'
 import { useAuth } from '@/stores/auth'
 
 const a = useAuth()
@@ -49,7 +50,13 @@ function openForm(e?: any) {
 }
 // kirish (parol): yangi xodim qo'shilganda avtomatik, keyin kartadagi «🔑 Kirish» tugmasi
 const accessFor = ref<{ id: string; full_name?: string; phone?: string } | null>(null), accessAuto = ref(false)
-function openAccess(e: any) { accessAuto.value = false; accessFor.value = { id: e.user_id, full_name: e.full_name, phone: e.phone } }
+/** Kirish: rahbar (core.users.manage) — to'liq oyna (lavozim, ruxsatlar, Telegram taklifi, parol, xavfsizlik); HR — faqat parol */
+const panelFor = ref<{ id: string; tab: 'access' | 'login' } | null>(null)
+const fullAccess = computed(() => a.can('core.users.manage'))
+function openAccess(e: any, tab: 'access' | 'login' = 'login') {
+  if (fullAccess.value) { panelFor.value = { id: e.user_id, tab }; return }
+  accessAuto.value = false; accessFor.value = { id: e.user_id, full_name: e.full_name, phone: e.phone }
+}
 function onPosition(v: string) {
   form.value.position_id = v ? Number(v) : null
   const p = meta.value.positions.find((x: any) => x.id === Number(v))
@@ -61,7 +68,10 @@ async function save() {
   try {
     const e = form.value.id ? await api.put<any>(`/hr/employees/${form.value.id}`, b) : await api.post<any>('/hr/employees', b)
     drawer.value = false; await load(); if (card.value) card.value = await api.get(`/hr/employees/${card.value.employee.id}/card`); toast('Saqlandi')
-    if (!form.value.id && autoPw) { accessAuto.value = true; accessFor.value = { id: e.user_id, full_name: e.full_name, phone: e.phone } }
+    if (!form.value.id && autoPw) {
+      if (fullAccess.value) panelFor.value = { id: e.user_id, tab: 'access' }
+      else { accessAuto.value = true; accessFor.value = { id: e.user_id, full_name: e.full_name, phone: e.phone } }
+    }
   } catch (e: any) { toast(e.detail ?? 'Xato', 'danger') }
 }
 
@@ -156,7 +166,7 @@ const fmtD = (s: string) => new Date(s).toLocaleDateString('uz-UZ', { day: '2-di
           <RouterLink :to="`/hr/employee/${card.employee.id}`" class="full">To'liq profil →</RouterLink>
           <UiButton v-if="!card.employee.on_shift" size="s" @click="checkIn(card.employee)"><UiIcon name="clock" :size="14" /> Keldi</UiButton>
           <UiButton v-else size="s" variant="secondary" @click="checkOut(card.employee)">Ketdi</UiButton>
-          <UiButton v-if="canEdit" size="s" variant="secondary" @click="openAccess(card.employee)">🔑 Kirish (parol)</UiButton>
+          <UiButton v-if="canEdit" size="s" variant="secondary" @click="openAccess(card.employee)">🔐 Kirish</UiButton>
           <UiChip v-if="card.employee.telegram_id" tone="ok">Telegram ulangan</UiChip><UiChip v-else tone="neutral">Telegram: botga /start → telefon</UiChip>
         </div>
         <h4>Vazifalari <small>{{ card.tasks.length }}</small></h4>
@@ -231,6 +241,7 @@ const fmtD = (s: string) => new Date(s).toLocaleDateString('uz-UZ', { day: '2-di
     </div>
 
     <AccessDrawer :user="accessFor" :auto="accessAuto" @close="accessFor = null" @done="load()" />
+    <AccessPanel :user-id="panelFor?.id ?? null" :tab="panelFor?.tab" @close="panelFor = null" @saved="load()" />
     <UiDrawer :open="drawer" :title="form?.id ? 'Xodim kartasi' : 'Yangi xodim'" width="560px" @close="drawer = false">
       <template v-if="form && meta">
         <div class="grid2">
@@ -246,7 +257,7 @@ const fmtD = (s: string) => new Date(s).toLocaleDateString('uz-UZ', { day: '2-di
         </div>
         <UiInput v-model="form.note" label="Izoh" />
         <label class="fl chk"><input v-model="form.is_active" type="checkbox" /> Faol xodim (o'chirilsa — ishdan bo'shagan sana yoziladi)</label>
-        <label v-if="!form.id" class="fl chk"><input v-model="form.autoPw" type="checkbox" /> Tizimga kirish uchun parol yaratish — saqlagach login va parol chiqadi, xodimga Telegram'da yuborasiz</label>
+        <label v-if="!form.id" class="fl chk"><input v-model="form.autoPw" type="checkbox" /> Tizimga kirish berish — saqlagach lavozim (ruxsatlar) va Telegram taklif havolasi oynasi ochiladi</label>
       </template>
       <template #footer><UiButton variant="ghost" @click="drawer = false">Bekor</UiButton><UiButton variant="brand" @click="save()">Saqlash</UiButton></template>
     </UiDrawer>

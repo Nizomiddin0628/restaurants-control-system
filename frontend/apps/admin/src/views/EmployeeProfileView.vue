@@ -10,12 +10,19 @@ import { UiAvatar, UiButton, UiCard, UiChip, UiDrawer, UiEmpty, UiIcon, UiInput,
 import { useAuth } from '@/stores/auth'
 import { uploadWithProgress } from '@/components/training/upload'
 import AccessDrawer from '@/components/users/AccessDrawer.vue'
+import AccessPanel from '@/components/users/AccessPanel.vue'
 
 const a = useAuth(), route = useRoute(), router = useRouter()
 const P = ref<any>(null)
 const tab = ref<'info' | 'kpi' | 'history' | 'docs'>((route.query.tab as any) || 'info')
 const canEdit = computed(() => a.can('hr.edit'))
 const accessFor = ref<{ id: string; full_name?: string; phone?: string } | null>(null)
+const panelFor = ref<string | null>(null)
+function openAccess() {
+  if (!P.value) return
+  if (a.can('core.users.manage')) { panelFor.value = P.value.employee.user_id; return }
+  accessFor.value = { id: P.value.employee.user_id, full_name: P.value.employee.full_name, phone: P.value.employee.phone }
+}
 const eid = computed(() => Number(route.params.id))
 async function load() {
   try { P.value = await api.get(`/hr/employees/${eid.value}/profile`) } catch (e: any) { toast(e.detail ?? 'Xato', 'danger'); router.replace('/hr') }
@@ -84,6 +91,7 @@ const crit = (k: string) => P.value?.criteria.find((c: any) => c.key === k)?.lab
 <template>
   <div v-if="P" class="pf">
     <AccessDrawer :user="accessFor" @close="accessFor = null" />
+    <AccessPanel :user-id="panelFor" tab="login" @close="panelFor = null" />
     <RouterLink to="/hr" class="back"><UiIcon name="chevron" :size="16" style="transform: rotate(90deg)" /> Xodimlar</RouterLink>
 
     <header class="hero">
@@ -94,7 +102,7 @@ const crit = (k: string) => P.value?.criteria.find((c: any) => c.key === k)?.lab
         <div class="chips">
           <UiChip tone="neutral">Ishda: {{ P.profile.tenure_text }}</UiChip>
           <UiChip v-if="P.employee.telegram_id" tone="ok">Telegram ulangan</UiChip>
-          <button v-if="canEdit" type="button" class="acc" @click="accessFor = { id: P.employee.user_id, full_name: P.employee.full_name, phone: P.employee.phone }">🔑 Kirish (parol)</button>
+          <button v-if="canEdit" type="button" class="acc" @click="openAccess">🔐 Kirish va ruxsatlar</button>
           <UiChip v-if="P.profile.medical_expired" tone="danger">⚠ Tibbiy daftarcha muddati o'tgan</UiChip>
           <UiChip v-else-if="P.profile.medical_expiring" tone="warn">Tibbiy daftarcha tugayapti: {{ dmy(P.profile.medical_book_until) }}</UiChip>
           <UiChip v-if="!P.employee.is_active" tone="danger">Ishdan ketgan · {{ dmy(P.profile.fire_date) }}</UiChip>

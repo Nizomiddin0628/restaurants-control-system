@@ -23,6 +23,10 @@ COMMANDS = [
     {"command": "vazifalar", "description": "Ochiq vazifalarim"},
     {"command": "keldim", "description": "Ishga keldim"},
     {"command": "ketdim", "description": "Ishdan ketdim"},
+    {"command": "ai", "description": "AI Kotib (restoran)"},
+    {"command": "global", "description": "Global qidiruv (restoran + internet)"},
+    {"command": "hisobot", "description": "Bugungi hisobot"},
+    {"command": "profil", "description": "Profilim: kirish, parol, xavfsizlik"},
 ]
 
 

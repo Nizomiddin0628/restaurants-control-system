@@ -255,3 +255,50 @@ def test_bot_contact_welcome_card(api, tenant, monkeypatch):
         msg2 = {**msg, "chat": {"id": 880002, "type": "private"}, "from": {"id": 880002}, "contact": {"phone_number": "998900000000", "user_id": 880002}}
         services.handle_update(t, {"update_id": 2, "message": msg2})
         assert "topilmadi" in said[-1]
+
+
+@pytest.mark.django_db
+def test_security_invite_logout_history(client, api, tenant, monkeypatch):
+    """Taklif havolasi → botda bir bosishda ulanish; parol bilan kirish → tarix + Telegram ogohlantirish; hamma qurilmalardan chiqarish."""
+    from public.services import set_modules
+    with schema_context("public"):
+        set_modules(tenant, sorted({*tenant.enabled_modules, "telegram"}))
+        tenant.settings = {**tenant.settings, "modules": {**(tenant.settings.get("modules") or {}),
+                                                          "telegram": {**((tenant.settings.get("modules") or {}).get("telegram") or {}), "bot_username": "lazzat_bot"}}}
+        tenant.save()
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123:abc")
+    sent = []
+    monkeypatch.setattr("integrations.telegram.call", lambda m, p, t=None: sent.append((m, p)) or {"ok": True, "result": {"message_id": 1}})
+    monkeypatch.setattr("modules.telegram.services.say", lambda t, chat, text, markup=None: sent.append(("say", {"text": text, "markup": markup})) or True)
+    uid = api.post("/api/v1/access/users", {"phone": "+998907000061", "full_name": "Sardor Aliyev", "role_codes": ["cashier"]}).json()["id"]
+    inv = api.post(f"/api/v1/access/users/{uid}/invite").json()
+    assert inv["link"].startswith("https://t.me/lazzat_bot?start=inv_")
+    code = inv["link"].split("inv_", 1)[1]
+    from integrations.telegram.api import process_update
+    with schema_context("lazzat"):
+        from public.models import Tenant
+        t = Tenant.objects.get(slug="lazzat")
+        process_update(t, {"update_id": 1, "message": {"message_id": 1, "chat": {"id": 990001, "type": "private"}, "from": {"id": 990001}, "text": f"/start inv_{code}"}})
+        from core.models import User
+        u = User.objects.get(pk=uid)
+        assert u.telegram_id == 990001 and not u.tg_invite
+    assert "Xush kelibsiz, Sardor" in sent[-1][1]["text"]
+    # parol berib, parol bilan kirish → tarix + ogohlantirish
+    pw = api.post(f"/api/v1/users/{uid}/password", {"generate": True, "send_telegram": False}).json()["password"]
+    r = client.post("/api/v1/auth/login", {"phone": "+998907000061", "password": pw}, content_type="application/json", HTTP_USER_AGENT="Mozilla Chrome/1 Windows", **H)
+    tok = r.json()["token"]
+    assert any(m == "sendMessage" and "yangi kirish" in p.get("text", "") for m, p in sent)
+    p = api.get(f"/api/v1/access/users/{uid}").json()
+    assert p["login"]["history"][0]["method"] == "password" and "Chrome" in p["login"]["history"][0]["device"]
+    me = {**H, "HTTP_AUTHORIZATION": f"Bearer {tok}"}
+    assert client.get("/api/v1/me", **me).status_code == 200
+    # rahbar hamma qurilmalardan chiqaradi → eski token ishlamaydi
+    assert api.post(f"/api/v1/access/users/{uid}/logout-all").status_code == 200
+    assert client.get("/api/v1/me", **me).status_code == 401
+    # botdagi «🚪 Hamma qurilmalardan chiqish» va «🔑 Yangi parol»
+    with schema_context("lazzat"):
+        process_update(t, {"update_id": 2, "callback_query": {"id": "c", "data": "sec:pw", "message": {"message_id": 5, "chat": {"id": 990001}}}})
+    assert any("Yangi parolingiz" in p.get("text", "") for m, p in sent if m == "sendMessage")
+    # o'zim: boshqa qurilmalardan chiqish — yangi token beriladi
+    r = api.post("/api/v1/me/logout-all").json()
+    assert client.get("/api/v1/me", **{**H, "HTTP_AUTHORIZATION": f"Bearer {r['token']}"}).status_code == 200

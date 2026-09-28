@@ -15,7 +15,7 @@ from .models import User
 def issue_token(user: User, schema_name: str) -> str:
     now = datetime.now(dt_tz.utc)
     payload = {
-        "sub": str(user.pk), "sch": schema_name,
+        "sub": str(user.pk), "sch": schema_name, "tv": int(getattr(user, "token_version", 0) or 0),
         "iat": int(now.timestamp()),
         "exp": int((now + timedelta(minutes=settings.JWT_ACCESS_MINUTES)).timestamp()),
     }
@@ -37,6 +37,8 @@ class JWTAuth(HttpBearer):
         try:
             user = User.objects.get(pk=payload["sub"], is_active=True)
         except (User.DoesNotExist, ValueError, KeyError):
+            return None
+        if int(payload.get("tv") or 0) != int(user.token_version or 0):    # «barcha qurilmalardan chiqish» bosilgan
             return None
         request.user = user
         return user

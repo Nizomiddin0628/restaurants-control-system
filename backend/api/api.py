@@ -14,7 +14,7 @@ from ninja import File, NinjaAPI, Schema
 from ninja.errors import HttpError
 from ninja.files import UploadedFile
 
-from core import avatars
+from core import avatars, security
 from core import modules as modreg
 from core.audit import record
 from core.auth import auth, issue_token, require_perm
@@ -71,8 +71,7 @@ def verify_otp(request, data: OtpVerify):
     otp.used_at = timezone.now()
     otp.save(update_fields=["used_at"])
     user = User.objects.get(phone=phone)
-    user.last_seen_at = timezone.now()
-    user.save(update_fields=["last_seen_at"])
+    security.record_login(request, user, "code")
     return {"token": issue_token(user, request.tenant.schema_name), "user": _me(request, user)}
 
 
@@ -106,8 +105,7 @@ def tg_login_poll(request, rid: str, secret: str = ""):
     status, user = tglogin.poll(rid, secret)
     if status != "ok" or user is None:
         return {"status": status}
-    user.last_seen_at = timezone.now()
-    user.save(update_fields=["last_seen_at"])
+    security.record_login(request, user, "telegram")
     return {"status": "ok", "token": issue_token(user, request.tenant.schema_name), "user": _me(request, user)}
 
 
@@ -160,8 +158,7 @@ def password_login(request, data: PasswordLogin):
             raise HttpError(400, "Bu raqam uchun parol hali o'rnatilmagan. SMS kod bilan kiring va «Sozlamalar»da parol qo'ying.")
         raise HttpError(400, "Telefon yoki parol noto'g'ri")
     _pw_guard(phone, True)
-    user.last_seen_at = timezone.now()
-    user.save(update_fields=["last_seen_at"])
+    security.record_login(request, user, "password")
     return {"token": issue_token(user, request.tenant.schema_name), "user": _me(request, user)}
 
 
@@ -309,8 +306,7 @@ def auth_switch(request, data: SwitchCode):
     user = User.objects.filter(phone=p.get("p"), is_active=True, memberships__is_active=True).distinct().first()
     if user is None:
         raise HttpError(404, "Bu restoranda sizning hisobingiz yo'q")
-    user.last_seen_at = timezone.now()
-    user.save(update_fields=["last_seen_at"])
+    security.record_login(request, user, "switch")
     return {"token": issue_token(user, request.tenant.schema_name), "user": _me(request, user)}
 
 
@@ -347,6 +343,28 @@ def my_home(request):
         except Exception:
             pass
     return out
+
+
+@api.get("/me/security", auth=auth, tags=["auth"])
+def my_security(request):
+    """Mening kirishim: Telegram, parol, oxirgi kirishlar."""
+    u = request.auth
+    return {"phone": u.phone, "telegram_linked": bool(u.telegram_id), "has_password": _has_pw(u), "bot": security.bot_username(request.tenant),
+            "history": security.history(u, 10)}
+
+
+@api.post("/me/logout-all", auth=auth, tags=["auth"])
+def my_logout_all(request):
+    """Boshqa hamma qurilmalardan chiqish — shu qurilma uchun yangi token qaytadi."""
+    u = request.auth
+    security.logout_all(u)
+    record(request, "logout_all", u)
+    return {"token": issue_token(u, request.tenant.schema_name)}
+
+
+@api.post("/me/telegram-invite", auth=auth, tags=["auth"])
+def my_tg_invite(request):
+    return security.invite(request.tenant, request.auth)
 
 
 class MeIn(Schema):
@@ -642,6 +660,8 @@ def set_user_password(request, uid: str, data: PasswordSet):
         _check_new_password(pw)
     u.set_password(pw)
     u.save(update_fields=["password"])
+    if u.pk != me.pk:
+        security.logout_all(u)          # yangi parol — eski kirishlar yopiladi
     record(request, "update", u)
     url = _login_url(request)
     sent = data.send_telegram and _tg_send(request.tenant, u, f"👋 <b>{request.tenant.name}</b> — tizimga kirish\n\nManzil: {url}\nLogin (telefon): <b>{u.phone}</b>\nParol: <b>{pw}</b>\n\nKirgach «Sozlamalar»da parolni o'zingizniki qilib almashtiring.")

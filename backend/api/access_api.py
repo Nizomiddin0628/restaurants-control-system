@@ -10,6 +10,7 @@ POST /access/roles, PUT/DELETE /access/roles/{id} — rol shablonlari (Bosh mene
 from __future__ import annotations
 
 import re
+from datetime import timedelta
 from typing import Optional
 
 from django.db import transaction
@@ -299,4 +300,74 @@ def role_delete(request, rid: int):
         raise HttpError(400, "Bu rolda xodimlar bor — avval ularni boshqa rolga o'tkazing")
     r.memberships.all().delete()
     r.delete()
+    return {"ok": True}
+
+
+# ------------------------------------------------------------------ bitta xodim: kirish va xavfsizlik
+def _target(request, uid: str) -> User:
+    require_perm(request, "core.users.manage")
+    u = get_object_or_404(User, pk=uid)
+    if u.pk != request.auth.pk and not acc.can_manage_user(request.auth, u):
+        raise HttpError(403, "Bu xodimni boshqara olmaysiz (sizdan yuqori daraja yoki boshqa filial)")
+    return u
+
+
+def _login_info(request, u: User) -> dict:
+    from core import security
+    fresh = bool(u.tg_invite) and u.tg_invite_at is not None
+    return {"history": security.history(u, 10), "bot": security.bot_username(request.tenant), "login_url": security.admin_url(request.tenant),
+            "invite": ({"link": f"https://t.me/{security.bot_username(request.tenant)}?start=inv_{u.tg_invite}" if security.bot_username(request.tenant) else "",
+                        "expires": (u.tg_invite_at + timedelta(days=security.INVITE_DAYS)).isoformat()} if fresh and not u.telegram_id else None)}
+
+
+@router.get("/users/{uid}", auth=auth)
+def person(request, uid: str):
+    u = _target(request, uid)
+    u = User.objects.prefetch_related("memberships__role", "memberships__branches").get(pk=u.pk)
+    return {**_user_out(u, request.auth, _areas(request.tenant)), "login": _login_info(request, u)}
+
+
+@router.post("/users/{uid}/invite", auth=auth)
+def person_invite(request, uid: str):
+    """Telegram taklif havolasi: xodim bosadi → bot uni o'zi taniydi (telefon ulashish shart emas)."""
+    from core import security
+    u = _target(request, uid)
+    if u.telegram_id:
+        raise HttpError(400, "Bu xodim Telegram botga allaqachon ulangan")
+    r = security.invite(request.tenant, u)
+    if not r["link"]:
+        raise HttpError(400, "Telegram bot ulanmagan (bot nomi noma'lum) — «Telegram bot» sahifasida tokenni tekshiring")
+    record(request, "update", u, after={"telegram_invite": True})
+    return r
+
+
+@router.post("/users/{uid}/logout-all", auth=auth)
+def person_logout_all(request, uid: str):
+    from core import security
+    u = _target(request, uid)
+    if u.pk == request.auth.pk:
+        raise HttpError(400, "O'zingiz uchun «Sozlamalar → Kirish va xavfsizlik» dan foydalaning")
+    security.logout_all(u)
+    record(request, "logout_all", u)
+    return {"ok": True}
+
+
+@router.post("/users/{uid}/telegram-unlink", auth=auth)
+def person_tg_unlink(request, uid: str):
+    u = _target(request, uid)
+    u.telegram_id = None
+    u.save(update_fields=["telegram_id"])
+    record(request, "update", u, after={"telegram": "uzildi"})
+    return {"ok": True}
+
+
+@router.delete("/users/{uid}/password", auth=auth)
+def person_password_off(request, uid: str):
+    """Parol bilan kirishni o'chirish (faqat Telegram orqali kiradi)."""
+    from core import security
+    u = _target(request, uid)
+    u.set_unusable_password()
+    u.save(update_fields=["password"])
+    security.logout_all(u)
+    record(request, "update", u, after={"password": "o'chirildi"})
     return {"ok": True}

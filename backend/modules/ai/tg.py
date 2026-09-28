@@ -101,7 +101,7 @@ def staff_user(tenant, chat_id) -> User | None:
 def _known_buttons() -> set[str]:
     try:
         from modules.telegram import services as tgs
-        return {tgs.BTN_MENU, tgs.BTN_BOOK, tgs.BTN_ORDERS, tgs.BTN_CONTACT, tgs.BTN_BONUS, tgs.BTN_PHONE, tgs.BTN_CANCEL, "💼 Vakansiyalar", *tgs.STAFF_BUTTONS}
+        return {tgs.BTN_MENU, tgs.BTN_BOOK, tgs.BTN_ORDERS, tgs.BTN_CONTACT, tgs.BTN_BONUS, tgs.BTN_PHONE, tgs.BTN_CANCEL, tgs.BTN_ME, "💼 Vakansiyalar", *tgs.STAFF_BUTTONS}
     except Exception:
         return set()
 

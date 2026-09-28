@@ -16,16 +16,10 @@ from django.utils import timezone
 from integrations.telegram import call
 
 from .models import LoginRequest, User
+from .security import device
 
 log = logging.getLogger("telegram")
 PREFIX = "login:"
-
-
-def _device(ua: str) -> str:
-    ua = ua or ""
-    os_ = next((n for k, n in (("iPhone", "iPhone"), ("Android", "Android"), ("Windows", "Windows"), ("Mac OS", "Mac"), ("Linux", "Linux")) if k in ua), "")
-    br = next((n for k, n in (("Edg/", "Edge"), ("OPR/", "Opera"), ("YaBrowser", "Yandex"), ("Chrome/", "Chrome"), ("Firefox/", "Firefox"), ("Safari/", "Safari")) if k in ua), "brauzer")
-    return f"{br}{' · ' + os_ if os_ else ''}"
 
 
 def _token(tenant) -> str | None:
@@ -42,7 +36,7 @@ def start(tenant, user: User, ip: str = "", ua: str = "") -> LoginRequest | None
     if recent >= 6:
         raise PermissionError("Juda ko'p urinish — 10 daqiqadan keyin qayta urinib ko'ring yoki parol bilan kiring")
     LoginRequest.objects.filter(user=user, status=LoginRequest.PENDING).update(status=LoginRequest.NO)
-    req = LoginRequest.objects.create(user=user, secret=secrets.token_urlsafe(24), ip=(ip or "")[:64], device=_device(ua)[:160])
+    req = LoginRequest.objects.create(user=user, secret=secrets.token_urlsafe(24), ip=(ip or "")[:64], device=device(ua)[:160])
     now = timezone.localtime()
     text = (f"🔐 <b>{tenant.name}</b> — boshqaruv paneliga kirish\n\n"
             f"👤 {user.full_name or user.phone}\n💻 {req.device}\n🕘 {now:%H:%M}\n\n"

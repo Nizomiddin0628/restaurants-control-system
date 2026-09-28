@@ -8,13 +8,11 @@
  */
 import { computed, onMounted, ref } from 'vue'
 import { api } from '@restopos/api'
-import { UiAvatar, UiButton, UiChip, UiDrawer, UiIcon, UiInput, UiToggle, toast } from '@restopos/ui'
+import { UiAvatar, UiButton, UiChip, UiDrawer, UiIcon, UiInput, toast } from '@restopos/ui'
 import AccessMatrix from '@/components/users/AccessMatrix.vue'
-import AccessDrawer from '@/components/users/AccessDrawer.vue'
-import { type Meta, type Person, type RoleT, areaLevel, levelName, levelTone } from '@/components/users/perm'
-import { useAuth } from '@/stores/auth'
+import AccessPanel from '@/components/users/AccessPanel.vue'
+import { type Meta, type Person, type RoleT, levelName, levelTone } from '@/components/users/perm'
 
-const a = useAuth()
 const meta = ref<Meta | null>(null), people = ref<Person[]>([]), loading = ref(true)
 const tab = ref<'people' | 'roles'>('people'), q = ref(''), fRole = ref(''), fBranch = ref(''), showOff = ref(false)
 async function load() {
@@ -43,63 +41,10 @@ const groups = computed(() => [
 ].filter(g => g.items.length))
 const inactive = computed(() => filtered.value.filter(p => !p.is_active))
 
-// ------------------------------------------------------------------ xodim oynasi
-type Form = { id: string; full_name: string; phone: string; role_codes: string[]; branch_ids: number[]; extra: string[]; editable: boolean; is_active: boolean; person: Person | null }
-const f = ref<Form | null>(null), busy = ref(false), created = ref<Person | null>(null), showMatrix = ref(false)
-function openNew() {
-  const def = meta.value?.roles.find(r => r.code === 'cashier' && r.grantable) ?? meta.value?.roles.filter(r => r.grantable).slice(-1)[0]
-  f.value = { id: '', full_name: '', phone: '+998 ', role_codes: def ? [def.code] : [], branch_ids: meta.value?.me.all_branches ? [] : (meta.value?.branches.map(b => b.id).slice(0, 1) ?? []), extra: [], editable: true, is_active: true, person: null }
-  created.value = null; showMatrix.value = false
-}
-function openPerson(p: Person) {
-  f.value = { id: p.id, full_name: p.full_name, phone: p.phone, role_codes: p.roles.map(r => r.code), branch_ids: [...p.branch_ids], extra: [...p.extra_permissions], editable: p.editable, is_active: p.is_active, person: p }
-  created.value = null; showMatrix.value = p.extra_permissions.some(x => x !== 'ai.use')
-}
-const roleOf = (c: string) => meta.value?.roles.find(r => r.code === c)
-const selRoles = computed(() => (f.value?.role_codes ?? []).map(roleOf).filter(Boolean) as RoleT[])
-const basePerms = computed(() => [...new Set(selRoles.value.flatMap(r => r.permissions))])
-const allBranchRole = computed(() => selRoles.value.some(r => r.level >= 80))
-const roleChoices = computed(() => (meta.value?.roles ?? []).filter(r => r.grantable || f.value?.role_codes.includes(r.code)))
-function toggleRole(r: RoleT) {
-  if (!f.value || !f.value.editable || (!r.grantable)) return
-  const has = f.value.role_codes.includes(r.code)
-  f.value.role_codes = has ? f.value.role_codes.filter(x => x !== r.code) : [...f.value.role_codes, r.code]
-}
-function toggleBranch(id: number | null) {
-  if (!f.value) return
-  if (id === null) { f.value.branch_ids = []; return }
-  const has = f.value.branch_ids.includes(id)
-  f.value.branch_ids = has ? f.value.branch_ids.filter(x => x !== id) : [...f.value.branch_ids, id]
-}
-const aiArea = computed(() => meta.value?.areas.find(x => x.code === 'ai'))
-const aiOn = computed(() => !!f.value && areaLevel([...basePerms.value, ...f.value.extra], aiArea.value!) !== 'none')
-const aiByRole = computed(() => !!aiArea.value && areaLevel(basePerms.value, aiArea.value) !== 'none')
-function setAi(v: boolean) { if (!f.value) return; f.value.extra = v ? [...new Set([...f.value.extra, 'ai.use'])] : f.value.extra.filter(x => x !== 'ai.use' && x !== 'ai.*') }
-const seatsText = computed(() => {
-  const s = meta.value?.ai; if (!s) return ''
-  if (!s.enabled) return 'Tarifingizda AI Kotib yoqilmagan'
-  return s.seats ? `Tarif: ${s.seats} kishi · band: ${s.used}` : `Band: ${s.used} kishi (cheklovsiz)`
-})
-
-async function save() {
-  if (!f.value) return
-  if (!f.value.role_codes.length) { toast('Kamida bitta lavozim (rol) tanlang', 'danger'); return }
-  busy.value = true
-  const body = { full_name: f.value.full_name, phone: f.value.phone, role_codes: f.value.role_codes, branch_ids: allBranchRole.value ? [] : f.value.branch_ids, extra_permissions: f.value.extra }
-  try {
-    if (f.value.id) { await api.put(`/access/users/${f.value.id}`, { ...body, is_active: f.value.is_active ? undefined : true }); f.value = null; toast('Saqlandi') }
-    else { created.value = await api.post<Person>('/access/users', body); toast('Xodim qo\'shildi') }
-    await load()
-  } catch (e: any) { toast(e.detail ?? 'Xato', 'danger') } finally { busy.value = false }
-}
-async function deactivate() {
-  if (!f.value?.id || !confirm(`${f.value.full_name || f.value.phone} tizimga kira olmaydi. Davom etasizmi?`)) return
-  try { await api.put(`/access/users/${f.value.id}`, { role_codes: f.value.role_codes, is_active: false }); f.value = null; await load(); toast('Kirish o\'chirildi') }
-  catch (e: any) { toast(e.detail ?? 'Xato', 'danger') }
-}
-const pwFor = ref<{ id: string; full_name?: string; phone?: string } | null>(null)
-const loginUrl = computed(() => `${location.origin}/admin/login`)
-const bot = computed(() => a.me?.bot_username ? `@${a.me.bot_username}` : 'restoran boti')
+// ------------------------------------------------------------------ xodim oynasi (umumiy AccessPanel)
+const panel = ref<{ id: string | null; create: boolean; tab?: 'access' | 'login' } | null>(null)
+function openNew() { panel.value = { id: null, create: true } }
+function openPerson(p: Person, tab: 'access' | 'login' = 'access') { panel.value = { id: p.id, create: false, tab } }
 
 // ------------------------------------------------------------------ rollar
 const rf = ref<{ id: number; name: string; description: string; permissions: string[]; editable: boolean; code: string; level: number } | null>(null)
@@ -156,6 +101,7 @@ async function delRole() {
             <span class="sc"><small>Ko'radi:</small> {{ sees(p) }}<br /><small>Filial:</small> {{ p.all_branches ? 'barchasi' : p.branch_ids.map(bname).join(', ') }}</span>
             <span class="st">
               <span :class="p.telegram_linked ? 'ok' : 'wa'">{{ p.telegram_linked ? '✈️ Telegram ulangan' : '✈️ Telegram ulanmagan' }}</span>
+              <span :class="p.has_password ? 'mu' : 'mu'">{{ p.has_password ? '🔑 parol bor' : 'parolsiz' }}</span>
               <span class="mu">{{ seen(p.last_seen_at) }}</span>
             </span>
           </button>
@@ -185,77 +131,8 @@ async function delRole() {
       </div>
     </template>
 
-    <!-- Xodim oynasi -->
-    <UiDrawer :open="!!f" :title="f?.id ? (f.full_name || f.phone) : 'Yangi xodim'" width="760px" @close="f = null; created = null">
-      <template v-if="f && created">
-        <div class="done">
-          <p class="big">✅ <b>{{ created.full_name || created.phone }}</b> qo'shildi</p>
-          <p>Endi xodim o'zi kiradi — parol shart emas:</p>
-          <ol>
-            <li>Telegram'da <b>{{ bot }}</b> ni ochib <b>/start</b> bosadi va «📱 Telefonni ulashish» tugmasini bosadi.</li>
-            <li>Saytga kiradi: <a :href="loginUrl" target="_blank" rel="noopener">{{ loginUrl.replace(/^https?:\/\//, '') }}</a> → telefon raqami → <b>«Telegram orqali kirish»</b>.</li>
-            <li>Botda <b>«✅ Ha, men kiryapman»</b> ni bosadi — sayt o'zi ochiladi, faqat unga ruxsat berilgan bo'limlar bilan.</li>
-          </ol>
-          <p class="muted">Telegram'i yo'q xodimga parol bering:</p>
-          <UiButton variant="secondary" @click="pwFor = { id: created.id, full_name: created.full_name, phone: created.phone }">🔑 Parol yaratish</UiButton>
-        </div>
-      </template>
-      <template v-else-if="f">
-        <p v-if="!f.editable && f.is_active" class="warn">👁 Faqat ko'rish: bu xodim sizdan yuqori darajada yoki boshqa filialda.</p>
-        <div class="two">
-          <UiInput v-model="f.full_name" label="Ism familiya" placeholder="Masalan: Aziz Karimov" :disabled="!f.editable" />
-          <UiInput v-model="f.phone" label="Telefon (login)" type="tel" placeholder="+998 90 123 45 67" :disabled="!f.editable" />
-        </div>
-
-        <div class="blk">
-          <h4>Lavozimi <small>— bir nechtasini tanlash mumkin</small></h4>
-          <div class="chips">
-            <button v-for="r in roleChoices" :key="r.code" type="button" class="ch" :class="{ on: f.role_codes.includes(r.code), dis: !r.grantable || !f.editable }"
-                    :disabled="!r.grantable || !f.editable" :title="r.description" @click="toggleRole(r)">
-              <span class="ck">{{ f.role_codes.includes(r.code) ? '✓' : '+' }}</span>{{ r.name }}
-            </button>
-          </div>
-          <p v-if="selRoles.length" class="muted sm">{{ selRoles.map(r => r.description).filter(Boolean).join(' · ') }}</p>
-        </div>
-
-        <div v-if="multiBranch" class="blk">
-          <h4>Filial</h4>
-          <p v-if="allBranchRole" class="muted sm">Bu lavozim barcha filiallarni ko'radi.</p>
-          <div v-else class="chips">
-            <button v-if="meta?.me.all_branches" type="button" class="ch" :class="{ on: !f.branch_ids.length }" :disabled="!f.editable" @click="toggleBranch(null)"><span class="ck">{{ !f.branch_ids.length ? '✓' : '+' }}</span>Barcha filiallar</button>
-            <button v-for="b in meta?.branches" :key="b.id" type="button" class="ch" :class="{ on: f.branch_ids.includes(b.id) }" :disabled="!f.editable" @click="toggleBranch(b.id)"><span class="ck">{{ f.branch_ids.includes(b.id) ? '✓' : '+' }}</span>{{ b.name }}</button>
-          </div>
-        </div>
-
-        <div v-if="aiArea && meta?.ai" class="blk ai">
-          <div class="air">
-            <span><b>🤖 AI Kotib</b><small>Ertalabki hisobot, savol-javob, ovozli buyruq (Telegram va sayt). {{ seatsText }}</small></span>
-            <UiToggle :model-value="aiOn" :disabled="!f.editable || aiByRole || !meta.ai.enabled" @update:model-value="setAi" />
-          </div>
-          <p v-if="aiByRole" class="muted sm">Lavozimi bo'yicha bor.</p>
-        </div>
-
-        <div class="blk">
-          <button type="button" class="mh" :aria-expanded="showMatrix" @click="showMatrix = !showMatrix">
-            <span><b>Qaysi bo'limlarni ko'radi</b><small>Lavozimidan tashqari qo'shimcha ruxsat (masalan kassirga «Ombor — Ko'radi»)</small></span><span>{{ showMatrix ? '▾' : '▸' }}</span>
-          </button>
-          <AccessMatrix v-if="showMatrix && meta" v-model="f.extra" :areas="meta.areas" :sections="meta.sections" :base="basePerms" :disabled="!f.editable" :skip="['ai']" />
-        </div>
-
-        <div v-if="f.person" class="blk login">
-          <h4>Kirish</h4>
-          <p class="sm"><span :class="f.person.telegram_linked ? 'ok' : 'wa'">{{ f.person.telegram_linked ? '✈️ Telegram botga ulangan — telefon + «Telegram orqali kirish»' : `✈️ Hali ulanmagan: xodim ${bot} da /start bosib telefonini ulashsin` }}</span>
-            · {{ f.person.has_password ? '🔑 parol bor' : 'parol yo\'q' }}</p>
-          <UiButton v-if="f.editable && f.is_active" size="s" variant="secondary" @click="pwFor = { id: f.id, full_name: f.full_name, phone: f.phone }">🔑 {{ f.person.has_password ? 'Yangi parol' : 'Parol berish' }}</UiButton>
-        </div>
-      </template>
-      <template v-if="f && !created" #footer>
-        <UiButton v-if="f.id && f.editable && f.is_active" variant="ghost" @click="deactivate()">Kirishni o'chirish</UiButton>
-        <span class="sp"></span>
-        <UiButton v-if="f.editable || !f.is_active" :loading="busy" @click="save()">{{ f.id ? (f.is_active ? 'Saqlash' : 'Qayta tiklash') : 'Qo\'shish' }}</UiButton>
-      </template>
-      <template v-else-if="created" #footer><UiButton @click="f = null; created = null">Tayyor</UiButton></template>
-    </UiDrawer>
+    <!-- Xodim oynasi: lavozim va ruxsatlar + kirish va xavfsizlik -->
+    <AccessPanel :user-id="panel?.id ?? null" :create="!!panel?.create" :tab="panel?.tab" @close="panel = null" @saved="load()" />
 
     <!-- Rol oynasi -->
     <UiDrawer :open="!!rf" :title="rf?.id ? rf.name : 'Yangi lavozim'" width="760px" @close="rf = null">
@@ -273,7 +150,6 @@ async function delRole() {
       </template>
     </UiDrawer>
 
-    <AccessDrawer :user="pwFor" @close="pwFor = null" @done="load()" />
   </div>
 </template>
 
