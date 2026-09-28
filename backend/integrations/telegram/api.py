@@ -161,9 +161,9 @@ def process_update(tenant, upd: dict, base_url: str | None = None) -> None:
 
     ai_kb = None
     try:
-        from modules.ai.tg import eligible, keyboard_row
+        from modules.ai.tg import eligible, keyboard_rows
         if eligible(tenant, user):
-            ai_kb = {"keyboard": [keyboard_row()], "resize_keyboard": True}
+            ai_kb = {"keyboard": keyboard_rows(), "resize_keyboard": True}
     except Exception:
         pass
     send_message(chat_id, "Buyruqlar: /vazifalar · /keldim · /ketdim" + (" · 🤖 AI Kotib" if ai_kb else ""), reply_markup=ai_kb)

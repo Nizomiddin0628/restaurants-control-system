@@ -239,10 +239,10 @@ def test_gemini_model_fallback_and_errors(monkeypatch):
         if len(calls) == 1:
             return R(429, {"error": {"status": "RESOURCE_EXHAUSTED"}})
         return R(200, {"candidates": [{"content": {"parts": [{"text": "o'yladim", "thought": True}, {"text": "ok"}]}}]})
-    monkeypatch.setattr(gemini.requests, "post", post)
+    monkeypatch.setattr(gemini, "_good", {}); monkeypatch.setattr(gemini, "_post", post)
     r = gemini.generate(t, [{"role": "user", "parts": [{"text": "x"}]}])
     assert r["model"] == gemini.MODELS[1] and gemini.text_of(r["data"]) == "ok"
-    monkeypatch.setattr(gemini.requests, "post", lambda url, **kw: R(400, {"error": {"message": "API key not valid. API_KEY_INVALID"}}))
+    monkeypatch.setattr(gemini, "_good", {}); monkeypatch.setattr(gemini, "_post", lambda url, **kw: R(400, {"error": {"message": "API key not valid. API_KEY_INVALID"}}))
     with pytest.raises(gemini.AiError, match="kaliti noto'g'ri"):
         gemini.generate(t, [])
     with pytest.raises(gemini.AiError, match="kiritilmagan"):
@@ -273,7 +273,7 @@ def test_gemini_stream_merge_and_stop(monkeypatch):
     def post(url, json=None, **kw):
         sent_bodies.append((url, json))
         return R()
-    monkeypatch.setattr(gemini.requests, "post", post)
+    monkeypatch.setattr(gemini, "_good", {}); monkeypatch.setattr(gemini, "_post", post)
     got = []
     r = gemini.generate(t, [], on_text=got.append)
     assert got == ["Salom, ", "dunyo"] and gemini.text_of(r["data"]) == "Salom, dunyo" and gemini.tokens_of(r["data"]) == 7
@@ -319,3 +319,27 @@ def test_ask_stream_endpoint(ai_env, api, monkeypatch):
     assert [x.get("t") for x in lines if "t" in x] == ["Kecha ", "10 mln"]
     done = lines[-1]
     assert done["done"] and done["answer"] == "Kecha 10 mln" and done["charts"][0]["src"].startswith("data:image/png;base64,")
+
+
+@pytest.mark.django_db
+def test_global_mode_web_search_and_snapshot(ai_env, monkeypatch):
+    from modules.ai import agent, gemini, tg
+    from modules.ai.models import AiChat
+
+    def fake(tenant, contents, **kw):
+        fake.kw = kw
+        return {"model": "m", "ms": 1, "data": {"candidates": [{"content": {"parts": [{"text": "Bozorda go'sht 95 ming"}]},
+                "groundingMetadata": {"groundingChunks": [{"web": {"uri": "https://example.uz/a", "title": "Narxlar"}}]}}]}}
+    monkeypatch.setattr(gemini, "generate", fake)
+    r = agent.ask(ai_env["tenant"], ai_env["user"], "Go'sht narxi qancha?", channel="panel", mode="web")
+    assert fake.kw["tools"] == [{"google_search": {}}] and "HOZIRGI HOLAT" in fake.kw["system"] and "GLOBAL" in fake.kw["system"]
+    assert "Manbalar" in r["answer"] and "https://example.uz/a" in r["answer"] and r["sources"][0]["title"] == "Narxlar"
+    # oddiy rejimda — restoran asboblari, internet yo'q; tizim haqida so'ralsa — ishonch bilan tanishtirish qoidasi
+    agent.ask(ai_env["tenant"], ai_env["user"], "Kecha savdo?", channel="panel")
+    assert "function_declarations" in fake.kw["tools"][0] and "O'zbekistonga birinchi" in fake.kw["system"]
+    # Telegram: «🌐 Global qidiruv» tugmasi rejimni yoqadi
+    chat = {"id": 777001, "type": "private"}
+    assert tg.maybe_handle(ai_env["tenant"], {"message": {"chat": chat, "text": "🌐 Global qidiruv"}})
+    assert AiChat.objects.get(chat_id=777001).mode == "web"
+    assert tg.maybe_handle(ai_env["tenant"], {"callback_query": {"id": "m", "data": "ai:mode:local", "message": {"chat": chat, "message_id": 3}}})
+    assert AiChat.objects.get(chat_id=777001).mode == "local"

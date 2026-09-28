@@ -65,8 +65,8 @@ def staff_keyboard(tenant, bu: BotUser) -> dict:
     """Xodim klaviaturasi: AI Kotib (rahbar/menejer), vazifalar, keldim/ketdim."""
     rows: list[list] = []
     if _ai_ok(tenant, bu.staff):
-        from modules.ai.tg import keyboard_row
-        rows.append(keyboard_row())
+        from modules.ai.tg import keyboard_rows
+        rows.extend(keyboard_rows())
     if tenant.module_enabled("tasks"):
         rows.append([{"text": BTN_TASKS}])
     if tenant.module_enabled("hr"):
@@ -109,6 +109,7 @@ def _staff_help(tenant, user) -> str:
     lines = []
     if _ai_ok(tenant, user):
         lines += ["🤖 <b>AI Kotib</b> — ovozli yoki yozma buyruq bering: «kecha savdo qancha?», «7 kunlik savdoni diagrammada ko'rsat», «Rustamga vazifa ber»…",
+                  "🌐 <b>Global qidiruv</b> — restoran ma'lumoti + internet: «go'sht narxi qancha, bizga qanday ta'sir qiladi?», «bayramga qanday aksiya qilsak bo'ladi?»",
                   "📊 <b>Bugungi hisobot</b> — kecha, bugun va nimadan boshlash kerak (har kuni ertalab o'zi ham keladi)"]
     if tenant.module_enabled("tasks"):
         lines.append("📋 <b>Vazifalarim</b> — ochiq vazifalaringiz")

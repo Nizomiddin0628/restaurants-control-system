@@ -31,8 +31,9 @@ from . import agent, gemini, report
 from .models import AiChat, AiLog, ChatState
 
 log = logging.getLogger("ai")
-BTN_AI, BTN_REPORT = "🤖 AI Kotib", "📊 Bugungi hisobot"
+BTN_AI, BTN_REPORT, BTN_WEB = "🤖 AI Kotib", "📊 Bugungi hisobot", "🌐 Global qidiruv"
 TRIG_AI = (BTN_AI, "/ai", "/kotib")
+TRIG_WEB = (BTN_WEB, "/global", "/internet")
 TRIG_REPORT = (BTN_REPORT, "/hisobot")
 CANCEL = ("✖️ Bekor qilish", "/cancel", "/bekor")
 STALE = timedelta(minutes=4)          # «busy» shundan uzoq tursa — ip o'lgan deb hisoblanadi, holat tiklanadi
@@ -106,7 +107,25 @@ def _known_buttons() -> set[str]:
 
 
 def keyboard_row() -> list[dict]:
-    return [{"text": BTN_AI}, {"text": BTN_REPORT}]
+    return [{"text": BTN_AI}, {"text": BTN_WEB}]
+
+
+def keyboard_rows() -> list[list[dict]]:
+    """Xodim klaviaturasidagi AI qatorlari: [🤖 AI Kotib] [🌐 Global qidiruv] / [📊 Bugungi hisobot]."""
+    return [keyboard_row(), [{"text": BTN_REPORT}]]
+
+
+def mode_kb(mode: str) -> dict:
+    web = mode == "web"
+    return {"inline_keyboard": [[{"text": ("◻️ " if web else "✅ ") + "🏠 Restoran", "callback_data": "ai:mode:local"},
+                                 {"text": ("✅ " if web else "◻️ ") + "🌐 Global (internet)", "callback_data": "ai:mode:web"}],
+                                [{"text": "✖️ Bekor qilish", "callback_data": "ai:no"}]]}
+
+
+PROMPT_WEB = ("🌐 <b>Global qidiruv</b> — restoran ma'lumotlari + internet (Google).\n\n"
+              "Ovozli xabar yuboring yoki yozing. Masalan:\n• «Go'sht narxi hozir qancha, bizning tannarxga qanday ta'sir qiladi?»\n"
+              "• «30-oktabr bayramiga qanday aksiya va bonuslar qilsak bo'ladi?»\n• «Toshkentda restoranlarda qanday trendlar bor?»\n\n"
+              "<i>Rejimni pastdagi tugma bilan almashtirasiz.</i>")
 
 
 def _stale(c: AiChat) -> bool:
@@ -222,6 +241,7 @@ def _finish(chat_id, run) -> None:
 # ------------------------------------------------------------------ fon ishlari
 def _do_run(tenant, user_id: int, chat_id: int, run: str, text: str = "", file_id: str = "", mime: str = "") -> None:
     user = User.objects.get(pk=user_id)
+    mode = (AiChat.objects.filter(chat_id=chat_id).values_list("mode", flat=True).first() or "local")
     stop = _Stopper(chat_id, run)
     try:
         if file_id:
@@ -247,7 +267,7 @@ def _do_run(tenant, user_id: int, chat_id: int, run: str, text: str = "", file_i
                 return
             edit(tenant, chat_id, mid, f"🗣 <i>«{report.esc(text)}»</i>")
             AiChat.objects.filter(chat_id=chat_id, run=run).update(pending=text[:1500])
-        draft = send(tenant, chat_id, "✍️ <i>Yozyapman…</i>", STOP_KB)
+        draft = send(tenant, chat_id, "🌐 <i>Internetdan qidiryapman…</i>" if mode == "web" else "✍️ <i>Yozyapman…</i>", STOP_KB)
         state = {"buf": "", "at": time.monotonic(), "shown": ""}
 
         def on_text(delta):
@@ -264,14 +284,14 @@ def _do_run(tenant, user_id: int, chat_id: int, run: str, text: str = "", file_i
                 state["at"] = now
 
         typing(tenant, chat_id)
-        res = agent.ask(tenant, user, text, channel="telegram", on_text=on_text, stop=stop)
+        res = agent.ask(tenant, user, text, channel="telegram", on_text=on_text, stop=stop, mode=mode)
         if res.get("stopped") or stop():
             edit(tenant, chat_id, draft, (_preview(state["buf"]).rstrip(" ▍") + "\n\n" if state["buf"] else "") + "⏹ <i>To'xtatildi.</i>")
             return
         if not res["ok"]:
             edit(tenant, chat_id, draft, f"⚠️ {report.esc(res['error'])}")
             return
-        parts = report.split(res["answer"])
+        parts = report.split(res["answer"].replace(' target="_blank" rel="noopener"', ""))
         if not edit(tenant, chat_id, draft, parts[0]):
             send(tenant, chat_id, parts[0])
         for p in parts[1:]:
@@ -336,7 +356,7 @@ def maybe_handle(tenant, upd: dict, base_url: str | None = None) -> bool:
         _set(chat_id, ChatState.IDLE)
         c.refresh_from_db()
     active = c is not None and c.state != ChatState.IDLE
-    trig = cmd in TRIG_AI or cmd in TRIG_REPORT
+    trig = cmd in TRIG_AI or cmd in TRIG_REPORT or cmd in TRIG_WEB
     direct = False
     if not trig and not active:
         # rahbar/menejer tugma bosmasdan ovozli xabar (yoki oddiy gap) yuborsa ham — AI Kotibga (darhol)
@@ -378,12 +398,14 @@ def maybe_handle(tenant, upd: dict, base_url: str | None = None) -> bool:
         _spawn(tenant, _do_report, user.pk, chat_id, run)
         return True
 
-    # 4) AI Kotib tugmasi — ovozli xabar kutamiz
-    if cmd in TRIG_AI:
-        _set(chat_id, ChatState.WAIT, pending="", confirm_msg_id=None, run="")
+    # 4) AI Kotib / Global qidiruv tugmasi — rejim tanlanadi, ovozli xabar kutamiz
+    if cmd in TRIG_AI or cmd in TRIG_WEB:
+        mode = "web" if cmd in TRIG_WEB else "local"
+        _set(chat_id, ChatState.WAIT, pending="", confirm_msg_id=None, run="", mode=mode)
         left = agent.limit_left(tenant)
         extra = "" if gemini.api_key(tenant) else "\n\n⚠️ AI kaliti hali kiritilmagan — panelda «AI Kotib» sahifasida kalitni qo'ying."
-        send(tenant, chat_id, PROMPT + (f"\n\n<i>Bugun yana {left} ta so'rov mumkin.</i>" if left < 10 else "") + extra, WAIT_KB)
+        send(tenant, chat_id, (PROMPT_WEB if mode == "web" else PROMPT) + (f"\n\n<i>Bugun yana {left} ta so'rov mumkin.</i>" if left < 10 else "") + extra,
+             mode_kb(mode))
         return True
 
     # 5) ovozli xabar yoki matn — darhol bajariladi (tasdiqsiz)
@@ -410,6 +432,13 @@ def maybe_handle(tenant, upd: dict, base_url: str | None = None) -> bool:
 def _on_callback(tenant, user, chat_id, action: str, message_id) -> None:
     c = AiChat.objects.filter(chat_id=chat_id).first()
     if c is None:
+        return
+    if action.startswith("mode:"):
+        mode = "web" if action.endswith("web") else "local"
+        AiChat.objects.filter(chat_id=chat_id).update(mode=mode)
+        call("editMessageReplyMarkup", {"chat_id": chat_id, "message_id": message_id, "reply_markup": mode_kb(mode)}, _tok(tenant))
+        send(tenant, chat_id, "🌐 Global qidiruv yoqildi — restoran ma'lumoti + internet. Savolingizni yuboring." if mode == "web"
+             else "🏠 Restoran rejimi — faqat restoran ma'lumotlari. Savolingizni yuboring.")
         return
     if action == "stop":
         if c.state != ChatState.BUSY:

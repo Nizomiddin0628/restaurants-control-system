@@ -22,6 +22,14 @@ STREAM_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:st
 MODELS = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]
 
 
+_http = requests.Session()           # ulanish qayta ishlatiladi — har so'rovda TLS qayta ochilmaydi (≈0,3 s tejaladi)
+_good: dict[str, tuple[str, float]] = {}   # kalit → oxirgi ishlagan model (404/429 bergan modellarni har safar sinamaslik)
+
+
+def _post(url, **kw):
+    return _http.post(url, **kw)
+
+
 class AiError(Exception):
     """Foydalanuvchiga ko'rsatiladigan xato (o'zbekcha)."""
 
@@ -105,6 +113,9 @@ def generate(tenant, contents: list[dict], *, system: str | None = None, tools: 
         body["tools"] = tools
     last = "AI javob bermadi."
     order = models(tenant)
+    ok = _good.get(key[-12:])
+    if ok and ok[0] in order and time.monotonic() - ok[1] < 1800 and not prefer:
+        order = [ok[0]] + [m for m in order if m != ok[0]]
     if prefer:
         order = [m for m in prefer if m in order] + [m for m in order if m not in prefer]
     headers = {"x-goog-api-key": key, "Content-Type": "application/json"}
@@ -113,7 +124,7 @@ def generate(tenant, contents: list[dict], *, system: str | None = None, tools: 
         for attempt in (1, 2):
             url = (STREAM_URL if on_text else URL).format(model=m)
             try:
-                r = requests.post(url, json=body, timeout=timeout, headers=headers, stream=bool(on_text))
+                r = _post(url, json=body, timeout=timeout, headers=headers, stream=bool(on_text))
             except requests.RequestException as e:
                 log.warning("gemini %s tarmoq xatosi: %s", m, e)
                 last = "AI serveriga ulanib bo'lmadi (internet). Birozdan keyin qayta urinib ko'ring."
@@ -139,6 +150,7 @@ def generate(tenant, contents: list[dict], *, system: str | None = None, tools: 
         if not data.get("candidates"):
             fb = (data.get("promptFeedback") or {}).get("blockReason")
             raise AiError("AI bu so'rovga javob bermadi" + (f" ({fb})" if fb else "") + ". Boshqacha so'rab ko'ring.")
+        _good[key[-12:]] = (m, time.monotonic())
         return {"model": m, "data": data, "ms": int((time.monotonic() - t0) * 1000)}
     raise AiError(last)
 
@@ -147,6 +159,7 @@ def _read_stream(r, on_text, stop) -> dict:
     """SSE oqimi: har bo'lakdagi matn darhol on_text'ga; oxirida bitta javob (generateContent ko'rinishida)."""
     acc: list[dict] = []
     usage: dict = {}
+    grounding: dict = {}
     finish = None
     feedback = None
     try:
@@ -163,6 +176,7 @@ def _read_stream(r, on_text, stop) -> dict:
             feedback = chunk.get("promptFeedback") or feedback
             cand = (chunk.get("candidates") or [{}])[0]
             finish = cand.get("finishReason") or finish
+            grounding = cand.get("groundingMetadata") or grounding
             ps = (cand.get("content") or {}).get("parts") or []
             _merge(acc, ps)
             delta = "".join(p.get("text", "") for p in ps if "text" in p and not p.get("thought"))
@@ -174,7 +188,10 @@ def _read_stream(r, on_text, stop) -> dict:
         r.close()
     if not acc and feedback:
         return {"promptFeedback": feedback}
-    return {"candidates": [{"content": {"role": "model", "parts": acc}, "finishReason": finish}], "usageMetadata": usage}
+    cand = {"content": {"role": "model", "parts": acc}, "finishReason": finish}
+    if grounding:
+        cand["groundingMetadata"] = grounding
+    return {"candidates": [cand], "usageMetadata": usage}
 
 
 def parts(data: dict) -> list[dict]:
@@ -191,6 +208,22 @@ def text_of(data: dict) -> str:
 
 def calls_of(data: dict) -> list[dict]:
     return [p["functionCall"] for p in parts(data) if "functionCall" in p]
+
+
+def sources_of(data: dict, limit: int = 5) -> list[dict]:
+    """Internetdan qidiruv (Google Search) manbalari: [{"title", "url"}]."""
+    try:
+        chunks = (data["candidates"][0].get("groundingMetadata") or {}).get("groundingChunks") or []
+    except (KeyError, IndexError, TypeError):
+        return []
+    out, seen = [], set()
+    for c in chunks:
+        w = c.get("web") or {}
+        url, title = w.get("uri"), (w.get("title") or w.get("domain") or "").strip()
+        if url and url not in seen:
+            seen.add(url)
+            out.append({"title": title or "manba", "url": url})
+    return out[:limit]
 
 
 def tokens_of(data: dict) -> int:

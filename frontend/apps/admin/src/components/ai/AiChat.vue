@@ -23,6 +23,11 @@ const busy = ref(false)
 const status = ref<any>(null)
 const listEl = ref<HTMLElement | null>(null), inputEl = ref<HTMLTextAreaElement | null>(null)
 const hint = ref('')
+/** Rejim: 🏠 restoran ma'lumotlari yoki 🌐 global (restoran + internet) — alohida limit yo'q, shunchaki tanlanadi */
+const MKEY = 'restopos.aimode'
+const mode = ref<'local' | 'web'>((() => { try { return (sessionStorage.getItem(MKEY) as 'web') || 'local' } catch { return 'local' } })())
+watch(mode, (v) => { try { sessionStorage.setItem(MKEY, v) } catch { /* private */ } })
+const SUG_WEB = ['Go\'sht narxi hozir qancha, tannarximizga ta\'siri?', '30-oktabrga qanday bonus va aksiya qilsak bo\'ladi?', 'Toshkent restoranlarida qanday trendlar bor?', 'RestoPOS boshqa tizimlardan nimasi bilan yaxshi?']
 const SUG = ['Kecha savdo qancha bo\'ldi?', 'Oxirgi 7 kun savdosini diagrammada ko\'rsat', 'Omborda nima tugayapti?', 'Kechikkan vazifalar kimda?']
 
 watch(msgs, (v) => { try { sessionStorage.setItem(KEY, JSON.stringify(v.slice(-30).map(m => ({ ...m, live: false })))) } catch { /* to'lsa — saqlanmaydi */ } }, { deep: true })
@@ -59,7 +64,7 @@ async function send(text?: string) {
   let raw = ''
   ctrl = new AbortController()
   try {
-    await api.stream('/ai/ask-stream', { question, history }, (x) => {
+    await api.stream('/ai/ask-stream', { question, history, mode: mode.value }, (x) => {
       if (x.reset) { raw = ''; m.html = '' }
       else if (typeof x.t === 'string') { raw += x.t; m.html = fmt(raw); scroll() }
       else if (x.done) {
@@ -94,11 +99,11 @@ function clear() { if (!busy.value) { msgs.value = []; hint.value = '' } }
 
 // ---------- ovoz: bosib yozish → to'xtatish → matn (tahrirlab «Yuborish»)
 const rec = ref<MediaRecorder | null>(null), secs = ref(0), transcribing = ref(false)
-let chunks: Blob[] = [], timer: number | undefined, stream: MediaStream | null = null
+let chunks: Blob[] = [], timer: number | undefined, stream: MediaStream | null = null, discard = false
 const canRec = typeof window !== 'undefined' && !!navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== 'undefined'
 async function mic() {
   if (busy.value || transcribing.value) return
-  if (rec.value) { rec.value.stop(); return }
+  if (rec.value) { discard = false; rec.value.stop(); return }
   try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }) } catch { hint.value = 'Mikrofonga ruxsat berilmadi (brauzer sozlamasida ruxsat bering)'; return }
   const type = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/webm', 'audio/mp4'].find(t => MediaRecorder.isTypeSupported?.(t)) || ''
   const r = new MediaRecorder(stream, type ? { mimeType: type } : undefined)
@@ -106,6 +111,7 @@ async function mic() {
   r.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data) }
   r.onstop = async () => {
     clearInterval(timer); stream?.getTracks().forEach(t => t.stop()); rec.value = null
+    if (discard) { discard = false; hint.value = 'Ovozli xabar bekor qilindi'; return }
     const blob = new Blob(chunks, { type: r.mimeType || 'audio/webm' })
     if (blob.size < 1500) { hint.value = 'Juda qisqa — tugmani bosib, gapirib, yana bosing'; return }
     transcribing.value = true; hint.value = ''
@@ -119,6 +125,10 @@ async function mic() {
   r.start(); rec.value = r
   timer = window.setInterval(() => { secs.value++; if (secs.value >= 120) r.stop() }, 1000)
 }
+/** ✖ — yozilgan ovozni tashlab yuborish (hech narsa yuborilmaydi) */
+function cancelRec() { if (rec.value) { discard = true; rec.value.stop() } }
+/** ✓ — yozishni tugatib yuborish */
+function confirmRec() { if (rec.value) { discard = false; rec.value.stop() } }
 onBeforeUnmount(() => { clearInterval(timer); stream?.getTracks().forEach(t => t.stop()) })
 
 const lifted = computed(() => route.path.startsWith('/tasks'))     // telefonda vazifalar sahifasining «+» tugmasi bilan to'qnashmasin
@@ -143,8 +153,9 @@ const lifted = computed(() => route.path.startsWith('/tasks'))     // telefonda 
       <div ref="listEl" class="aic-list">
         <div v-if="status && !status.has_key" class="aic-note">⚠️ AI kaliti hali kiritilmagan. <RouterLink to="/ai" @click="open = false">AI Kotib sahifasida</RouterLink> kalitni qo'ying.</div>
         <div v-if="!msgs.length" class="aic-empty">
-          <p>Salom! Men restoraningiz bo'yicha savollarga tizimdagi haqiqiy raqamlar bilan javob beraman. Vazifa ham bera olaman: «Rustamga ertaga 10:00 gacha … vazifasini ber».</p>
-          <div class="aic-sug"><button v-for="s in SUG" :key="s" type="button" :disabled="busy" @click="send(s)">{{ s }}</button></div>
+          <p v-if="mode === 'web'">🌐 <b>Global qidiruv:</b> internetdan (Google) izlab, restoraningiz raqamlari bilan birlashtirib javob beraman — narxlar, trendlar, aksiya g'oyalari. Manbalarni ham ko'rsataman.</p>
+          <p v-else>Salom! Men restoraningiz bo'yicha savollarga tizimdagi haqiqiy raqamlar bilan javob beraman, kerak bo'lsa diagramma chizaman. Vazifa ham bera olaman: «Rustamga ertaga 10:00 gacha … vazifasini ber».</p>
+          <div class="aic-sug"><button v-for="s in (mode === 'web' ? SUG_WEB : SUG)" :key="s" type="button" :disabled="busy" @click="send(s)">{{ s }}</button></div>
         </div>
         <div v-for="(m, i) in msgs" :key="i" class="aic-m" :class="[m.role, { err: m.err }]">
           <div v-if="m.live && !m.html" class="aic-b aic-typing"><i></i><i></i><i></i></div>
@@ -155,14 +166,21 @@ const lifted = computed(() => route.path.startsWith('/tasks'))     // telefonda 
       </div>
 
       <p v-if="hint" class="aic-hint">{{ hint }}</p>
+      <div class="aic-modes" role="radiogroup" aria-label="Qidiruv rejimi">
+        <button type="button" role="radio" :aria-checked="mode === 'local'" :class="{ on: mode === 'local' }" :disabled="busy" @click="mode = 'local'">🏠 Restoran</button>
+        <button type="button" role="radio" :aria-checked="mode === 'web'" :class="{ on: mode === 'web', web: true }" :disabled="busy" @click="mode = 'web'">🌐 Global qidiruv</button>
+        <small>{{ mode === 'web' ? 'restoran + internet' : 'faqat restoran ma\'lumotlari' }}</small>
+      </div>
       <form class="aic-in" @submit.prevent="send()">
-        <button v-if="canRec" type="button" class="aic-mic" :class="{ rec: !!rec, wait: transcribing }" :disabled="busy || transcribing"
-                :title="rec ? 'To\'xtatish' : 'Ovoz bilan'" @click="mic">
-          <UiIcon :name="rec ? 'x' : 'mic'" :size="18" /><span v-if="rec" class="aic-sec">{{ secs }}s</span>
+        <button v-if="rec" type="button" class="aic-mic cancel" title="Bekor qilish (yuborilmaydi)" aria-label="Bekor qilish" @click="cancelRec"><UiIcon name="x" :size="18" /></button>
+        <button v-else-if="canRec" type="button" class="aic-mic" :class="{ wait: transcribing }" :disabled="busy || transcribing" title="Ovoz bilan" aria-label="Ovoz bilan" @click="mic">
+          <UiIcon name="mic" :size="18" />
         </button>
-        <textarea ref="inputEl" v-model="q" rows="1" :placeholder="rec ? 'Gapiring… tugatgach ⏹ bosing' : transcribing ? 'Eshityapman…' : busy ? 'Javob yozilyapti… (⏹ — to\'xtatish)' : 'Savol yozing yoki 🎙 gapiring…'"
+        <div v-if="rec" class="aic-recbar"><span class="aic-rdot"></span>Yozilmoqda… <b>{{ secs }}s</b><small>✓ — yuborish · ✖ — bekor</small></div>
+        <textarea v-if="!rec" ref="inputEl" v-model="q" rows="1" :placeholder="rec ? 'Gapiring… tugatgach ⏹ bosing' : transcribing ? 'Eshityapman…' : busy ? 'Javob yozilyapti… (⏹ — to\'xtatish)' : 'Savol yozing yoki 🎙 gapiring…'"
                   :disabled="busy || transcribing" @keydown.enter.exact.prevent="send()"></textarea>
-        <button v-if="busy" type="button" class="aic-send aic-stop" aria-label="To'xtatish" title="To'xtatish" @click="stop"><span class="aic-sq"></span></button>
+        <button v-if="rec" type="button" class="aic-send aic-ok" title="Tayyor — yuborish" aria-label="Tasdiqlash va yuborish" @click="confirmRec"><UiIcon name="check" :size="20" /></button>
+        <button v-else-if="busy" type="button" class="aic-send aic-stop" aria-label="To'xtatish" title="To'xtatish" @click="stop"><span class="aic-sq"></span></button>
         <button v-else type="submit" class="aic-send" :disabled="transcribing || !q.trim()" aria-label="Yuborish"><UiIcon name="send" :size="18" /></button>
       </form>
     </section>
@@ -206,7 +224,16 @@ const lifted = computed(() => route.path.startsWith('/tasks'))     // telefonda 
 .aic-mic.rec { background: var(--danger); color: #fff; border-color: transparent; animation: aic-p .8s infinite alternate; width: auto; padding: 0 10px; display: flex; gap: 4px; align-items: center; }
 .aic-mic.wait { opacity: .6; } .aic-sec { font-size: 12px; font-weight: 800; }
 .aic-send { background: #7C3AED; color: #fff; }
-.aic-stop { background: var(--danger); } .aic-sq { width: 14px; height: 14px; border-radius: 3px; background: #fff; }
+.aic-stop { background: var(--danger); } .aic-ok { background: #16A34A; }
+.aic-mic.cancel { background: var(--danger-tint); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
+.aic-recbar { flex: 1; min-width: 0; min-height: 42px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 12px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); font-size: 14px; }
+.aic-recbar small { width: 100%; color: var(--muted); font-size: 11px; margin-top: -4px; }
+.aic-rdot { width: 10px; height: 10px; border-radius: 50%; background: var(--danger); animation: aic-p .8s infinite alternate; }
+.aic-modes { display: flex; align-items: center; gap: 6px; padding: 8px 10px 0; background: var(--surface); flex-shrink: 0; flex-wrap: wrap; }
+.aic-modes button { border: 1px solid var(--line); background: var(--surface-2); color: var(--ink-2); border-radius: 999px; padding: 5px 11px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.aic-modes button.on { background: #7C3AED; border-color: #7C3AED; color: #fff; } .aic-modes button.on.web { background: #0891B2; border-color: #0891B2; }
+.aic-modes small { color: var(--muted); font-size: 11px; margin-left: auto; }
+.aic-b :deep(a) { color: #0891B2; font-weight: 600; word-break: break-all; } .aic-sq { width: 14px; height: 14px; border-radius: 3px; background: #fff; }
 .aic-b.live::after { content: '▍'; animation: aic-bl 1s steps(2) infinite; color: #7C3AED; } @keyframes aic-bl { 50% { opacity: 0; } }
 .aic-chart { display: block; margin-top: 6px; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: #fff; max-width: 100%; }
 .aic-chart img { display: block; width: 100%; height: auto; }

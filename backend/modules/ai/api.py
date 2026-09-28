@@ -153,6 +153,7 @@ class Turn(Schema):
 class AskIn(Schema):
     question: str
     history: list[Turn] = []
+    mode: str = "local"          # local — restoran ma'lumotlari; web — restoran + internet (Google qidiruvi)
 
 
 def _web(res: dict) -> dict:
@@ -168,7 +169,8 @@ def ask(request, data: AskIn):
     q = (data.question or "").strip()
     if len(q) < 2:
         raise HttpError(400, "Savolni yozing")
-    return _web(agent.ask(request.tenant, request.auth, q[:1500], channel="panel", history=[h.dict() for h in data.history]))
+    return _web(agent.ask(request.tenant, request.auth, q[:1500], channel="panel", history=[h.dict() for h in data.history],
+                          mode="web" if data.mode == "web" else "local"))
 
 
 @router.post("/ask-stream", auth=auth)
@@ -187,6 +189,7 @@ def ask_stream(request, data: AskIn):
     if len(q) < 2:
         raise HttpError(400, "Savolni yozing")
     tenant, user, hist = request.tenant, request.auth, [h.dict() for h in data.history]
+    mode = "web" if data.mode == "web" else "local"
     box: queue.Queue = queue.Queue()
     flag = {"stop": False}
 
@@ -194,7 +197,7 @@ def ask_stream(request, data: AskIn):
         try:
             with schema_context(tenant.schema_name):
                 connection.set_tenant(tenant)
-                res = agent.ask(tenant, user, q[:1500], channel="panel", history=hist,
+                res = agent.ask(tenant, user, q[:1500], channel="panel", history=hist, mode=mode,
                                 on_text=lambda d: box.put(("t", d)), stop=lambda: flag["stop"])
                 box.put(("done", _web(res)))
         except Exception as e:  # noqa: BLE001 — foydalanuvchiga tushunarli xato

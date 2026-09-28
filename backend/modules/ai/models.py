@@ -26,6 +26,7 @@ class AiChat(models.Model):
     pending = models.TextField(blank=True, help_text="tasdiq kutayotgan buyruq matni")
     confirm_msg_id = models.BigIntegerField(null=True, blank=True, help_text="«Tasdiqlaysizmi?» xabari — tugmalarni olib tashlash uchun")
     base_url = models.CharField(max_length=200, blank=True)
+    mode = models.CharField(max_length=8, default="local", help_text="local — restoran; web — restoran + internet (🌐 Global qidiruv)")
     run = models.CharField(max_length=32, blank=True, help_text="joriy ish kaliti — «⏹ To'xtatish» bosilsa almashadi va ish to'xtaydi")
     updated_at = models.DateTimeField(default=timezone.now)
 

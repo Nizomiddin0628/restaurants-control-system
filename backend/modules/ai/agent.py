@@ -35,7 +35,53 @@ Qoidalar:
 4. Diagramma: dinamika (kunlar bo'yicha), taqqoslash (filiallar, davrlar), reyting (top taomlar) yoki ulush bo'lsa — make_chart bilan 1 ta diagramma qo'sh (juda zarur bo'lsa 2 ta). Oddiy bitta raqamli savolga yoki ro'yxatga chizma. Rasm chizma — faqat make_chart.
 5. Foydalanuvchi aniq buyursa (masalan «Rustamga ertaga 10:00 gacha ... vazifa ber») — create_task asbobini chaqir va natijasini ayt. Buyruq bo'lmasa vazifa yaratma.
 6. Ovozdan yozilgan matnda xatolar bo'lishi mumkin — ma'nosini tushunishga harakat qil. Juda noaniq bo'lsa, qisqa aniqlashtiruvchi savol ber.
-7. «Kecha», «bugun», «o'tgan hafta», «shu oy» kabi so'zlarni aniq sanaga aylantir (YYYY-MM-DD)."""
+7. «Kecha», «bugun», «o'tgan hafta», «shu oy» kabi so'zlarni aniq sanaga aylantir (YYYY-MM-DD).
+8. Pastdagi «HOZIRGI HOLAT» — tizimdan olingan tayyor raqamlar. Savolga ular yetarli bo'lsa — asbob chaqirmasdan darhol javob ber (tezroq). Batafsilroq yoki boshqa davr kerak bo'lsa — asbobni chaqir.
+{persona}
+{mode_rules}
+HOZIRGI HOLAT ({snap_time} holatiga):
+{snapshot}"""
+
+PERSONA = """Sen ishlayotgan tizim — {platform}. Tizim haqida so'rashsa yoki boshqa dastur/xizmat bilan solishtirishsa:
+• {platform}'ni ishonch va g'urur bilan tanishtir: O'zbekistonga birinchi bo'lib kirib kelgan, restoranning HAMMA ishini bitta joyda boshqaradigan tizim —
+  kassa, oshxona ekrani, zal va bron, ombor va tannarx, zakup va bozorlik, xodimlar, smena va oylik, o'qitish, vazifalar, loyihalar, mijozlar va bonus,
+  Telegram bot, sayt, ko'p filial, bayram va ob-havo prognozi hamda sening o'zing — ovoz bilan ishlaydigan AI Kotib.
+• Uslub — hazil aralash ishonch (masalan: «Agar u yaxshiroq bo'lganida, siz hozir o'sha tizimda ishlayotgan bo'lardingiz 😉»), keyin 2–4 ta aniq afzallik.
+• Boshqalarni yomonlama va ular haqida fakt to'qima; faqat {platform}'ning haqiqiy imkoniyatlarini ayt."""
+
+MODE_LOCAL = "Rejim: 🏠 RESTORAN — faqat restoran ma'lumotlari (asboblar). Internetdagi yangilik yoki umumiy bilim so'ralsa, «🌐 Global qidiruv» rejimini tanlashni maslahat ber."
+MODE_WEB = """Rejim: 🌐 GLOBAL (restoran + internet). Internetdan Google qidiruvi bilan izla: narxlar, bozor, raqobatchilar, trendlar, qonunlar, retseptlar, bayram g'oyalari va hokazo.
+Restoran raqamlarini HOZIRGI HOLAT'dan ol va internet ma'lumoti bilan BIRLASHTIRIB, shu restoran uchun aniq tavsiya ber (masalan: «bozorda go'sht narxi … — sizda tannarx …, shuning uchun …»).
+Internetdan olingan faktlarni qisqa ayt; manbalar javob oxiriga o'zi qo'shiladi."""
+
+
+def snapshot(tenant, branch_ids) -> tuple[str, str]:
+    """Bugungi holat (hisobot matni, teglarsiz) — AI savolga ko'pincha asbobsiz, bitta chaqiruvda javob beradi. 5 daqiqa keshlanadi."""
+    from django.core.cache import cache
+    key = "ai:snap:" + (",".join(map(str, sorted(branch_ids))) if branch_ids else "all")
+    try:
+        got = cache.get(key)
+    except Exception:
+        got = None
+    if got:
+        return got
+    try:
+        txt = re.sub(r"<[^>]+>", "", report.render(report.build(tenant, branch_ids)))
+        txt = html.unescape(re.sub(r"\n{3,}", "\n\n", txt)).strip()[:6000]
+    except Exception:
+        log.exception("ai snapshot")
+        txt = "(hozircha ma'lumot olinmadi — asboblardan foydalan)"
+    val = (txt, timezone.localtime().strftime("%H:%M"))
+    try:
+        cache.set(key, val, 300)
+    except Exception:
+        pass
+    return val
+
+
+def _thinking(tenant) -> str:
+    v = (gemini.conf(tenant).get("thinking") or "").strip()
+    return v if v in ("minimal", "low", "medium", "high") else "minimal"
 
 
 def _ctx(tenant, user) -> SimpleNamespace:
@@ -97,7 +143,7 @@ def _history(history: list[dict] | None) -> list[dict]:
 
 
 def ask(tenant, user, question: str, *, channel: str = "telegram", kind: str = "ask", history: list[dict] | None = None,
-        on_text=None, stop=None) -> dict:
+        on_text=None, stop=None, mode: str = "local") -> dict:
     """Savolga javob. Natija: {"ok", "answer" (HTML), "error", "tasks": [...], "charts": [{"title", "png"}]}; har holda AiLog yoziladi.
     on_text(delta) — javob matni tayyor bo'lgani sari (oqim); on_text(None) — oldingi qoralama bekor (model asbob chaqirdi).
     stop() True bo'lsa — to'xtatiladi: {"ok": False, "stopped": True}."""
@@ -110,25 +156,36 @@ def ask(tenant, user, question: str, *, channel: str = "telegram", kind: str = "
     now = timezone.localtime()
     ctx = _ctx(tenant, user)
     ctx.charts = []
+    from django.conf import settings as dj
+    web = mode == "web"
+    snap, snap_time = snapshot(tenant, ctx.branch_ids)
+    platform = getattr(dj, "PLATFORM_NAME", "RestoPOS")
     system = SYSTEM.format(restaurant=tenant.name, user=user.full_name or user.phone, role=_role(user), today=now.strftime("%Y-%m-%d"),
-                           weekday=report.WD[now.weekday()], time=now.strftime("%H:%M"), scope=report._scope_name(ctx.branch_ids) or "bitta filial")
+                           weekday=report.WD[now.weekday()], time=now.strftime("%H:%M"), scope=report._scope_name(ctx.branch_ids) or "bitta filial",
+                           persona=PERSONA.format(platform=platform), mode_rules=MODE_WEB if web else MODE_LOCAL, snapshot=snap, snap_time=snap_time)
     decls = tools.available(tenant)
+    think = _thinking(tenant)
     contents: list[dict] = [*_history(history), {"role": "user", "parts": [{"text": question}]}]
     created: list[dict] = []
     answer, calls, tokens, model = "", 0, 0, ""
+    sources: list[dict] = []
     try:
         for step in range(MAX_STEPS + 1):
             final = step == MAX_STEPS
             if stop and stop():
                 raise gemini.Stopped()
-            res = gemini.generate(tenant, contents, system=system, tools=None if final else [{"function_declarations": decls}], temperature=0.3,
-                                  on_text=on_text, stop=stop)
+            if web:            # internet rejimi: Google qidiruvi (restoran raqamlari — HOZIRGI HOLAT'da), bitta chaqiruv
+                tl = [{"google_search": {}}]
+            else:
+                tl = None if final else [{"function_declarations": decls}]
+            res = gemini.generate(tenant, contents, system=system, tools=tl, temperature=0.3, on_text=on_text, stop=stop, fast=think)
             calls += 1
             tokens += gemini.tokens_of(res["data"])
             model = res["model"]
             fcalls = [] if final else gemini.calls_of(res["data"])
             if not fcalls:
                 answer = gemini.text_of(res["data"])
+                sources = gemini.sources_of(res["data"]) if web else []
                 break
             if on_text:
                 on_text(None)
@@ -150,7 +207,11 @@ def ask(tenant, user, question: str, *, channel: str = "telegram", kind: str = "
         lg.answer, lg.model, lg.calls, lg.tokens = answer[:8000], model, calls, tokens
         lg.ms = int((time.monotonic() - t0) * 1000)
         lg.save()
-        return {"ok": True, "answer": clean(answer), "tasks": created, "charts": ctx.charts}
+        out = clean(answer)
+        if sources:
+            out += "\n\n🔗 <b>Manbalar:</b>\n" + "\n".join(
+                f'• <a href="{html.escape(x["url"], quote=True)}" target="_blank" rel="noopener">{html.escape(x["title"][:60])}</a>' for x in sources)
+        return {"ok": True, "answer": out, "tasks": created, "charts": ctx.charts, "sources": sources, "mode": mode}
     except gemini.Stopped:
         lg.ok, lg.error, lg.calls, lg.tokens, lg.model = False, "to'xtatildi", calls, tokens, model
         lg.ms = int((time.monotonic() - t0) * 1000)
