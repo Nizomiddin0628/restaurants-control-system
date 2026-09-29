@@ -1,6 +1,7 @@
 """
 RESTROOS HQ: platforma jamoasi a'zosi + (ixtiyoriy) ko'rgazma ma'lumotlari.
-    python manage.py seed_hq --phone +998901234567 --name "Bahodir" --role superadmin
+    python manage.py seed_hq --phone +998901234567 --name "Bahodir" --role superadmin --password 'Parol123'
+
     python manage.py seed_hq --demo           (o'tgan oylar hisoblari, murojaatlar, bayroqlar, relizlar)
 Keyin: http://localhost:8000/hq/  (telefon + kod; dev rejimda kod ekranda chiqadi)
 """
@@ -31,11 +32,19 @@ class Command(BaseCommand):
         parser.add_argument("--name", default="Platforma admini")
         parser.add_argument("--role", default=StaffRole.SUPERADMIN, choices=StaffRole.values)
         parser.add_argument("--demo", action="store_true")
+        parser.add_argument("--password", default="", help="HQ'ga kirish paroli (kamida 8 belgi)")
 
     def handle(self, *args, **o):
         phone = User.objects.normalize_phone(o["phone"])
         u, _ = User.objects.get_or_create(phone=phone, defaults={"full_name": o["name"]})
         s, created = PlatformStaff.objects.update_or_create(user=u, defaults={"role": o["role"], "is_active": True})
+        if o["password"]:
+            if len(o["password"]) < 8:
+                self.stderr.write("Parol kamida 8 belgi bo'lsin")
+                return
+            u.set_password(o["password"])
+            u.save(update_fields=["password"])
+            self.stdout.write("Parol o'rnatildi.")
         self.stdout.write(f"HQ a'zosi: {phone} · {StaffRole(s.role).label}" + (" (yangi)" if created else ""))
         n = hq.ensure_stats(force=True)
         if o["demo"]:

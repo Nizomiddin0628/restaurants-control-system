@@ -129,6 +129,7 @@ def users(request):
 
 
 class AccessIn(Schema):
+    join_id: Optional[int] = None          # ro'yxatdan o'tish so'rovini tasdiqlash (xodim shu ma'lumot bilan qo'shiladi)
     phone: Optional[str] = None
     full_name: Optional[str] = None
     role_codes: list[str] = []
@@ -199,6 +200,12 @@ def create(request, data: AccessIn):
                 u.full_name = data.full_name.strip()
             u.save()
         _apply(request, u, data, new=True)
+        if data.join_id:
+            from core import join
+            from core.models import JoinRequest
+            j = JoinRequest.objects.filter(pk=data.join_id, status=JoinRequest.PENDING).first()
+            if j and j.phone == u.phone:
+                join.approve(request.tenant, j, request.auth, u)
     record(request, "create" if created else "update", u, after={"roles": data.role_codes, "branches": data.branch_ids, "extra": data.extra_permissions})
     return _user_out(User.objects.prefetch_related("memberships__role", "memberships__branches").get(pk=u.pk), request.auth, _areas(request.tenant))
 
@@ -370,4 +377,34 @@ def person_password_off(request, uid: str):
     u.save(update_fields=["password"])
     security.logout_all(u)
     record(request, "update", u, after={"password": "o'chirildi"})
+    return {"ok": True}
+
+
+# ------------------------------------------------------------------ ro'yxatdan o'tish so'rovlari
+def _join_out(j) -> dict:
+    return {"id": j.pk, "phone": j.phone, "full_name": j.full_name, "note": j.note, "branch_id": j.branch_id,
+            "branch": j.branch.name if j.branch_id else None, "verified": j.verified, "status": j.status, "created_at": j.created_at.isoformat()}
+
+
+@router.get("/joins", auth=auth)
+def joins(request):
+    """Kutilayotgan so'rovlar (filial menejeri — o'z filiali va filialsiz so'rovlar)."""
+    from core.models import JoinRequest
+    require_perm(request, "core.users.manage")
+    qs = JoinRequest.objects.filter(status=JoinRequest.PENDING).select_related("branch")
+    scope = request.auth.branch_scope()
+    if scope is not None:
+        from django.db.models import Q
+        qs = qs.filter(Q(branch__isnull=True) | Q(branch_id__in=scope))
+    return [_join_out(j) for j in qs[:100]]
+
+
+@router.post("/joins/{jid}/reject", auth=auth)
+def join_reject(request, jid: int):
+    from core import join
+    from core.models import JoinRequest
+    require_perm(request, "core.users.manage")
+    j = get_object_or_404(JoinRequest, pk=jid, status=JoinRequest.PENDING)
+    join.reject(request.tenant, j, request.auth)
+    record(request, "update", model="JoinRequest", object_id=j.pk, after={"status": "rejected", "phone": j.phone})
     return {"ok": True}

@@ -232,6 +232,28 @@ class OtpCode(models.Model):
         return self.used_at is None and self.attempts < 5 and (timezone.now() - self.created_at).total_seconds() < ttl_seconds
 
 
+class JoinRequest(models.Model):
+    """Ro'yxatdan o'tish so'rovi: ro'yxatda yo'q odam o'zi so'rov yuboradi → rahbar (Xodimlar va kirish) tasdiqlasa, lavozim berib qo'shadi.
+    Tasdiqlanmaguncha tizimga kira olmaydi. Botda raqamini ulashsa (verified) — tasdiqlanganda Telegram'ga xabar boradi."""
+
+    PENDING, APPROVED, REJECTED = "pending", "approved", "rejected"
+    phone = models.CharField(max_length=20, db_index=True)
+    full_name = models.CharField(max_length=120)
+    note = models.CharField(max_length=200, blank=True, help_text="qaysi lavozimga / kim tavsiya qildi")
+    branch = models.ForeignKey("core.Branch", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    status = models.CharField(max_length=10, default=PENDING, db_index=True)
+    telegram_id = models.BigIntegerField(null=True, blank=True)
+    verified = models.BooleanField(default=False, help_text="telefon raqami Telegram orqali tasdiqlangan")
+    ip = models.CharField(max_length=64, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decided_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+", help_text="tasdiqlangach yaratilgan xodim")
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
 class LoginRequest(models.Model):
     """Telegram orqali kirish: saytda telefon kiritiladi → botga «Kirishni tasdiqlaysizmi?» → «Ha» bosilsa sayt o'zi kiradi."""
 

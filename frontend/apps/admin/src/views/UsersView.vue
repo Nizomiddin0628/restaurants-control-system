@@ -19,7 +19,7 @@ async function load() {
   try { [meta.value, people.value] = await Promise.all([api.get<Meta>('/access/meta'), api.get<Person[]>('/access/users')]) }
   catch (e: any) { toast(e.detail ?? 'Yuklab bo\'lmadi', 'danger') } finally { loading.value = false }
 }
-onMounted(load)
+onMounted(() => { load(); loadJoins() })
 
 const bname = (id: number) => meta.value?.branches.find(b => b.id === id)?.name ?? `#${id}`
 const multiBranch = computed(() => (meta.value?.branches.length ?? 0) > 1)
@@ -42,8 +42,17 @@ const groups = computed(() => [
 const inactive = computed(() => filtered.value.filter(p => !p.is_active))
 
 // ------------------------------------------------------------------ xodim oynasi (umumiy AccessPanel)
-const panel = ref<{ id: string | null; create: boolean; tab?: 'access' | 'login' } | null>(null)
+const panel = ref<{ id: string | null; create: boolean; tab?: 'access' | 'login'; prefill?: any } | null>(null)
 function openNew() { panel.value = { id: null, create: true } }
+// ro'yxatdan o'tish so'rovlari (xodim o'zi yuborgan) — tasdiqlanmaguncha kira olmaydi
+type Join = { id: number; phone: string; full_name: string; note: string; branch_id: number | null; branch: string | null; verified: boolean; created_at: string }
+const joins = ref<Join[]>([])
+async function loadJoins() { try { joins.value = await api.get<Join[]>('/access/joins') } catch { joins.value = [] } }
+function approveJoin(j: Join) { panel.value = { id: null, create: true, prefill: { full_name: j.full_name, phone: j.phone, branch_ids: j.branch_id ? [j.branch_id] : [], join_id: j.id, note: j.note } } }
+async function rejectJoin(j: Join) {
+  if (!confirm(`${j.full_name} (${j.phone}) so'rovi rad etilsinmi?`)) return
+  try { await api.post(`/access/joins/${j.id}/reject`); toast('Rad etildi'); loadJoins() } catch (e: any) { toast(e.detail ?? 'Xato', 'danger') }
+}
 function openPerson(p: Person, tab: 'access' | 'login' = 'access') { panel.value = { id: p.id, create: false, tab } }
 
 // ------------------------------------------------------------------ rollar
@@ -80,6 +89,16 @@ async function delRole() {
       <button type="button" role="tab" :aria-selected="tab === 'people'" :class="{ on: tab === 'people' }" @click="tab = 'people'">👥 Xodimlar <small>{{ people.filter(p => p.is_active).length }}</small></button>
       <button type="button" role="tab" :aria-selected="tab === 'roles'" :class="{ on: tab === 'roles' }" @click="tab = 'roles'">🏷️ Lavozimlar (rollar) <small>{{ meta?.roles.length ?? 0 }}</small></button>
     </div>
+
+    <section v-if="joins.length" class="joins">
+      <h3>🆕 Ro'yxatdan o'tish so'rovlari <small>{{ joins.length }}</small></h3>
+      <p class="jn">Bu odamlar o'zi so'rov yubordi. Tasdiqlamaguningizcha tizimga kira olmaydi.</p>
+      <div v-for="j in joins" :key="j.id" class="jr">
+        <span class="who"><b>{{ j.full_name }}</b><small>{{ j.phone }}{{ j.verified ? ' · ✈️ raqam tasdiqlangan' : ' · raqam tasdiqlanmagan' }}</small></span>
+        <span class="jm">{{ j.note || '—' }}<small>{{ j.branch ? '📍 ' + j.branch : '' }} · {{ new Date(j.created_at).toLocaleString('uz-UZ', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) }}</small></span>
+        <span class="ja"><UiButton size="s" variant="brand" @click="approveJoin(j)">✅ Tasdiqlash</UiButton><UiButton size="s" variant="ghost" @click="rejectJoin(j)">Rad etish</UiButton></span>
+      </div>
+    </section>
 
     <template v-if="tab === 'people'">
       <div class="bar">
@@ -132,7 +151,7 @@ async function delRole() {
     </template>
 
     <!-- Xodim oynasi: lavozim va ruxsatlar + kirish va xavfsizlik -->
-    <AccessPanel :user-id="panel?.id ?? null" :create="!!panel?.create" :tab="panel?.tab" @close="panel = null" @saved="load()" />
+    <AccessPanel :user-id="panel?.id ?? null" :create="!!panel?.create" :tab="panel?.tab" :prefill="panel?.prefill ?? null" @close="panel = null" @saved="load(); loadJoins()" />
 
     <!-- Rol oynasi -->
     <UiDrawer :open="!!rf" :title="rf?.id ? rf.name : 'Yangi lavozim'" width="760px" @close="rf = null">
@@ -193,4 +212,10 @@ async function delRole() {
 .sp { flex: 1; }
 @media (max-width: 1100px) { .pc { grid-template-columns: 44px minmax(0, 1fr) minmax(0, 1.2fr); } .sc, .st { grid-column: 2 / -1; text-align: left; } .st { flex-direction: row; gap: 10px; flex-wrap: wrap; } }
 @media (max-width: 640px) { .pc { grid-template-columns: 44px minmax(0, 1fr); } .rl, .sc, .st { grid-column: 2; } .two { grid-template-columns: 1fr; } }
+.joins { border: 1.5px solid color-mix(in srgb, var(--accent) 45%, var(--line)); background: color-mix(in srgb, var(--accent) 5%, var(--surface)); border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.joins h3 { margin: 0; font-size: var(--fs-b); } .joins h3 small { color: var(--accent); } .jn { margin: 0; font-size: var(--fs-xs); color: var(--muted); }
+.jr { display: grid; grid-template-columns: minmax(160px, 1fr) minmax(0, 1.4fr) auto; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line-2); }
+.jm { display: flex; flex-direction: column; font-size: var(--fs-s); } .jm small { color: var(--muted); font-size: var(--fs-xs); }
+.ja { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 700px) { .jr { grid-template-columns: 1fr; } .ja { justify-content: flex-start; } }
 </style>

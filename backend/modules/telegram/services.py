@@ -259,8 +259,9 @@ def handle_update(tenant, update: dict, base_url: str | None = None) -> bool:
             from core.tglogin import after_contact
             after_contact(tenant, bu.chat_id, staff)          # saytdan kirish kutilayotgan bo'lsa — tasdiqlanadi
             return True
+        from core import join
         from core.tglogin import after_contact
-        if after_contact(tenant, bu.chat_id, None):
+        if join.after_contact(tenant, bu.chat_id, bu.phone) or after_contact(tenant, bu.chat_id, None):
             return True
         if staff_only(tenant):
             say(tenant, bu.chat_id, "Bu raqam xodimlar ro'yxatida topilmadi. Bot hozircha faqat restoran xodimlari uchun — menejerga murojaat qiling.",

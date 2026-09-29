@@ -96,12 +96,44 @@ def otp(request, data: OtpIn):
     phone = User.objects.normalize_phone(data.phone)
     if not PlatformStaff.objects.filter(user__phone=phone, is_active=True).exists():
         raise HttpError(404, "Bu raqam platforma jamoasida yo'q.")
+    import os
+    if not (settings.OTP_DEV_ECHO or os.environ.get("SMS_PROVIDER") == "eskiz"):
+        raise HttpError(400, "Kod yuborish xizmati ulanmagan — parol bilan kiring.")
     code = OtpCode.issue(phone, purpose="hq")
     send_otp(phone, code.code)
     out = {"ok": True}
     if settings.OTP_DEV_ECHO:
         out["dev_code"] = code.code
     return out
+
+
+class PwIn(Schema):
+    phone: str
+    password: str
+
+
+@router.post("/auth/login")
+def hq_login(request, data: PwIn):
+    """Platforma jamoasi: telefon + parol (parolni serverda beriladi: restopos-manage seed_hq --phone … --password …)."""
+    from django.core.cache import cache
+    phone = User.objects.normalize_phone(data.phone)
+    key = f"hqpw:{phone}"
+    if (cache.get(key) or 0) >= 8:
+        raise HttpError(429, "Juda ko'p noto'g'ri urinish — 15 daqiqadan keyin urinib ko'ring.")
+    staff = PlatformStaff.objects.select_related("user").filter(user__phone=phone, is_active=True).first()
+    if staff is None or not staff.user.has_usable_password() or not staff.user.check_password(data.password):
+        cache.set(key, (cache.get(key) or 0) + 1, 900)
+        raise HttpError(400, "Telefon yoki parol noto'g'ri.")
+    cache.delete(key)
+    hq.audit(staff, "login")
+    return {"token": issue_token(staff.user, "public"), "staff": _staff_out(staff)}
+
+
+@router.get("/auth/methods")
+def hq_methods(request):
+    """Kod bilan kirish faqat SMS ulangan yoki sinov rejimida (aks holda — parol)."""
+    import os
+    return {"code": bool(settings.OTP_DEV_ECHO or os.environ.get("SMS_PROVIDER") == "eskiz")}
 
 
 @router.post("/auth/verify")

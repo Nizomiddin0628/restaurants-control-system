@@ -16,7 +16,7 @@ import { type Meta, type Person, type RoleT, areaLevel, levelName, levelTone } f
 
 type Login = { history: { at: string; method: string; method_label: string; device: string; ip: string }[]; bot: string; login_url: string; invite: { link: string; expires: string } | null }
 type Full = Person & { login?: Login }
-const props = defineProps<{ userId: string | null; create?: boolean; tab?: 'access' | 'login' }>()
+const props = defineProps<{ userId: string | null; create?: boolean; tab?: 'access' | 'login'; prefill?: { full_name: string; phone: string; branch_ids: number[]; join_id: number; note?: string } | null }>()
 const emit = defineEmits<{ close: []; saved: [] }>()
 
 let metaCache: Meta | null = null
@@ -47,7 +47,8 @@ watch(() => [props.userId, props.create] as const, async ([id, cr]) => {
     else {
       p.value = null
       const def = meta.value?.roles.find(r => r.code === 'cashier' && r.grantable) ?? meta.value?.roles.filter(r => r.grantable).slice(-1)[0]
-      f.value = { full_name: '', phone: '+998 ', role_codes: def ? [def.code] : [], branch_ids: meta.value?.me.all_branches ? [] : (meta.value?.branches.map(b => b.id).slice(0, 1) ?? []), extra: [] }
+      f.value = { full_name: props.prefill?.full_name ?? '', phone: props.prefill?.phone ?? '+998 ', role_codes: def ? [def.code] : [],
+        branch_ids: props.prefill?.branch_ids?.length ? [...props.prefill.branch_ids] : meta.value?.me.all_branches ? [] : (meta.value?.branches.map(b => b.id).slice(0, 1) ?? []), extra: [] }
       showMatrix.value = false
       initial.value = snap()
     }
@@ -105,7 +106,7 @@ async function save() {
       await api.put(`/access/users/${p.value.id}`, { ...body, is_active: p.value.is_active ? undefined : true })
       await loadPerson(p.value.id); toast('Saqlandi'); emit('saved')
     } else {
-      const x = await api.post<Person>('/access/users', body)
+      const x = await api.post<Person>('/access/users', { ...body, join_id: props.prefill?.join_id ?? null })
       await loadPerson(x.id); justCreated.value = true; tab.value = 'login'; emit('saved')
       const cur = p.value as Full | null
       if (cur && !cur.telegram_linked && cur.login?.bot) makeInvite(true)
@@ -171,6 +172,7 @@ const title = computed(() => (p.value ? (p.value.full_name || p.value.phone) : '
         </div>
         <small class="last">{{ p.last_seen_at ? 'Oxirgi kirish: ' + dt(p.last_seen_at) : 'Hali kirmagan' }}</small>
       </div>
+      <p v-if="!p && prefill" class="note">🆕 Ro'yxatdan o'tish so'rovi{{ prefill.note ? ': «' + prefill.note + '»' : '' }}. Lavozimini tanlang va «Qo'shish»ni bosing — xodimga Telegram'da xabar boradi (agar raqamini tasdiqlagan bo'lsa).</p>
       <p v-if="justCreated" class="okb">✅ Xodim qo'shildi. Endi kirishini sozlang — eng osoni Telegram taklif havolasi.</p>
       <p v-if="p && !p.editable" class="warn">👁 Faqat ko'rish: bu xodim sizdan yuqori darajada yoki boshqa filialda.</p>
 
@@ -296,6 +298,7 @@ const title = computed(() => (p.value ? (p.value.full_name || p.value.phone) : '
 .hd { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; padding-bottom: 12px; border-bottom: 1px solid var(--line-2); }
 .hi { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 200px; } .hi b { font-size: var(--fs-b); } .hi > span { color: var(--muted); font-size: var(--fs-s); }
 .hi .chips { margin-top: 6px; } .last { color: var(--muted); font-size: var(--fs-xs); }
+.note { margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--info-tint); color: var(--ink); font-size: var(--fs-s); }
 .okb { margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--ok-tint); color: var(--ok); font-weight: 700; font-size: var(--fs-s); }
 .warn { margin: 0; padding: 8px 12px; border-radius: 10px; background: var(--warn-tint); color: var(--warn-ink); font-size: var(--fs-s); font-weight: 700; }
 .tabs { display: flex; gap: 6px; flex-wrap: wrap; }

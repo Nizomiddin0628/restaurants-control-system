@@ -328,7 +328,7 @@ def test_login_check_register_and_reset(client, api):
     """Kirish sahifasi: raqam tekshiruvi; parolsiz xodim kod bilan tasdiqlab parol qo'yadi; unutgan — eski parolsiz yangisini qo'yadi."""
     api.post("/api/v1/access/users", {"phone": "+998907000071", "full_name": "Yangi", "role_codes": ["cashier"]})
     j = lambda url, d, **h: client.post(url, d, content_type="application/json", **H, **h)    # noqa: E731
-    assert j("/api/v1/auth/check", {"phone": "+998900000009"}).status_code == 404
+    assert j("/api/v1/auth/check", {"phone": "+998900000009"}).json()["exists"] is False
     c = j("/api/v1/auth/check", {"phone": "90 700 00 71"}).json()
     assert c["has_password"] is False
     code = j("/api/v1/auth/otp", {"phone": "+998907000071"}).json()["dev_code"]
@@ -344,3 +344,61 @@ def test_login_check_register_and_reset(client, api):
     assert j("/api/v1/me/password", {"new_password": "yangi456", "reset_token": "buzuq"}, **auth_h).status_code == 400
     assert j("/api/v1/me/password", {"new_password": "yangi456", "reset_token": v["reset_token"]}, **auth_h).status_code == 200
     assert j("/api/v1/auth/login", {"phone": "+998907000071", "password": "yangi456"}).status_code == 200
+
+
+
+@pytest.mark.django_db
+def test_join_request_needs_approval(client, api, monkeypatch, tenant):
+    """Ro'yxatda yo'q odam so'rov yuboradi → kira olmaydi → rahbar tasdiqlaydi (lavozim bilan) → endi kiradi; rad etish ham."""
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123:abc")
+    sent = []
+    monkeypatch.setattr("integrations.telegram.call", lambda m, p, t=None: sent.append((m, p)) or {"ok": True})
+    with schema_context("lazzat"):
+        from core.models import User
+        boss = User.objects.get(phone="+998901234567")
+        boss.telegram_id = 880100
+        boss.save()
+    j = lambda url, d: client.post(url, d, content_type="application/json", **H)    # noqa: E731
+    r = j("/api/v1/auth/join", {"phone": "+998 90 555 44 33", "full_name": "Yangi Ofitsiant", "note": "ofitsiant"}).json()
+    assert r["ok"] and r["status"] == "pending"
+    assert any(p.get("chat_id") == 880100 and "Ro'yxatdan o'tish so'rovi" in p.get("text", "") for m, p in sent)
+    c = j("/api/v1/auth/check", {"phone": "+998905554433"}).json()
+    assert c["exists"] is False and c["join"] == "pending"
+    assert j("/api/v1/auth/otp", {"phone": "+998905554433"}).status_code == 404            # kira olmaydi
+    assert j("/api/v1/auth/tg-login", {"phone": "+998905554433"}).status_code == 404
+    # botda raqamni tasdiqlash
+    from integrations.telegram.api import process_update
+    with schema_context("lazzat"):
+        from public.models import Tenant
+        t = Tenant.objects.get(slug="lazzat")
+        process_update(t, {"update_id": 1, "message": {"message_id": 1, "chat": {"id": 880200, "type": "private"}, "from": {"id": 880200}, "text": f"/start join_{r['id']}"}})
+        from core import join
+        assert join.after_contact(t, 880200, "998905554433") is True
+    joins = api.get("/api/v1/access/joins").json()
+    assert joins[0]["verified"] is True and joins[0]["full_name"] == "Yangi Ofitsiant"
+    u = api.post("/api/v1/access/users", {"phone": "+998905554433", "full_name": "Yangi Ofitsiant", "role_codes": ["waiter"], "join_id": r["id"]}).json()
+    assert u["telegram_linked"] is True and api.get("/api/v1/access/joins").json() == []
+    assert any(p.get("chat_id") == 880200 and "tasdiqlandi" in p.get("text", "") for m, p in sent)
+    assert j("/api/v1/auth/check", {"phone": "+998905554433"}).json()["exists"] is True
+    # rad etish
+    r2 = j("/api/v1/auth/join", {"phone": "+998905554434", "full_name": "Begona Odam"}).json()
+    assert api.post(f"/api/v1/access/joins/{r2['id']}/reject").status_code == 200
+    assert j("/api/v1/auth/check", {"phone": "+998905554434"}).json()["join"] == "rejected"
+    # ro'yxatdagi odam so'rov yubora olmaydi
+    assert j("/api/v1/auth/join", {"phone": "+998905554433", "full_name": "Yangi Ofitsiant"}).status_code == 400
+
+
+@pytest.mark.django_db
+def test_hq_password_login(client):
+    from core.models import User
+    from public.models import PlatformStaff
+    pub = {"HTTP_HOST": "testserver"}
+    with schema_context("public"):
+        u, _ = User.objects.get_or_create(phone="+998900007777", defaults={"full_name": "Dev"})
+        u.set_password("Kuchli1234")
+        u.save()
+        PlatformStaff.objects.update_or_create(user=u, defaults={"role": "developer", "is_active": True})
+    bad = client.post("/api/v1/hq/auth/login", {"phone": "900007777", "password": "xato"}, content_type="application/json", **pub)
+    assert bad.status_code == 400
+    ok = client.post("/api/v1/hq/auth/login", {"phone": "900007777", "password": "Kuchli1234"}, content_type="application/json", **pub).json()
+    assert ok["token"] and ok["staff"]["role"] == "developer"

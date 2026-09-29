@@ -49,13 +49,15 @@ POSTGRES_HOST=localhost
 REDIS_URL=redis://localhost:6379/3
 PLATFORM_DOMAIN=$BASE
 ALLOWED_HOSTS=*
-OTP_DEV_ECHO=1
+OTP_DEV_ECHO=0
 HTTPS=0
 ENV
   chmod 600 $ENVF
 fi
 sed -i "s/^PLATFORM_DOMAIN=.*/PLATFORM_DOMAIN=$BASE/" $ENVF
 if [ "${HTTPS_ON:-1}" = 1 ]; then sed -i "s/^HTTPS=.*/HTTPS=1/" $ENVF; else sed -i "s/^HTTPS=.*/HTTPS=0/" $ENVF; fi
+# Xavfsizlik: kod hech qachon ekranda ko'rsatilmaydi (faqat Telegram/SMS orqali). Sinov uchun qo'lda: OTP_DEV_ECHO=1
+grep -q "^OTP_DEV_ECHO=" $ENVF && sed -i "s/^OTP_DEV_ECHO=.*/OTP_DEV_ECHO=${OTP_DEV_ECHO_ON:-0}/" $ENVF || echo "OTP_DEV_ECHO=0" >> $ENVF
 set -a; . $ENVF; set +a
 sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$POSTGRES_USER'" | grep -q 1 \
   || sudo -u postgres psql -qc "CREATE ROLE $POSTGRES_USER LOGIN PASSWORD '$POSTGRES_PASSWORD'"
@@ -204,7 +206,7 @@ echo "   Telegram bot:"
 sudo -u $USR bash -c "set -a; . $ENVF; set +a; cd $APP/backend; $APP/.venv/bin/python manage.py telegram_check --fix" || echo "   (bot tekshiruvi o'tmadi — keyin: restopos-manage telegram_check --fix)"
 cat <<DONE
 
-$(printf '\033[1;32m')TAYYOR!$(printf '\033[0m')  Kirish telefoni: +998901234567 (kod ekranda chiqadi — SMS ulanmaguncha)
+$(printf '\033[1;32m')TAYYOR!$(printf '\033[0m')  Kirish: telefon + parol yoki «Telegram orqali kirish» (kod ekranda ko'rsatilmaydi)
   Namuna restoran:  $SCH://namuna.$BASE/admin/
   Lazzat:           $SCH://lazzat.$BASE/admin/
   Sayt (mijozlar):  $SCH://namuna.$BASE/
@@ -213,4 +215,5 @@ Yangilash (GitHub'ga push qilgandan keyin) — xuddi shu buyruq. Yangi restoran 
 Log: journalctl -u restopos -f
 Telegram bot holati: restopos-manage telegram_check   (tuzatish: --fix)
 O'z raqamingizga parol: restopos-manage user_access --all --phone +998XXXXXXXXX --password 'Parol123' --role owner --name 'Ism'
+HQ uchun parol:        restopos-manage seed_hq --phone +998XXXXXXXXX --name 'Ism' --role developer --password 'Parol1234'
 DONE

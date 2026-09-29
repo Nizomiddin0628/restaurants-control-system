@@ -1,16 +1,20 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+/** HQ kirish: telefon + parol (asosiy). Kod bilan — faqat SMS ulangan yoki sinov rejimida. */
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { api } from '@restopos/api'
+import { api, auth as tokenStore } from '@restopos/api'
 import { UiButton, UiInput, toast } from '@restopos/ui'
 import { useHq } from '../store'
 
 const s = useHq(), router = useRouter()
-const phone = ref('+998')
-const code = ref('')
-const step = ref<1 | 2>(1)
-const dev = ref('')
-const busy = ref(false)
+const phone = ref('+998'), password = ref(''), code = ref('')
+const mode = ref<'pw' | 'code'>('pw'), step = ref<1 | 2>(1), dev = ref(''), busy = ref(false), canCode = ref(false)
+onMounted(async () => { try { canCode.value = (await api.get<{ code: boolean }>('/hq/auth/methods')).code } catch { canCode.value = false } })
+async function login() {
+  busy.value = true
+  try { const r = await api.post('/hq/auth/login', { phone: phone.value, password: password.value }); tokenStore.set(r.token); s.me = r.staff; router.replace('/') }
+  catch (e: any) { toast(e.detail ?? 'Xato', 'danger') } finally { busy.value = false }
+}
 async function send() {
   busy.value = true
   try { const r = await api.post('/hq/auth/otp', { phone: phone.value }); dev.value = r.dev_code ?? ''; step.value = 2 }
@@ -20,21 +24,24 @@ async function verify() {
   busy.value = true
   try { await s.verify(phone.value, code.value); router.replace('/') } catch (e: any) { toast(e.detail ?? 'Xato', 'danger') } finally { busy.value = false }
 }
+function submit() { if (mode.value === 'pw') login(); else if (step.value === 1) send(); else verify() }
 </script>
 
 <template>
   <div class="lg">
-    <form class="box" @submit.prevent="step === 1 ? send() : verify()">
+    <form class="box" @submit.prevent="submit">
       <div class="br"><span>R</span><b>Platforma HQ</b></div>
       <h1>Platforma jamoasi uchun kirish</h1>
       <p>Barcha restoranlar, billing va texnik yordam bitta joyda. Faqat jamoa a'zolari kira oladi.</p>
-      <UiInput v-if="step === 1" v-model="phone" label="Telefon raqam" type="tel" autocomplete="tel" />
-      <template v-else>
-        <UiInput v-model="code" label="SMS kod" inputmode="numeric" autocomplete="one-time-code" />
-        <small v-if="dev" class="dev">Dev rejim: kod <b>{{ dev }}</b></small>
+      <UiInput v-if="mode === 'pw' || step === 1" v-model="phone" label="Telefon raqam" type="tel" autocomplete="username" />
+      <UiInput v-if="mode === 'pw'" v-model="password" label="Parol" type="password" autocomplete="current-password" />
+      <template v-else-if="step === 2">
+        <UiInput v-model="code" label="Kod" inputmode="numeric" autocomplete="one-time-code" />
+        <small v-if="dev" class="dev">Sinov rejimi: kod <b>{{ dev }}</b></small>
       </template>
-      <UiButton type="submit" variant="brand" block :loading="busy">{{ step === 1 ? 'Kod olish' : 'Kirish' }}</UiButton>
-      <button v-if="step === 2" type="button" class="bk" @click="step = 1">← Raqamni o'zgartirish</button>
+      <UiButton type="submit" variant="brand" block :loading="busy">{{ mode === 'pw' ? 'Kirish' : step === 1 ? 'Kod olish' : 'Kirish' }}</UiButton>
+      <button v-if="canCode" type="button" class="bk" @click="mode = mode === 'pw' ? 'code' : 'pw'; step = 1">{{ mode === 'pw' ? 'Kod bilan kirish' : '← Parol bilan kirish' }}</button>
+      <small v-if="mode === 'pw'" class="dev">Parolni server administratori beradi.</small>
     </form>
   </div>
 </template>

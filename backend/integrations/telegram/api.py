@@ -57,10 +57,12 @@ def process_update(tenant, upd: dict, base_url: str | None = None) -> None:
     # Saytga kirishni tasdiqlash (login:…) va xavfsizlik (sec:…) tugmalari
     cq = upd.get("callback_query") or {}
     data = str(cq.get("data") or "")
-    if data.startswith(("login:", "sec:", "shift:")):
+    if data.startswith(("login:", "sec:", "shift:", "join:")):
         try:
             if data.startswith("login:"):
                 from core.tglogin import handle_callback
+            elif data.startswith("join:"):
+                from core.join import handle_callback
             elif data.startswith("shift:"):
                 from modules.pos.handover import handle_callback
             else:
@@ -79,6 +81,15 @@ def process_update(tenant, upd: dict, base_url: str | None = None) -> None:
             on_start(tenant, (m0.get("chat") or {}).get("id"), t0.split("login_", 1)[1].strip())
         except Exception:
             log.exception("tg-login start")
+        return
+
+    # Ro'yxatdan o'tish so'rovi: t.me/<bot>?start=join_<id> — raqamni tasdiqlash
+    if t0.startswith("/start join_"):
+        try:
+            from core.join import on_start as join_start
+            join_start(tenant, (m0.get("chat") or {}).get("id"), t0.split("join_", 1)[1].strip())
+        except Exception:
+            log.exception("join start")
         return
 
     # Taklif havolasi: t.me/<bot>?start=inv_<kod> — xodim bir bosishda ulanadi (telegram moduli o'chiq bo'lsa ham)
@@ -135,8 +146,9 @@ def process_update(tenant, upd: dict, base_url: str | None = None) -> None:
             from core.tglogin import after_contact
             after_contact(tenant, chat_id, user)
         else:
+            from core import join
             from core.tglogin import after_contact
-            if not after_contact(tenant, chat_id, None):
+            if not join.after_contact(tenant, chat_id, phone) and not after_contact(tenant, chat_id, None):
                 send_message(chat_id, "Bu raqam xodimlar ro'yxatida yo'q. Menejerga murojaat qiling.")
         return
 

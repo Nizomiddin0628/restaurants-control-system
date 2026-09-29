@@ -62,8 +62,62 @@ def auth_check(request, data: CheckIn):
         raise HttpError(400, "Telefon raqamni to'liq yozing: +998 90 123 45 67")
     u = User.objects.filter(phone=phone, is_active=True, memberships__is_active=True).distinct().first()
     if u is None:
-        raise HttpError(404, "Bu raqam restoran xodimlari ro'yxatida yo'q. Rahbaringiz sizni «Xodimlar va kirish» bo'limida qo'shishi kerak.")
-    return {"phone": phone, "has_password": _has_pw(u), "telegram": bool(u.telegram_id), "bot": _bot_username(request.tenant)}
+        from core.models import JoinRequest
+        j = JoinRequest.objects.filter(phone=phone).first()
+        return {"phone": phone, "exists": False, "join": j.status if j else None, "bot": _bot_username(request.tenant)}
+    return {"phone": phone, "exists": True, "has_password": _has_pw(u), "telegram": bool(u.telegram_id), "code": _code_channel(u) != "",
+            "bot": _bot_username(request.tenant)}
+
+
+def _code_channel(u) -> str:
+    """Bir martalik kod qayerga boradi: restoran boti (ulangan bo'lsa) yoki SMS (ulangan bo'lsa). Bo'lmasa — kod bilan kirib bo'lmaydi."""
+    if u is not None and u.telegram_id:
+        return "telegram"
+    if os.environ.get("SMS_PROVIDER") == "eskiz":
+        return "sms"
+    return "echo" if settings.OTP_DEV_ECHO else ""
+
+
+@api.get("/auth/branches", tags=["auth"])
+def public_branches(request):
+    """Ro'yxatdan o'tish shakli uchun — faqat filial nomlari."""
+    return [{"id": b.pk, "name": b.name} for b in Branch.objects.filter(deleted_at__isnull=True, is_active=True).order_by("id")]
+
+
+class JoinIn(Schema):
+    phone: str
+    full_name: str
+    note: str = ""
+    branch_id: Optional[int] = None
+
+
+@api.post("/auth/join", tags=["auth"])
+def join_request(request, data: JoinIn):
+    """Ro'yxatda yo'q odam — so'rov yuboradi; rahbar tasdiqlamaguncha kira olmaydi."""
+    from django.core.cache import cache
+
+    from core import join
+    from core.models import JoinRequest
+    phone = User.objects.normalize_phone(data.phone)
+    name = (data.full_name or "").strip()
+    if len(phone) < 12:
+        raise HttpError(400, "Telefon raqamni to'liq yozing: +998 90 123 45 67")
+    if len(name) < 3:
+        raise HttpError(400, "Ism va familiyangizni yozing")
+    if User.objects.filter(phone=phone, is_active=True, memberships__is_active=True).exists():
+        raise HttpError(400, "Siz allaqachon ro'yxatdasiz — «Kirish» bo'limidan kiring")
+    ip = (request.META.get("HTTP_X_FORWARDED_FOR") or request.META.get("REMOTE_ADDR") or "").split(",")[0].strip()[:64]
+    key = f"join:ip:{ip}"
+    if (cache.get(key) or 0) >= 5:
+        raise HttpError(429, "Juda ko'p so'rov — birozdan keyin urinib ko'ring")
+    j = JoinRequest.objects.filter(phone=phone, status=JoinRequest.PENDING).first()
+    if j is None:
+        branch = Branch.objects.filter(pk=data.branch_id, deleted_at__isnull=True).first() if data.branch_id else None
+        j = JoinRequest.objects.create(phone=phone, full_name=name[:120], note=(data.note or "").strip()[:200], branch=branch, ip=ip)
+        cache.set(key, (cache.get(key) or 0) + 1, 3600)
+        join.notify_managers(request.tenant, j)
+    bot = _bot_username(request.tenant)
+    return {"ok": True, "id": j.pk, "status": j.status, "link": f"https://t.me/{bot}?start=join_{j.pk}" if bot else ""}
 
 
 @api.post("/auth/otp", tags=["auth"])
@@ -71,8 +125,10 @@ def request_otp(request, data: OtpRequest):
     phone = User.objects.normalize_phone(data.phone)
     if not User.objects.filter(phone=phone, is_active=True).exists():
         raise HttpError(404, "Bu raqam ushbu restoranda ro'yxatdan o'tmagan")
-    otp = OtpCode.issue(phone)
     user = User.objects.filter(phone=phone, is_active=True).first()
+    if not _code_channel(user):
+        raise HttpError(400, "Kod yuborib bo'lmaydi: Telegram botga hali ulanmagansiz. «Telegram orqali» tasdiqlang — bot ochiladi, raqamingizni ulashasiz.")
+    otp = OtpCode.issue(phone)
     # 1) xodim restoran botiga ulangan bo'lsa — kod Telegram'ga (bepul, tez); 2) aks holda SMS (Eskiz ulangan bo'lsa)
     via = "telegram" if _tg_send(request.tenant, user, f"🔐 <b>{request.tenant.name}</b> — kirish kodi: <b>{otp.code}</b>\n5 daqiqa amal qiladi. Hech kimga aytmang.") else ""
     if not via:

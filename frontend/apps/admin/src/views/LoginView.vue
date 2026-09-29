@@ -11,20 +11,23 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { UiButton, UiInput, UiCard, toast } from '@restopos/ui'
+import { api } from '@restopos/api'
 import { useAuth } from '@/stores/auth'
 
 const a = useAuth(), router = useRouter(), route = useRoute()
 const LAST = 'restopos.phone'
 const saved = (() => { try { return localStorage.getItem(LAST) || '' } catch { return '' } })()
 type Tab = 'login' | 'register'
-type Step = 'phone' | 'password' | 'verify' | 'tg' | 'code' | 'setpw' | 'registered'
+type Step = 'phone' | 'password' | 'verify' | 'tg' | 'code' | 'setpw' | 'registered' | 'unknown' | 'join' | 'joined'
 type Purpose = 'login' | 'first' | 'register' | 'reset'
 const tab = ref<Tab>('login'), step = ref<Step>('phone'), purpose = ref<Purpose>('login')
 const phone = ref(saved || '+998 '), password = ref(''), showPw = ref(false)
 const pw1 = ref(''), pw2 = ref(''), resetToken = ref('')
 const code = ref(''), via = ref(''), devCode = ref('')
 const loading = ref(false), err = ref('')
-const info = ref<{ has_password: boolean; telegram: boolean; bot: string } | null>(null)
+const info = ref<{ exists: boolean; has_password?: boolean; telegram?: boolean; code?: boolean; join?: string | null; bot: string } | null>(null)
+// ro'yxatdan o'tish so'rovi (ro'yxatda yo'q odam) — rahbar tasdiqlamaguncha kira olmaydi
+const jf = ref({ full_name: '', note: '', branch_id: '' as string }), branches = ref<{ id: number; name: string }[]>([]), joinLink = ref('')
 const tg = ref<{ id: string; secret: string; link: string; linked: boolean } | null>(null), left = ref(0)
 let timer: ReturnType<typeof setInterval> | null = null
 
@@ -40,6 +43,11 @@ async function next() {
   try {
     info.value = await a.check(phone.value)
     remember()
+    if (!info.value.exists) {
+      if (info.value.join === 'pending') { step.value = 'joined'; return }
+      if (tab.value === 'register') { await openJoin(); return }
+      step.value = 'unknown'; return
+    }
     if (tab.value === 'register') {
       if (info.value.has_password) { step.value = 'registered'; return }
       purpose.value = 'register'; step.value = 'verify'
@@ -52,6 +60,17 @@ async function loginPw() {
   loading.value = true; err.value = ''
   try { await a.login(phone.value, password.value); finish() }
   catch (e: any) { err.value = e.detail ?? 'Parol noto\'g\'ri' } finally { loading.value = false }
+}
+async function openJoin() {
+  tab.value = 'register'; step.value = 'join'; err.value = ''
+  if (!branches.value.length) { try { branches.value = await api.get('/auth/branches') } catch { branches.value = [] } }
+}
+async function sendJoin() {
+  loading.value = true; err.value = ''
+  try {
+    const r = await api.post<{ link: string }>('/auth/join', { phone: phone.value, full_name: jf.value.full_name, note: jf.value.note, branch_id: jf.value.branch_id ? Number(jf.value.branch_id) : null })
+    joinLink.value = r.link; step.value = 'joined'
+  } catch (e: any) { err.value = e.detail ?? 'Xato' } finally { loading.value = false }
 }
 function forgot() { purpose.value = 'reset'; step.value = 'verify'; err.value = '' }
 function viaTelegram() { purpose.value = purpose.value === 'login' ? 'login' : purpose.value; startTg() }
@@ -137,10 +156,39 @@ onMounted(async () => {
 
         <!-- 1. TELEFON -->
         <form v-if="step === 'phone'" @submit.prevent="next">
-          <p v-if="tab === 'register'" class="note">Rahbaringiz sizni tizimga qo'shgan bo'lsa — raqamingizni yozing, tasdiqlang va o'zingizga parol qo'ying.</p>
+          <p v-if="tab === 'register'" class="note">Raqamingizni yozing. Rahbar sizni qo'shgan bo'lsa — tasdiqlab parol qo'yasiz; qo'shmagan bo'lsa — so'rov yuborasiz, u tasdiqlaydi.</p>
           <UiInput v-model="phone" label="Telefon raqamingiz" type="tel" placeholder="+998 90 123 45 67" autocomplete="username" :error="err" />
           <UiButton type="submit" :loading="loading" block size="l">Davom etish</UiButton>
         </form>
+
+        <!-- Ro'yxatda yo'q -->
+        <div v-else-if="step === 'unknown'" class="col">
+          <p class="er">Bu raqam restoran xodimlari ro'yxatida yo'q.</p>
+          <p class="muted sm">Yangi xodimmisiz? So'rov yuboring — rahbaringiz tasdiqlagach kira olasiz.</p>
+          <UiButton block size="l" @click="openJoin">Ro'yxatdan o'tish so'rovi</UiButton>
+        </div>
+
+        <!-- So'rov shakli -->
+        <form v-else-if="step === 'join'" @submit.prevent="sendJoin">
+          <p class="note">Bu raqam hali ro'yxatda yo'q. So'rov yuboring — <b>rahbar tasdiqlagandan keyin</b> kira olasiz.</p>
+          <UiInput v-model="jf.full_name" label="Ism familiya" placeholder="Masalan: Aziz Karimov" autocomplete="name" />
+          <UiInput v-model="jf.note" label="Lavozim yoki izoh" placeholder="Masalan: kassir, Rustam aka tavsiya qildi" />
+          <label v-if="branches.length > 1" class="sel"><span>Filial</span>
+            <select v-model="jf.branch_id"><option value="">— tanlang —</option><option v-for="b in branches" :key="b.id" :value="String(b.id)">{{ b.name }}</option></select>
+          </label>
+          <p v-if="err" class="er">{{ err }}</p>
+          <UiButton type="submit" :loading="loading" :disabled="jf.full_name.trim().length < 3" block size="l">So'rov yuborish</UiButton>
+        </form>
+
+        <!-- So'rov yuborildi -->
+        <div v-else-if="step === 'joined'" class="col center">
+          <div class="pulse">⏳</div>
+          <b>So'rovingiz rahbarga yuborildi</b>
+          <p class="muted sm">Tasdiqlanmaguncha tizimga kira olmaysiz. Tasdiqlangach «Kirish» bo'limidan telefon raqamingiz bilan kirasiz.</p>
+          <a v-if="joinLink" class="open" :href="joinLink" target="_blank" rel="noopener">Telegram'da xabar olish (tavsiya)</a>
+          <p v-if="joinLink" class="muted sm">Botda «📱 Telefonni ulashish» ni bossangiz — tasdiqlanganda darhol xabar keladi.</p>
+          <UiButton variant="ghost" block @click="reset('login')">Kirish sahifasiga qaytish</UiButton>
+        </div>
 
         <!-- Allaqachon ro'yxatdan o'tgan -->
         <div v-else-if="step === 'registered'" class="col">
@@ -166,7 +214,7 @@ onMounted(async () => {
           <p class="muted sm">{{ verifyText }}</p>
           <p v-if="err" class="er">{{ err }}</p>
           <button type="button" class="opt tg" :disabled="loading" @click="startTg"><span>✈️</span><div><b>Telegram orqali</b><small>{{ info?.telegram ? 'Botga «Ha» tugmasi keladi — bir bosish' : 'Bot ochiladi → «📱 Telefonni ulashish» — tamom' }}</small></div><em>tavsiya</em></button>
-          <button type="button" class="opt" :disabled="loading" @click="sendCode"><span>🔢</span><div><b>Kod bilan</b><small>6 xonali kod Telegram yoki SMS orqali keladi</small></div></button>
+          <button v-if="info?.code" type="button" class="opt" :disabled="loading" @click="sendCode"><span>🔢</span><div><b>Kod bilan</b><small>6 xonali kod Telegram yoki SMS orqali keladi</small></div></button>
         </div>
 
         <!-- 2c. TELEGRAM KUTISH -->
@@ -227,5 +275,7 @@ h3 { margin: 0; font-size: var(--fs-l); }
 .pulse { width: 72px; height: 72px; border-radius: 50%; display: grid; place-items: center; font-size: 34px; background: color-mix(in srgb, #229ED9 16%, transparent); animation: p 1.6s ease-in-out infinite; }
 @keyframes p { 50% { transform: scale(1.08); box-shadow: 0 0 0 12px color-mix(in srgb, #229ED9 10%, transparent); } }
 .open { display: inline-flex; justify-content: center; align-items: center; min-height: 46px; padding: 0 18px; border-radius: 12px; background: #229ED9; color: #fff; font-weight: 800; text-decoration: none; width: 100%; box-sizing: border-box; }
+.sel { display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-s); font-weight: 700; color: var(--ink-2); }
+.sel select { min-height: 46px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; font: inherit; background: var(--surface); color: var(--ink); }
 .chk { display: flex; gap: 8px; align-items: center; font-size: var(--fs-s); color: var(--ink-2); }
 </style>

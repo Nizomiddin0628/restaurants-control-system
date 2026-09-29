@@ -17,7 +17,7 @@ export const useAuth = defineStore('auth', {
     async load() { if (!tokenStore.token) throw new Error('no token'); this.me = await api.get<Me>('/me') },
     async requestOtp(phone: string) { return api.post<{ ok: boolean; dev_code?: string; via?: string }>('/auth/otp', { phone }) },
     async verify(phone: string, code: string) { const r = await api.post<{ token: string; user: Me; reset_token?: string }>('/auth/verify', { phone, code }); tokenStore.set(r.token); this.me = r.user; return r.reset_token ?? '' },
-    async check(phone: string) { return api.post<{ phone: string; has_password: boolean; telegram: boolean; bot: string }>('/auth/check', { phone }) },
+    async check(phone: string) { return api.post<{ phone: string; exists: boolean; has_password?: boolean; telegram?: boolean; code?: boolean; join?: string | null; bot: string }>('/auth/check', { phone }) },
     async setPassword(password: string, reset_token: string) { await api.post('/me/password', { new_password: password, reset_token }); if (this.me) this.me.has_password = true },
     async login(phone: string, password: string) { const r = await api.post<{ token: string; user: Me }>('/auth/login', { phone, password }); tokenStore.set(r.token); this.me = r.user },
     async tgStart(phone: string) { return api.post<{ ok: boolean; reason?: string; id?: string; secret?: string; ttl?: number; bot_username?: string; link?: string; linked?: boolean }>('/auth/tg-login', { phone }) },
