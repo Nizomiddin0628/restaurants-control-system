@@ -19,7 +19,8 @@ from public.models import Domain, Tenant
 
 API = "https://api.telegram.org/bot{token}/{method}"
 COMMANDS = [
-    {"command": "start", "description": "Boshlash / menyu"},
+    {"command": "menu", "description": "📋 Tugmalarni ochish"},
+    {"command": "start", "description": "Boshlash / profil kartasi"},
     {"command": "vazifalar", "description": "Ochiq vazifalarim"},
     {"command": "keldim", "description": "Ishga keldim"},
     {"command": "ketdim", "description": "Ishdan ketdim"},

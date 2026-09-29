@@ -37,6 +37,9 @@ BTN_MENU, BTN_BOOK, BTN_ORDERS, BTN_CONTACT, BTN_PHONE, BTN_CANCEL = (
 BTN_BONUS, BTN_SKIP = "🎁 Bonuslarim", "⏭ O'tkazib yuborish"
 # xodimlar (rahbar/menejer) klaviaturasi — mijoz tugmalari ularga kerak emas
 BTN_TASKS, BTN_IN, BTN_OUT, BTN_ME = "📋 Vazifalarim", "🕘 Keldim", "🏁 Ketdim", "👤 Profilim"
+BTN_HIDE = "⬇️ Menyuni yig'ish"
+HIDDEN_TEXT = ("⬇️ Tugmalar yig'ildi — ekran bo'shadi.\n\n"
+               "Qayta ochish: pastdagi chap <b>«Menu»</b> tugmasi → <b>/menu</b> (yoki shunchaki /menu deb yozing).")
 STAFF_BUTTONS = {BTN_TASKS: "/vazifalar", BTN_IN: "/keldim", BTN_OUT: "/ketdim"}
 
 
@@ -62,17 +65,27 @@ def miniapp_url(base_url: str | None) -> str | None:
 
 
 def staff_keyboard(tenant, bu: BotUser) -> dict:
-    """Xodim klaviaturasi: AI Kotib (rahbar/menejer), vazifalar, keldim/ketdim."""
-    rows: list[list] = []
-    if _ai_ok(tenant, bu.staff):
-        from modules.ai.tg import keyboard_rows
-        rows.extend(keyboard_rows())
+    """Xodim klaviaturasi — ixcham, 2 ustun: AI Kotib (rahbar/menejer), vazifalar, keldim/ketdim, profil, «⬇️ Menyuni yig'ish».
+    Doimiy emas (is_persistent yo'q): xodim uni ⌨ belgisi bilan yashirib/ochishi mumkin; «⬇️ Menyuni yig'ish» butunlay yig'adi,
+    chapdagi «Menu» → /menu qayta ochadi."""
+    btns: list[str] = []
+    ai = _ai_ok(tenant, bu.staff)
+    if ai:
+        from modules.ai.tg import BTN_AI, BTN_REPORT, BTN_WEB
+        btns += [BTN_AI, BTN_WEB, BTN_REPORT]
     if tenant.module_enabled("tasks"):
-        rows.append([{"text": BTN_TASKS}])
+        btns.append(BTN_TASKS)
     if tenant.module_enabled("hr"):
-        rows.append([{"text": BTN_IN}, {"text": BTN_OUT}])
-    rows.append([{"text": BTN_ME}])
-    return {"keyboard": rows, "resize_keyboard": True, "is_persistent": True}
+        if len(btns) % 2:                       # Keldim / Ketdim — bir qatorda
+            btns.append(BTN_ME)
+            btns += [BTN_IN, BTN_OUT, BTN_HIDE]
+        else:
+            btns += [BTN_IN, BTN_OUT, BTN_ME, BTN_HIDE]
+    else:
+        btns += [BTN_ME, BTN_HIDE]
+    rows = [[{"text": t} for t in btns[i:i + 2]] for i in range(0, len(btns), 2)]
+    return {"keyboard": rows, "resize_keyboard": True,
+            "input_field_placeholder": "Savol yozing yoki 🎙 gapiring…" if ai else "Tugmani tanlang yoki /menu"}
 
 
 def staff_only(tenant) -> bool:
@@ -118,6 +131,7 @@ def _staff_help(tenant, user) -> str:
         lines.append("🕘 <b>Keldim</b> / 🏁 <b>Ketdim</b> — davomat")
     lines.append("👤 <b>Profilim</b> — saytga kirish havolasi, yangi parol, hamma qurilmalardan chiqish")
     lines.append("💻 <b>Saytga kirish</b>: telefon raqamingiz → «Telegram orqali kirish» → shu yerda «✅ Ha»")
+    lines.append("⬇️ <b>Menyuni yig'ish</b> — tugmalarni yashirish; qayta ochish: chapdagi «Menu» → /menu")
     return "\n".join(lines)
 
 
@@ -286,11 +300,19 @@ def handle_update(tenant, update: dict, base_url: str | None = None) -> bool:
     if bu.staff_id and (text.split(" ")[0].split("@")[0] in STAFF_COMMANDS or text in STAFF_BUTTONS):
         return False
 
+    # --- xodim: tugmalarni yig'ish (qayta ochish — «Menu» → /menu)
+    if bu.staff_id and text == BTN_HIDE:
+        say(tenant, bu.chat_id, HIDDEN_TEXT, {"remove_keyboard": True})
+        return True
+
     # --- xodim: /start va boshqa gaplar — xodim menyusi
     if bu.staff_id and (text.startswith("/start") or text in ("/menu", BTN_CANCEL, "/cancel") or not text):
         bu.state = {}
         bu.save(update_fields=["state"])
-        say(tenant, bu.chat_id, staff_card(tenant, bu.staff), staff_keyboard(tenant, bu))
+        if text == "/menu":                      # «Menu» → /menu — faqat tugmalarni qayta ochadi (uzun karta shart emas)
+            say(tenant, bu.chat_id, "📋 Menyu ochildi 👇\n<i>Yig'ish: «⬇️ Menyuni yig'ish» yoki ⌨ belgisi.</i>", staff_keyboard(tenant, bu))
+        else:
+            say(tenant, bu.chat_id, staff_card(tenant, bu.staff), staff_keyboard(tenant, bu))
         return True
 
     # --- bot hozircha faqat xodimlar uchun: mijoz menyusi yopiq (vakansiyaga ariza — yuqorida, ishlayveradi)

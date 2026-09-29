@@ -211,3 +211,11 @@ def test_staff_only_mode(client, bot, tenant, monkeypatch):
     flat = [b["text"] for row in kb["keyboard"] for b in row]
     assert "🤖 AI Kotib" in flat and "📋 Vazifalarim" in flat and "🍔 Menyu va buyurtma" not in flat
     assert "AI Kotib" in text
+    # tugmalar ixcham (2 ustun), doimiy emas; «⬇️ Menyuni yig'ish» yig'adi, /menu qayta ochadi
+    assert not kb.get("is_persistent") and all(len(r) <= 2 for r in kb["keyboard"]) and "⬇️ Menyuni yig'ish" in flat
+    _hook(client, _msg(32, "⬇️ Menyuni yig'ish"))
+    text, kb = sent[-1]
+    assert kb == {"remove_keyboard": True} and "/menu" in text
+    _hook(client, _msg(32, "/menu"))
+    text, kb = sent[-1]
+    assert "Menyu ochildi" in text and kb["keyboard"]

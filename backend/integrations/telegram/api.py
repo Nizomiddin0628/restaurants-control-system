@@ -174,6 +174,14 @@ def process_update(tenant, upd: dict, base_url: str | None = None) -> None:
                      reply_markup=CONTACT_KEYBOARD)
         return
 
+    try:
+        from modules.telegram.services import BTN_HIDE, HIDDEN_TEXT
+        if text == BTN_HIDE:
+            send_message(chat_id, HIDDEN_TEXT, reply_markup={"remove_keyboard": True})
+            return
+    except Exception:
+        pass
+
     if text.startswith("/vazifalar"):
         try:
             from modules.tasks.models import Task
