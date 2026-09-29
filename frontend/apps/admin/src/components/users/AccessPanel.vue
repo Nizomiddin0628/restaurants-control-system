@@ -16,7 +16,7 @@ import { type Meta, type Person, type RoleT, areaLevel, levelName, levelTone } f
 
 type Login = { history: { at: string; method: string; method_label: string; device: string; ip: string }[]; bot: string; login_url: string; invite: { link: string; expires: string } | null }
 type Full = Person & { login?: Login }
-const props = defineProps<{ userId: string | null; create?: boolean; tab?: 'access' | 'login'; prefill?: { full_name: string; phone: string; branch_ids: number[]; join_id: number; note?: string } | null }>()
+const props = defineProps<{ userId: string | null; create?: boolean; tab?: 'access' | 'login'; prefill?: { full_name: string; phone: string; branch_ids: number[]; join_id: number; note?: string; verified?: boolean; has_password?: boolean } | null }>()
 const emit = defineEmits<{ close: []; saved: [] }>()
 
 let metaCache: Meta | null = null
@@ -172,7 +172,13 @@ const title = computed(() => (p.value ? (p.value.full_name || p.value.phone) : '
         </div>
         <small class="last">{{ p.last_seen_at ? 'Oxirgi kirish: ' + dt(p.last_seen_at) : 'Hali kirmagan' }}</small>
       </div>
-      <p v-if="!p && prefill" class="note">🆕 Ro'yxatdan o'tish so'rovi{{ prefill.note ? ': «' + prefill.note + '»' : '' }}. Lavozimini tanlang va «Qo'shish»ni bosing — xodimga Telegram'da xabar boradi (agar raqamini tasdiqlagan bo'lsa).</p>
+      <div v-if="!p && prefill" class="note">
+        🆕 <b>Ro'yxatdan o'tish so'rovi</b>{{ prefill.note ? ': «' + prefill.note + '»' : '' }}. Lavozimini tanlang, kerak bo'lsa pastda bo'limlar (ko'radi / o'zgartiradi) va AI Kotibni sozlang, so'ng «Qo'shish»ni bosing.
+        <span class="jflags">
+          <span :class="prefill.verified ? 'okf' : 'wf'">{{ prefill.verified ? '✈️ Raqam Telegram\'da tasdiqlangan — tasdiqlanganda unga xabar boradi' : '⚠️ Raqam tasdiqlanmagan — bu shu odam ekaniga ishonch hosil qiling (qo\'ng\'iroq qilib ko\'ring)' }}</span>
+          <span :class="prefill.has_password ? 'okf' : 'wf'">{{ prefill.has_password ? '🔑 O\'zi parol qo\'ygan — tasdiqlangach telefon + parol bilan kiradi' : '🔑 Paroli yo\'q — birinchi kirishda raqamini tasdiqlab parol qo\'yadi' }}</span>
+        </span>
+      </div>
       <p v-if="justCreated" class="okb">✅ Xodim qo'shildi. Endi kirishini sozlang — eng osoni Telegram taklif havolasi.</p>
       <p v-if="p && !p.editable" class="warn">👁 Faqat ko'rish: bu xodim sizdan yuqori darajada yoki boshqa filialda.</p>
 
@@ -299,6 +305,7 @@ const title = computed(() => (p.value ? (p.value.full_name || p.value.phone) : '
 .hi { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 200px; } .hi b { font-size: var(--fs-b); } .hi > span { color: var(--muted); font-size: var(--fs-s); }
 .hi .chips { margin-top: 6px; } .last { color: var(--muted); font-size: var(--fs-xs); }
 .note { margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--info-tint); color: var(--ink); font-size: var(--fs-s); }
+.jflags { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; } .jflags span { font-size: var(--fs-xs); font-weight: 700; padding: 5px 8px; border-radius: 8px; } .okf { background: var(--ok-tint); color: var(--ok); } .wf { background: var(--warn-tint, #FEF3C7); color: var(--warn, #92400E); }
 .okb { margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--ok-tint); color: var(--ok); font-weight: 700; font-size: var(--fs-s); }
 .warn { margin: 0; padding: 8px 12px; border-radius: 10px; background: var(--warn-tint); color: var(--warn-ink); font-size: var(--fs-s); font-weight: 700; }
 .tabs { display: flex; gap: 6px; flex-wrap: wrap; }

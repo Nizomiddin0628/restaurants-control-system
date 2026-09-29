@@ -3,55 +3,71 @@
  * Kirish sahifasi — oddiy sayt kabi, ikki bo'lim:
  *   «Kirish»: telefon → parol bo'lsa parol; unutgan bo'lsa → Telegram yoki kod bilan tasdiqlab yangi parol.
  *             Paroli yo'q xodim → raqamini tasdiqlaydi (Telegram / kod) → parol qo'yadi (yoki keyinroq).
- *   «Ro'yxatdan o'tish»: rahbar qo'shgan xodim birinchi marta — raqamini tasdiqlaydi va parol o'ylab topadi.
- *             Paroli bor bo'lsa — kod yuborilmaydi, «Kirish» ga yo'naltiriladi.
+ *   «Ro'yxatdan o'tish»: avval shakl — ism familiya, telefon (faqat O'zbekiston raqami, xato bo'lsa darhol ogohlantiradi),
+ *             filial, lavozim, parol. Ro'yxatda yo'q bo'lsa → so'rov rahbarga ketadi (filial menejeri Telegram'da, hamma rahbarlar saytda);
+ *             rahbar qo'shgan, lekin paroli yo'q bo'lsa → raqamini tasdiqlaydi va shu parol saqlanadi; paroli bor bo'lsa → «Kirish».
  * Telegram orqali: botga «Ha/Yo'q» keladi; bot hali ulanmagan bo'lsa — havola botni ochadi → «📱 Telefonni ulashish» → sayt o'zi kiradi.
  * Boshqa restorandan o'tish havolasi (?switch=...) — hech narsa so'ramasdan kiradi.
  */
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { UiButton, UiInput, UiCard, toast } from '@restopos/ui'
 import { api } from '@restopos/api'
+import { checkUz, formatUz } from '@/utils/phone'
 import { useAuth } from '@/stores/auth'
 
 const a = useAuth(), router = useRouter(), route = useRoute()
 const LAST = 'restopos.phone'
 const saved = (() => { try { return localStorage.getItem(LAST) || '' } catch { return '' } })()
 type Tab = 'login' | 'register'
-type Step = 'phone' | 'password' | 'verify' | 'tg' | 'code' | 'setpw' | 'registered' | 'unknown' | 'join' | 'joined'
+type Step = 'phone' | 'password' | 'verify' | 'tg' | 'code' | 'setpw' | 'registered' | 'unknown' | 'joined'
 type Purpose = 'login' | 'first' | 'register' | 'reset'
 const tab = ref<Tab>('login'), step = ref<Step>('phone'), purpose = ref<Purpose>('login')
-const phone = ref(saved || '+998 '), password = ref(''), showPw = ref(false)
+const phone = ref(saved ? formatUz(saved) : '+998 '), password = ref(''), showPw = ref(false)
 const pw1 = ref(''), pw2 = ref(''), resetToken = ref('')
 const code = ref(''), via = ref(''), devCode = ref('')
 const loading = ref(false), err = ref('')
 const info = ref<{ exists: boolean; has_password?: boolean; telegram?: boolean; code?: boolean; join?: string | null; bot: string } | null>(null)
 // ro'yxatdan o'tish so'rovi (ro'yxatda yo'q odam) — rahbar tasdiqlamaguncha kira olmaydi
-const jf = ref({ full_name: '', note: '', branch_id: '' as string }), branches = ref<{ id: number; name: string }[]>([]), joinLink = ref('')
+const jf = ref({ full_name: '', note: '', branch_id: '' as string, pw: '', pw2: '' }), branches = ref<{ id: number; name: string }[]>([]), joinLink = ref('')
 const tg = ref<{ id: string; secret: string; link: string; linked: boolean } | null>(null), left = ref(0)
 let timer: ReturnType<typeof setInterval> | null = null
+
+// telefon: yozilayotganda +998 XX XXX XX XX ko'rinishiga keltiriladi; operator kodi xato bo'lsa darhol ogohlantiradi
+const tried = ref(false)
+function setPhone(v: string | number) {
+  // avval yozilganini qo'yamiz, keyin formatlaymiz — ortiqcha raqam yozilsa ham maydon to'g'ri ko'rinishga qaytadi
+  phone.value = String(v); nextTick(() => { phone.value = formatUz(String(v)) }); if (err.value) err.value = ''
+}
+const phoneErr = computed(() => {
+  const e = checkUz(phone.value)
+  if (!e) return ''
+  const d = phone.value.replace(/\D/g, '').slice(3)
+  return tried.value || (d.length >= 2 && e.includes('operator')) ? e : ''
+})
+const jErr = ref<Record<string, string>>({})
 
 function remember() { try { localStorage.setItem(LAST, phone.value) } catch { /* private */ } }
 function stop() { if (timer) clearInterval(timer); timer = null }
 onBeforeUnmount(stop)
-function reset(t?: Tab) { stop(); if (t) tab.value = t; step.value = 'phone'; err.value = ''; password.value = ''; code.value = ''; pw1.value = ''; pw2.value = ''; tg.value = null }
+function reset(t?: Tab) {
+  stop(); if (t) tab.value = t; step.value = 'phone'; err.value = ''; password.value = ''; code.value = ''; pw1.value = ''; pw2.value = ''; tg.value = null
+  tried.value = false; jErr.value = {}
+  if (tab.value === 'register') loadBranches()
+}
+async function loadBranches() { if (!branches.value.length) { try { branches.value = await api.get('/auth/branches') } catch { branches.value = [] } } }
 function finish() { remember(); stop(); toast('Xush kelibsiz!'); router.push(a.me?.home || '/') }
 
 // 1) telefon → holatga qarab keyingi qadam
 async function next() {
+  tried.value = true
+  if (phoneErr.value) return
   loading.value = true; err.value = ''
   try {
     info.value = await a.check(phone.value)
     remember()
-    if (!info.value.exists) {
-      if (info.value.join === 'pending') { step.value = 'joined'; return }
-      if (tab.value === 'register') { await openJoin(); return }
-      step.value = 'unknown'; return
-    }
-    if (tab.value === 'register') {
-      if (info.value.has_password) { step.value = 'registered'; return }
-      purpose.value = 'register'; step.value = 'verify'
-    } else if (info.value.has_password) { purpose.value = 'login'; step.value = 'password' }
+    if (!info.value.exists) { step.value = info.value.join === 'pending' ? 'joined' : 'unknown'; return }
+    if (info.value.has_password) { purpose.value = 'login'; step.value = 'password' }
     else { purpose.value = 'first'; step.value = 'verify' }
   } catch (e: any) { err.value = e.detail ?? 'Xato' } finally { loading.value = false }
 }
@@ -61,14 +77,33 @@ async function loginPw() {
   try { await a.login(phone.value, password.value); finish() }
   catch (e: any) { err.value = e.detail ?? 'Parol noto\'g\'ri' } finally { loading.value = false }
 }
-async function openJoin() {
-  tab.value = 'register'; step.value = 'join'; err.value = ''
-  if (!branches.value.length) { try { branches.value = await api.get('/auth/branches') } catch { branches.value = [] } }
+function openJoin() { reset('register') }
+// Ro'yxatdan o'tish shakli → tekshiruv → so'rov (yoki tasdiqlash / «Kirish»)
+function validJoin(): boolean {
+  const e: Record<string, string> = {}, f = jf.value
+  if (f.full_name.trim().split(/\s+/).filter(w => w.length > 1).length < 2) e.name = 'Ism va familiyangizni to\'liq yozing (masalan: Aziz Karimov)'
+  if (branches.value.length > 1 && !f.branch_id) e.branch = 'Qaysi filialda ishlaysiz — tanlang'
+  if (f.pw.length < 6) e.pw = 'Parol kamida 6 ta belgi bo\'lsin'
+  else if (f.pw !== f.pw2) e.pw2 = 'Ikkala parol bir xil emas'
+  jErr.value = e
+  return !Object.keys(e).length && !phoneErr.value
 }
-async function sendJoin() {
-  loading.value = true; err.value = ''
+async function register() {
+  tried.value = true; err.value = ''
+  if (!validJoin()) return
+  loading.value = true
   try {
-    const r = await api.post<{ link: string }>('/auth/join', { phone: phone.value, full_name: jf.value.full_name, note: jf.value.note, branch_id: jf.value.branch_id ? Number(jf.value.branch_id) : null })
+    info.value = await a.check(phone.value)
+    remember()
+    if (info.value.exists) {
+      if (info.value.has_password) { step.value = 'registered'; return }
+      // rahbar allaqachon qo'shgan — raqamni tasdiqlaydi, keyin shu parol saqlanadi
+      pw1.value = jf.value.pw; pw2.value = jf.value.pw2; purpose.value = 'register'; step.value = 'verify'; return
+    }
+    if (info.value.join === 'pending') { step.value = 'joined'; return }
+    const f = jf.value
+    const r = await api.post<{ link: string }>('/auth/join', { phone: phone.value, full_name: f.full_name.trim(), note: f.note.trim(), password: f.pw,
+      branch_id: f.branch_id ? Number(f.branch_id) : (branches.value.length === 1 ? branches.value[0].id : null) })
     joinLink.value = r.link; step.value = 'joined'
   } catch (e: any) { err.value = e.detail ?? 'Xato' } finally { loading.value = false }
 }
@@ -110,6 +145,7 @@ function afterVerified(rt: string) {
   resetToken.value = rt
   if (purpose.value === 'login') { finish(); return }
   step.value = 'setpw'; err.value = ''
+  if (purpose.value === 'register' && pw1.value.length >= 6 && pw1.value === pw2.value) savePw()   // shaklda yozgan paroli — darhol saqlanadi
 }
 // 3) parol qo'yish
 async function savePw() {
@@ -127,7 +163,7 @@ const codeHint = computed(() => via.value === 'telegram' ? '✈️ Kod Telegram\
 const verifyTitle = computed(() => ({ first: 'Birinchi marta kiryapsiz', register: 'Ro\'yxatdan o\'tish', reset: 'Parolni tiklash', login: 'Kirish' }[purpose.value]))
 const verifyText = computed(() => ({
   first: 'Sizda hali parol yo\'q. Raqamingiz sizniki ekanini tasdiqlang — keyin parol o\'ylab topasiz.',
-  register: 'Raqamingiz sizniki ekanini tasdiqlang — keyin parol o\'ylab topasiz.',
+  register: 'Rahbaringiz sizni allaqachon xodimlar ro\'yxatiga qo\'shgan. Raqamingiz sizniki ekanini tasdiqlang — yozgan parolingiz saqlanadi.',
   reset: 'Raqamingizni tasdiqlang — keyin yangi parol qo\'yasiz.',
   login: 'Qanday kirasiz?',
 }[purpose.value]))
@@ -154,37 +190,42 @@ onMounted(async () => {
         </div>
         <button v-else type="button" class="back" @click="reset()">← {{ phone }} · raqamni o'zgartirish</button>
 
-        <!-- 1. TELEFON -->
-        <form v-if="step === 'phone'" @submit.prevent="next">
-          <p v-if="tab === 'register'" class="note">Raqamingizni yozing. Rahbar sizni qo'shgan bo'lsa — tasdiqlab parol qo'yasiz; qo'shmagan bo'lsa — so'rov yuborasiz, u tasdiqlaydi.</p>
-          <UiInput v-model="phone" label="Telefon raqamingiz" type="tel" placeholder="+998 90 123 45 67" autocomplete="username" :error="err" />
+        <!-- 1. TELEFON (Kirish) -->
+        <form v-if="step === 'phone' && tab === 'login'" novalidate @submit.prevent="next">
+          <UiInput :model-value="phone" label="Telefon raqamingiz" type="tel" inputmode="tel" placeholder="+998 90 123 45 67" autocomplete="username" :error="phoneErr || err" @update:model-value="setPhone" />
           <UiButton type="submit" :loading="loading" block size="l">Davom etish</UiButton>
+        </form>
+
+        <!-- 1. RO'YXATDAN O'TISH SHAKLI -->
+        <form v-else-if="step === 'phone'" novalidate @submit.prevent="register">
+          <p class="note">Ma'lumotlaringizni yozing. So'rov <b>rahbaringizga</b> boradi — u tasdiqlab, qaysi bo'limlarga kirishingizni belgilagach tizimga kira olasiz.</p>
+          <UiInput v-model="jf.full_name" label="Ism familiya" placeholder="Masalan: Aziz Karimov" autocomplete="name" :error="jErr.name" />
+          <UiInput :model-value="phone" label="Telefon raqamingiz" type="tel" inputmode="tel" placeholder="+998 90 123 45 67" autocomplete="tel" :error="phoneErr" hint="Faqat O'zbekiston raqami: +998 XX XXX XX XX" @update:model-value="setPhone" />
+          <label v-if="branches.length > 1" class="sel"><span>Filial</span>
+            <select v-model="jf.branch_id" :class="{ bad: jErr.branch }"><option value="">— qaysi filialda ishlaysiz —</option><option v-for="b in branches" :key="b.id" :value="String(b.id)">{{ b.name }}</option></select>
+            <small v-if="jErr.branch" class="fe">{{ jErr.branch }}</small>
+          </label>
+          <UiInput v-model="jf.note" label="Lavozim yoki izoh (ixtiyoriy)" placeholder="Masalan: kassir, ofitsiant" />
+          <input type="text" name="username" autocomplete="username" :value="phone" hidden />
+          <UiInput v-model="jf.pw" label="Parol o'ylab toping (kamida 6 belgi)" :type="showPw ? 'text' : 'password'" autocomplete="new-password" :error="jErr.pw" />
+          <UiInput v-model="jf.pw2" label="Parolni takrorlang" :type="showPw ? 'text' : 'password'" autocomplete="new-password" :error="jErr.pw2" />
+          <label class="chk"><input v-model="showPw" type="checkbox" /> Parolni ko'rsatish</label>
+          <p v-if="err" class="er">{{ err }}</p>
+          <UiButton type="submit" :loading="loading" block size="l">Ro'yxatdan o'tish</UiButton>
         </form>
 
         <!-- Ro'yxatda yo'q -->
         <div v-else-if="step === 'unknown'" class="col">
           <p class="er">Bu raqam restoran xodimlari ro'yxatida yo'q.</p>
-          <p class="muted sm">Yangi xodimmisiz? So'rov yuboring — rahbaringiz tasdiqlagach kira olasiz.</p>
-          <UiButton block size="l" @click="openJoin">Ro'yxatdan o'tish so'rovi</UiButton>
+          <p class="muted sm">Yangi xodimmisiz? Ro'yxatdan o'ting — rahbaringiz tasdiqlagach kira olasiz.</p>
+          <UiButton block size="l" @click="openJoin">Ro'yxatdan o'tish</UiButton>
         </div>
-
-        <!-- So'rov shakli -->
-        <form v-else-if="step === 'join'" @submit.prevent="sendJoin">
-          <p class="note">Bu raqam hali ro'yxatda yo'q. So'rov yuboring — <b>rahbar tasdiqlagandan keyin</b> kira olasiz.</p>
-          <UiInput v-model="jf.full_name" label="Ism familiya" placeholder="Masalan: Aziz Karimov" autocomplete="name" />
-          <UiInput v-model="jf.note" label="Lavozim yoki izoh" placeholder="Masalan: kassir, Rustam aka tavsiya qildi" />
-          <label v-if="branches.length > 1" class="sel"><span>Filial</span>
-            <select v-model="jf.branch_id"><option value="">— tanlang —</option><option v-for="b in branches" :key="b.id" :value="String(b.id)">{{ b.name }}</option></select>
-          </label>
-          <p v-if="err" class="er">{{ err }}</p>
-          <UiButton type="submit" :loading="loading" :disabled="jf.full_name.trim().length < 3" block size="l">So'rov yuborish</UiButton>
-        </form>
 
         <!-- So'rov yuborildi -->
         <div v-else-if="step === 'joined'" class="col center">
           <div class="pulse">⏳</div>
           <b>So'rovingiz rahbarga yuborildi</b>
-          <p class="muted sm">Tasdiqlanmaguncha tizimga kira olmaysiz. Tasdiqlangach «Kirish» bo'limidan telefon raqamingiz bilan kirasiz.</p>
+          <p class="muted sm">Tasdiqlanmaguncha tizimga kira olmaysiz. Tasdiqlangach «Kirish» bo'limidan <b>telefon raqamingiz va parolingiz</b> bilan kirasiz.</p>
           <a v-if="joinLink" class="open" :href="joinLink" target="_blank" rel="noopener">Telegram'da xabar olish (tavsiya)</a>
           <p v-if="joinLink" class="muted sm">Botda «📱 Telefonni ulashish» ni bossangiz — tasdiqlanganda darhol xabar keladi.</p>
           <UiButton variant="ghost" block @click="reset('login')">Kirish sahifasiga qaytish</UiButton>
@@ -277,5 +318,6 @@ h3 { margin: 0; font-size: var(--fs-l); }
 .open { display: inline-flex; justify-content: center; align-items: center; min-height: 46px; padding: 0 18px; border-radius: 12px; background: #229ED9; color: #fff; font-weight: 800; text-decoration: none; width: 100%; box-sizing: border-box; }
 .sel { display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-s); font-weight: 700; color: var(--ink-2); }
 .sel select { min-height: 46px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; font: inherit; background: var(--surface); color: var(--ink); }
+.sel select.bad { border-color: var(--danger); } .fe { color: var(--danger); font-size: var(--fs-xs); font-weight: 600; }
 .chk { display: flex; gap: 8px; align-items: center; font-size: var(--fs-s); color: var(--ink-2); }
 </style>

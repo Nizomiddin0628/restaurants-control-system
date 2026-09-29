@@ -24,36 +24,40 @@ def _tg(tenant, method: str, payload: dict) -> dict:
     return tg(tenant, method, payload)
 
 
-def users_url(tenant) -> str:
+def users_url(tenant, jid: int | None = None) -> str:
     from .security import admin_url
     u = admin_url(tenant)
-    return u[: -len("/login")] + "/users?joins=1" if u.endswith("/login") else ""
+    return u[: -len("/login")] + (f"/users?join={jid}" if jid else "/users?joins=1") if u.endswith("/login") else ""
 
 
 def managers(tenant, branch_id: int | None = None) -> list[User]:
-    out = []
+    """Telegram'da xabar oladiganlar: menejerlar (egasi/Superadmin — yo'q, u so'rovlarni faqat saytda ko'radi).
+    Filial tanlangan bo'lsa — o'sha filial menejeri(lar)i; ular bo'lmasa yoki filial tanlanmagan bo'lsa — Bosh menejer(lar)."""
+    branch_mgrs, general = [], []
     for u in User.objects.filter(is_active=True, telegram_id__isnull=False, memberships__is_active=True).distinct():
-        if not u.has_perm_code("core.users.manage"):
+        lv = u.access_level()
+        if lv >= 100 or not u.has_perm_code("core.users.manage"):
             continue
         scope = u.branch_scope()
-        if scope is not None and branch_id and branch_id not in scope:
-            continue
-        out.append(u)
-    return out
+        if scope is None:
+            general.append(u)
+        elif branch_id and branch_id in scope:
+            branch_mgrs.append(u)
+    return branch_mgrs or general
 
 
 def text_of(j: JoinRequest) -> str:
     return (f"🆕 <b>Ro'yxatdan o'tish so'rovi</b>\n\n👤 {j.full_name}\n📞 {j.phone}" + (" ✅ (Telegram'da tasdiqlangan)" if j.verified else "")
             + (f"\n📍 {j.branch.name}" if j.branch_id else "") + (f"\n📝 {j.note}" if j.note else "")
-            + f"\n🕘 {timezone.localtime(j.created_at):%d.%m %H:%M}\n\nTasdiqlash: panel → «Xodimlar va kirish» → «🆕 So'rovlar» (lavozim tanlaysiz).")
+            + f"\n🕘 {timezone.localtime(j.created_at):%d.%m %H:%M}\n\n«Ko'rib chiqish» ni bosing — saytda uning ma'lumotlari ochiladi: lavozim, bo'limlar, AI Kotib ruxsatini berasiz.")
 
 
 def notify_managers(tenant, j: JoinRequest) -> None:
     try:
         rows = []
-        url = users_url(tenant)
+        url = users_url(tenant, j.pk)
         if url.startswith("https://"):
-            rows.append([{"text": "👥 Panelda ochish", "url": url}])
+            rows.append([{"text": "✅ Ko'rib chiqish va ruxsat berish", "url": url}])
         rows.append([{"text": "❌ Rad etish", "callback_data": f"join:no:{j.pk}"}])
         for u in managers(tenant, j.branch_id):
             _tg(tenant, "sendMessage", {"chat_id": u.telegram_id, "text": text_of(j), "parse_mode": "HTML", "reply_markup": {"inline_keyboard": rows}})
@@ -66,7 +70,7 @@ def notify_applicant(tenant, j: JoinRequest, approved: bool) -> None:
         return
     from .security import admin_url
     if approved:
-        text = (f"✅ <b>{tenant.name}</b> — so'rovingiz tasdiqlandi!\n\nSaytga kiring: telefon raqamingiz → «Telegram orqali kirish».\n{admin_url(tenant)}")
+        text = (f"✅ <b>{tenant.name}</b> — so'rovingiz tasdiqlandi!\n\nSaytga kiring: telefon raqamingiz va parolingiz (yoki «Telegram orqali kirish»).\n{admin_url(tenant)}")
     else:
         text = f"❌ <b>{tenant.name}</b> — ro'yxatdan o'tish so'rovingiz rad etildi. Savol bo'lsa, rahbaringizga murojaat qiling."
     _tg(tenant, "sendMessage", {"chat_id": j.telegram_id, "text": text, "parse_mode": "HTML"})
@@ -143,6 +147,9 @@ def reject(tenant, j: JoinRequest, by: User) -> None:
 def approve(tenant, j: JoinRequest, by: User, user: User) -> None:
     j.status, j.decided_at, j.decided_by, j.user = JoinRequest.APPROVED, timezone.now(), by, user
     j.save(update_fields=["status", "decided_at", "decided_by", "user"])
+    if j.password and not (user.password and user.has_usable_password()):
+        user.password = j.password            # ro'yxatdan o'tishda o'ylagan paroli (hash) — endi shu bilan kiradi
+        user.save(update_fields=["password"])
     if j.verified and j.telegram_id and not user.telegram_id:
         User.objects.filter(telegram_id=j.telegram_id).exclude(pk=user.pk).update(telegram_id=None)
         user.telegram_id = j.telegram_id

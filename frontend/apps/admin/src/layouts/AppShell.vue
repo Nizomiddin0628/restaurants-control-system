@@ -5,7 +5,7 @@
  *   2) bo'limga kirilganda — faqat shu bo'lim modullari, pastida «Asosiy sahifaga qaytish».
  * Telefon: pastki tab-bar + drawer; planshet: ikonkali tor menyu; kompyuter: to'liq.
  */
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { UiAvatar, UiIcon } from '@restopos/ui'
 import { t } from '@restopos/ui'
@@ -16,6 +16,10 @@ import AccountSwitcher from '@/components/shell/AccountSwitcher.vue'
 import AiChat from '@/components/ai/AiChat.vue'
 
 const a = useAuth(), ui = useUi(), route = useRoute(), router = useRouter()
+// yangi xodim so'rovlari (ro'yxatdan o'tganlar) — rahbarlarga menyuda qizil raqam; har 2 daqiqada yangilanadi
+const joins = computed(() => a.me?.joins_pending || 0)
+const joinTimer = setInterval(() => { if (a.me && a.me.joins_pending !== undefined && document.visibilityState === 'visible') a.load().catch(() => {}) }, 120_000)
+onBeforeUnmount(() => clearInterval(joinTimer))
 const { items, sections, current, currentItem, sectionLink } = useNav()
 /** Platforma yordami rejimi — egasi bergan ruxsat bilan kirilgan; tepada ogohlantirish */
 const supportMode = computed(() => (a.me?.roles ?? []).includes('platform_support'))
@@ -54,6 +58,7 @@ const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d)
         <div class="grp">Bo'limlar</div>
         <RouterLink v-for="s in sections" :key="s.code" :to="sectionLink(s)" class="item sec" :style="{ '--sc': s.color }" :title="s.title" @click="s.items.length === 1 && close()">
           <span class="si"><UiIcon :name="s.icon" :size="18" /></span><span class="lbl">{{ s.title }}</span>
+          <b v-if="joins && s.items.some(i => i.route === '/users')" class="nb" :title="`${joins} ta yangi xodim so'rovi`">{{ joins }}</b>
           <UiIcon v-if="s.items.length > 1" name="chevron" :size="14" class="chev" />
         </RouterLink>
       </nav>
@@ -62,6 +67,7 @@ const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d)
         <RouterLink :to="`/s/${shown.code}`" class="sh" :title="shown.title" @click="close"><span class="si"><UiIcon :name="shown.icon" :size="18" /></span><span class="lbl"><small>Bo'lim</small>{{ shown.title }}</span></RouterLink>
         <RouterLink v-for="n in shown.items" :key="n.route" :to="n.route" class="item" :class="{ on: matches(n.route, route.path) }" :title="t(n.label, ui.lang)" @click="close">
           <UiIcon :name="n.icon" /><span class="lbl">{{ t(n.label, ui.lang) }}</span>
+          <b v-if="joins && n.route === '/users'" class="nb" :title="`${joins} ta yangi xodim so'rovi`">{{ joins }}</b>
         </RouterLink>
         <div class="navsp"></div>
         <RouterLink v-if="route.path !== `/s/${shown.code}`" :to="`/s/${shown.code}`" class="item sback" :title="`${shown.title} — bo'lim paneli`" @click="close">
@@ -86,6 +92,7 @@ const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d)
           <h1>{{ title }}</h1>
         </div>
         <div class="sp"></div>
+        <RouterLink v-if="joins" to="/users?joins=1" class="link jn" :title="`${joins} ta yangi xodim ro'yxatdan o'tdi — ko'rib chiqing`">🆕 <span>{{ joins }}</span><span class="hp">&nbsp;so'rov</span></RouterLink>
         <AccountSwitcher variant="chip" />
         <a class="link" :href="`/`" target="_blank" rel="noopener"><UiIcon name="globe" /><span class="hp">Sayt</span></a>
         <a class="link" :href="`/tv/menu-board/`" target="_blank" rel="noopener"><UiIcon name="tv" /><span class="hp">TV</span></a>
@@ -126,6 +133,10 @@ const trialDays = computed(() => { const d = a.me?.tenant.trial_ends_at; if (!d)
 .item { display: flex; align-items: center; gap: 10px; min-height: var(--touch); padding: 0 12px; border-radius: var(--radius); color: var(--ink-2); text-decoration: none; font-weight: 600; font-size: var(--fs-b); border: 0; background: transparent; cursor: pointer; text-align: left; flex-shrink: 0; }
 .item .lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .ponly { display: none; }
+.nb { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 99px; background: var(--danger); color: #fff; font-size: 11px; font-weight: 800; display: inline-grid; place-items: center; flex-shrink: 0; }
+.nb + .chev { margin-left: 4px; }
+@media (min-width: 601px) and (max-width: 1024px) { .item { position: relative; } .nb { position: absolute; top: 2px; right: 2px; min-width: 16px; height: 16px; font-size: 10px; padding: 0 4px; } }
+.link.jn { border-color: color-mix(in srgb, var(--danger) 40%, var(--line)); color: var(--danger); background: var(--danger-tint); }
 .item:hover { background: var(--surface-3); }
 .item.on { background: var(--accent-tint); color: var(--accent); font-weight: 700; }
 .foot { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--line-2); padding-top: 8px; margin-top: 8px; }

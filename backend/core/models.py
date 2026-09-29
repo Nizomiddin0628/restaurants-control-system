@@ -244,6 +244,7 @@ class JoinRequest(models.Model):
     status = models.CharField(max_length=10, default=PENDING, db_index=True)
     telegram_id = models.BigIntegerField(null=True, blank=True)
     verified = models.BooleanField(default=False, help_text="telefon raqami Telegram orqali tasdiqlangan")
+    password = models.CharField(max_length=128, blank=True, help_text="ro'yxatdan o'tishda o'ylagan paroli (hash) — tasdiqlangach shu parol bilan kiradi")
     ip = models.CharField(max_length=64, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     decided_at = models.DateTimeField(null=True, blank=True)

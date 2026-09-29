@@ -383,7 +383,8 @@ def person_password_off(request, uid: str):
 # ------------------------------------------------------------------ ro'yxatdan o'tish so'rovlari
 def _join_out(j) -> dict:
     return {"id": j.pk, "phone": j.phone, "full_name": j.full_name, "note": j.note, "branch_id": j.branch_id,
-            "branch": j.branch.name if j.branch_id else None, "verified": j.verified, "status": j.status, "created_at": j.created_at.isoformat()}
+            "branch": j.branch.name if j.branch_id else None, "verified": j.verified, "status": j.status, "created_at": j.created_at.isoformat(),
+            "has_password": bool(j.password)}
 
 
 @router.get("/joins", auth=auth)

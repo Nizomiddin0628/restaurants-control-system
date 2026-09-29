@@ -57,9 +57,11 @@ class CheckIn(Schema):
 @api.post("/auth/check", tags=["auth"])
 def auth_check(request, data: CheckIn):
     """Kirish sahifasi: raqam ro'yxatdami, paroli bormi, Telegram ulanganmi — shunga qarab to'g'ri qadam ko'rsatiladi."""
-    phone = User.objects.normalize_phone(data.phone)
-    if len(phone) < 12:
-        raise HttpError(400, "Telefon raqamni to'liq yozing: +998 90 123 45 67")
+    from core.phone import normalize_uz
+    try:
+        phone = normalize_uz(data.phone)
+    except ValueError as e:
+        raise HttpError(400, str(e)) from None
     u = User.objects.filter(phone=phone, is_active=True, memberships__is_active=True).distinct().first()
     if u is None:
         from core.models import JoinRequest
@@ -89,6 +91,7 @@ class JoinIn(Schema):
     full_name: str
     note: str = ""
     branch_id: Optional[int] = None
+    password: str = ""          # ixtiyoriy: tasdiqlangach shu parol bilan kiradi
 
 
 @api.post("/auth/join", tags=["auth"])
@@ -98,12 +101,16 @@ def join_request(request, data: JoinIn):
 
     from core import join
     from core.models import JoinRequest
-    phone = User.objects.normalize_phone(data.phone)
-    name = (data.full_name or "").strip()
-    if len(phone) < 12:
-        raise HttpError(400, "Telefon raqamni to'liq yozing: +998 90 123 45 67")
-    if len(name) < 3:
-        raise HttpError(400, "Ism va familiyangizni yozing")
+    from core.phone import normalize_uz
+    try:
+        phone = normalize_uz(data.phone)
+    except ValueError as e:
+        raise HttpError(400, str(e)) from None
+    name = " ".join((data.full_name or "").split())
+    if len(name) < 3 or len(name.split()) < 2:
+        raise HttpError(400, "Ism va familiyangizni to'liq yozing (masalan: Aziz Karimov)")
+    if data.password and len(data.password) < 6:
+        raise HttpError(400, "Parol kamida 6 ta belgi bo'lsin")
     if User.objects.filter(phone=phone, is_active=True, memberships__is_active=True).exists():
         raise HttpError(400, "Siz allaqachon ro'yxatdasiz — «Kirish» bo'limidan kiring")
     ip = (request.META.get("HTTP_X_FORWARDED_FOR") or request.META.get("REMOTE_ADDR") or "").split(",")[0].strip()[:64]
@@ -113,7 +120,9 @@ def join_request(request, data: JoinIn):
     j = JoinRequest.objects.filter(phone=phone, status=JoinRequest.PENDING).first()
     if j is None:
         branch = Branch.objects.filter(pk=data.branch_id, deleted_at__isnull=True).first() if data.branch_id else None
-        j = JoinRequest.objects.create(phone=phone, full_name=name[:120], note=(data.note or "").strip()[:200], branch=branch, ip=ip)
+        from django.contrib.auth.hashers import make_password
+        j = JoinRequest.objects.create(phone=phone, full_name=name[:120], note=(data.note or "").strip()[:200], branch=branch, ip=ip,
+                                       password=make_password(data.password) if data.password else "")
         cache.set(key, (cache.get(key) or 0) + 1, 3600)
         join.notify_managers(request.tenant, j)
     bot = _bot_username(request.tenant)
@@ -293,12 +302,27 @@ def _me(request, user: User) -> dict:
         "nav": [n for n in modreg.nav_for(tenant.enabled_modules) if user.has_perm_code(n.get("perm", "core.*"))],
         "branches": _my_branches(user),
         "branch_all": user.branch_scope() is None,
+        "joins_pending": _joins_pending(user),
         "level": user.access_level(),
         "home": "/" if user.has_perm_code("core.dashboard.view") else "/my",
         "telegram_linked": bool(user.telegram_id),
         "bot_username": _bot_username(tenant),
         "has_password": _has_pw(user),
     }
+
+
+def _joins_pending(user) -> int:
+    """Menyuda «Xodimlar va kirish» yonida — nechta ro'yxatdan o'tish so'rovi kutmoqda (faqat kirish bera oladiganlarga)."""
+    if not user.has_perm_code("core.users.manage"):
+        return 0
+    from django.db.models import Q
+
+    from core.models import JoinRequest
+    qs = JoinRequest.objects.filter(status=JoinRequest.PENDING)
+    scope = user.branch_scope()
+    if scope is not None:
+        qs = qs.filter(Q(branch__isnull=True) | Q(branch_id__in=scope))
+    return qs.count()
 
 
 def _bot_username(tenant) -> str:

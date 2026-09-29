@@ -6,7 +6,9 @@
  *   • «Rollar» — lavozim shablonlari (Kassir, Oshpaz…): bir marta sozlanadi, keyin xodimga bir bosishda beriladi.
  * Ierarxiya: Superadmin → Bosh menejer → Filial admini → xodim. Har kim faqat o'zidan pastdagilarni boshqaradi.
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useAuth } from '@/stores/auth'
 import { api } from '@restopos/api'
 import { UiAvatar, UiButton, UiChip, UiDrawer, UiIcon, UiInput, toast } from '@restopos/ui'
 import AccessMatrix from '@/components/users/AccessMatrix.vue'
@@ -19,7 +21,22 @@ async function load() {
   try { [meta.value, people.value] = await Promise.all([api.get<Meta>('/access/meta'), api.get<Person[]>('/access/users')]) }
   catch (e: any) { toast(e.detail ?? 'Yuklab bo\'lmadi', 'danger') } finally { loading.value = false }
 }
-onMounted(() => { load(); loadJoins() })
+const route = useRoute(), router = useRouter(), auth = useAuth()
+onMounted(async () => {
+  load()
+  await loadJoins()
+  // Telegram'dagi «Ko'rib chiqish» havolasi (?join=<id>) yoki menyudagi 🆕 belgisi (?joins=1)
+  const jid = Number(route.query.join || 0)
+  if (jid) {
+    const j = joins.value.find(x => x.id === jid)
+    if (j) approveJoin(j)
+    else toast('Bu so\'rov allaqachon ko\'rib chiqilgan yoki sizning filialingizga tegishli emas', 'info')
+  } else if (route.query.joins) {
+    await nextTick(); document.querySelector('.joins')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+  if (route.query.join || route.query.joins) router.replace({ query: {} })
+})
+function refreshAll() { load(); loadJoins(); auth.load().catch(() => {}) }
 
 const bname = (id: number) => meta.value?.branches.find(b => b.id === id)?.name ?? `#${id}`
 const multiBranch = computed(() => (meta.value?.branches.length ?? 0) > 1)
@@ -45,13 +62,13 @@ const inactive = computed(() => filtered.value.filter(p => !p.is_active))
 const panel = ref<{ id: string | null; create: boolean; tab?: 'access' | 'login'; prefill?: any } | null>(null)
 function openNew() { panel.value = { id: null, create: true } }
 // ro'yxatdan o'tish so'rovlari (xodim o'zi yuborgan) — tasdiqlanmaguncha kira olmaydi
-type Join = { id: number; phone: string; full_name: string; note: string; branch_id: number | null; branch: string | null; verified: boolean; created_at: string }
+type Join = { id: number; phone: string; full_name: string; note: string; branch_id: number | null; branch: string | null; verified: boolean; has_password?: boolean; created_at: string }
 const joins = ref<Join[]>([])
 async function loadJoins() { try { joins.value = await api.get<Join[]>('/access/joins') } catch { joins.value = [] } }
-function approveJoin(j: Join) { panel.value = { id: null, create: true, prefill: { full_name: j.full_name, phone: j.phone, branch_ids: j.branch_id ? [j.branch_id] : [], join_id: j.id, note: j.note } } }
+function approveJoin(j: Join) { panel.value = { id: null, create: true, prefill: { full_name: j.full_name, phone: j.phone, branch_ids: j.branch_id ? [j.branch_id] : [], join_id: j.id, note: j.note, verified: j.verified, has_password: !!j.has_password } } }
 async function rejectJoin(j: Join) {
   if (!confirm(`${j.full_name} (${j.phone}) so'rovi rad etilsinmi?`)) return
-  try { await api.post(`/access/joins/${j.id}/reject`); toast('Rad etildi'); loadJoins() } catch (e: any) { toast(e.detail ?? 'Xato', 'danger') }
+  try { await api.post(`/access/joins/${j.id}/reject`); toast('Rad etildi'); refreshAll() } catch (e: any) { toast(e.detail ?? 'Xato', 'danger') }
 }
 function openPerson(p: Person, tab: 'access' | 'login' = 'access') { panel.value = { id: p.id, create: false, tab } }
 
@@ -92,9 +109,9 @@ async function delRole() {
 
     <section v-if="joins.length" class="joins">
       <h3>🆕 Ro'yxatdan o'tish so'rovlari <small>{{ joins.length }}</small></h3>
-      <p class="jn">Bu odamlar o'zi so'rov yubordi. Tasdiqlamaguningizcha tizimga kira olmaydi.</p>
+      <p class="jn">Bu odamlar o'zi ro'yxatdan o'tdi. Tasdiqlamaguningizcha tizimga kira olmaydi. «Tasdiqlash» — lavozim, filial, qaysi bo'limlarni ko'rishi/o'zgartirishi va AI Kotib ruxsatini belgilaysiz.</p>
       <div v-for="j in joins" :key="j.id" class="jr">
-        <span class="who"><b>{{ j.full_name }}</b><small>{{ j.phone }}{{ j.verified ? ' · ✈️ raqam tasdiqlangan' : ' · raqam tasdiqlanmagan' }}</small></span>
+        <span class="who"><b>{{ j.full_name }}</b><small>{{ j.phone }}{{ j.verified ? ' · ✈️ raqam tasdiqlangan' : ' · raqam tasdiqlanmagan' }}{{ j.has_password ? ' · 🔑 parol qo\'ygan' : '' }}</small></span>
         <span class="jm">{{ j.note || '—' }}<small>{{ j.branch ? '📍 ' + j.branch : '' }} · {{ new Date(j.created_at).toLocaleString('uz-UZ', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) }}</small></span>
         <span class="ja"><UiButton size="s" variant="brand" @click="approveJoin(j)">✅ Tasdiqlash</UiButton><UiButton size="s" variant="ghost" @click="rejectJoin(j)">Rad etish</UiButton></span>
       </div>
@@ -151,7 +168,7 @@ async function delRole() {
     </template>
 
     <!-- Xodim oynasi: lavozim va ruxsatlar + kirish va xavfsizlik -->
-    <AccessPanel :user-id="panel?.id ?? null" :create="!!panel?.create" :tab="panel?.tab" :prefill="panel?.prefill ?? null" @close="panel = null" @saved="load(); loadJoins()" />
+    <AccessPanel :user-id="panel?.id ?? null" :create="!!panel?.create" :tab="panel?.tab" :prefill="panel?.prefill ?? null" @close="panel = null" @saved="refreshAll" />
 
     <!-- Rol oynasi -->
     <UiDrawer :open="!!rf" :title="rf?.id ? rf.name : 'Yangi lavozim'" width="760px" @close="rf = null">

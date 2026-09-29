@@ -353,15 +353,19 @@ def test_join_request_needs_approval(client, api, monkeypatch, tenant):
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123:abc")
     sent = []
     monkeypatch.setattr("integrations.telegram.call", lambda m, p, t=None: sent.append((m, p)) or {"ok": True})
+    api.post("/api/v1/access/users", {"phone": "+998907000061", "full_name": "Bosh Menejer", "role_codes": ["general_manager"]})
     with schema_context("lazzat"):
         from core.models import User
         boss = User.objects.get(phone="+998901234567")
         boss.telegram_id = 880100
         boss.save()
+        User.objects.filter(phone="+998907000061").update(telegram_id=880101)
     j = lambda url, d: client.post(url, d, content_type="application/json", **H)    # noqa: E731
     r = j("/api/v1/auth/join", {"phone": "+998 90 555 44 33", "full_name": "Yangi Ofitsiant", "note": "ofitsiant"}).json()
     assert r["ok"] and r["status"] == "pending"
-    assert any(p.get("chat_id") == 880100 and "Ro'yxatdan o'tish so'rovi" in p.get("text", "") for m, p in sent)
+    assert any(p.get("chat_id") == 880101 and "Ro'yxatdan o'tish so'rovi" in p.get("text", "") for m, p in sent)
+    assert not any(p.get("chat_id") == 880100 for m, p in sent)          # egasiga Telegram'da kelmaydi — faqat saytda
+    assert api.get("/api/v1/me").json()["joins_pending"] == 1
     c = j("/api/v1/auth/check", {"phone": "+998905554433"}).json()
     assert c["exists"] is False and c["join"] == "pending"
     assert j("/api/v1/auth/otp", {"phone": "+998905554433"}).status_code == 404            # kira olmaydi
@@ -402,3 +406,36 @@ def test_hq_password_login(client):
     assert bad.status_code == 400
     ok = client.post("/api/v1/hq/auth/login", {"phone": "900007777", "password": "Kuchli1234"}, content_type="application/json", **pub).json()
     assert ok["token"] and ok["staff"]["role"] == "developer"
+
+
+@pytest.mark.django_db
+def test_join_uz_phone_password_and_branch_routing(client, api, monkeypatch, branches):
+    """Ro'yxatdan o'tish: faqat O'zbekiston raqami, ism-familiya to'liq; so'rov o'sha filial menejeriga boradi;
+    tasdiqlangach o'zi yozgan paroli bilan kiradi."""
+    b1, b2 = branches
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123:abc")
+    sent = []
+    monkeypatch.setattr("integrations.telegram.call", lambda m, p, t=None: sent.append((m, p)) or {"ok": True})
+    api.post("/api/v1/access/users", {"phone": "+998907000081", "full_name": "Chilonzor Menejer", "role_codes": ["manager"], "branch_ids": [b1]})
+    api.post("/api/v1/access/users", {"phone": "+998907000082", "full_name": "Yunusobod Menejer", "role_codes": ["manager"], "branch_ids": [b2]})
+    with schema_context("lazzat"):
+        from core.models import User
+        User.objects.filter(phone="+998907000081").update(telegram_id=881001)
+        User.objects.filter(phone="+998907000082").update(telegram_id=881002)
+    j = lambda url, d: client.post(url, d, content_type="application/json", **H)    # noqa: E731
+    base = {"full_name": "Aziz Karimov", "branch_id": b1, "password": "salom123"}
+    assert j("/api/v1/auth/join", {**base, "phone": "+7 912 345 67 89"}).status_code == 400          # chet el raqami
+    assert j("/api/v1/auth/join", {**base, "phone": "+998 12 345 67 89"}).status_code == 400         # operator kodi yo'q
+    assert j("/api/v1/auth/join", {**base, "phone": "+998 90 123"}).status_code == 400               # to'liq emas
+    assert j("/api/v1/auth/join", {**base, "phone": "+998905550011", "full_name": "Aziz"}).status_code == 400
+    assert j("/api/v1/auth/join", {**base, "phone": "+998905550011", "password": "123"}).status_code == 400
+    r = j("/api/v1/auth/join", {**base, "phone": "90 555 00 11"})
+    assert r.status_code == 200, r.content
+    rid = r.json()["id"]
+    to = {p.get("chat_id") for m, p in sent if m == "sendMessage"}
+    assert 881001 in to and 881002 not in to                                # faqat Chilonzor menejeriga
+    jn = api.get("/api/v1/access/joins").json()[0]
+    assert jn["has_password"] is True and jn["branch_id"] == b1
+    assert j("/api/v1/auth/login", {"phone": "+998905550011", "password": "salom123"}).status_code != 200   # tasdiqlanmagan
+    api.post("/api/v1/access/users", {"phone": "+998905550011", "full_name": "Aziz Karimov", "role_codes": ["waiter"], "branch_ids": [b1], "join_id": rid})
+    assert j("/api/v1/auth/login", {"phone": "+998905550011", "password": "salom123"}).status_code == 200
