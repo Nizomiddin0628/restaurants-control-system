@@ -80,9 +80,46 @@ def test_shift_close_requires_no_open_orders(api, ops):
     r = api.post(f"/api/v1/pos/shift/{s['id']}/close", {"cash_end": 100_000})
     assert r.status_code == 400
     api.post(f"/api/v1/pos/orders/{o['id']}/pay", {"payment_method": "cash"})
-    r = api.post(f"/api/v1/pos/shift/{s['id']}/close", {"cash_end": 125_000})
+    assert api.post(f"/api/v1/pos/shift/{s['id']}/close", {"cash_end": 125_000}).status_code == 400      # farq bor — sabab shart
+    r = api.post(f"/api/v1/pos/shift/{s['id']}/close", {"cash_end": 125_000, "diff_reason": "qaytim xato berilgan"})
     assert r.status_code == 200
     assert r.json()["totals"]["expected_cash"] == 130_000 and r.json()["totals"]["cash_diff"] == -5_000
+
+
+@pytest.mark.django_db
+def test_shift_handover_counted_moves_accept(api, ops, monkeypatch):
+    """Kassa topshirish: kirim/chiqim, kupyuralar bo'yicha sanash, qoldiq va topshirish, qabul qiluvchi tasdig'i (Telegram)."""
+    sent = []
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123:abc")
+    monkeypatch.setattr("integrations.telegram.call", lambda m, p, t=None: sent.append((m, p)) or {"ok": True})
+    s = api.post("/api/v1/pos/shift/open", {"cash_start": 100_000}).json()
+    o = api.post("/api/v1/pos/orders", {"items": [{"product_id": ops["product"].pk, "qty": 1}]}).json()
+    api.post(f"/api/v1/pos/orders/{o['id']}/pay", {"payment_method": "cash"})
+    assert api.post(f"/api/v1/pos/shift/{s['id']}/move", {"kind": "out", "amount": 20_000, "reason": "non uchun"}).status_code == 200
+    assert api.post(f"/api/v1/pos/shift/{s['id']}/move", {"kind": "out", "amount": 10_000, "reason": ""}).status_code == 400
+    h = api.get("/api/v1/pos/shift-helpers").json()
+    assert 200000 in h["denoms"]
+    with schema_context("lazzat"):
+        from core.models import User
+        boss = User.objects.create_user("+998907777001", full_name="Qabul qiluvchi")
+        boss.telegram_id = 5550001
+        boss.save()
+    # kutilgan naqd: 100 000 + 30 000 − 20 000 = 110 000 → 50 000×2 + 10 000×1
+    r = api.post(f"/api/v1/pos/shift/{s['id']}/close", {"counted": {"50000": 2, "10000": 1}, "left_amount": 60_000, "handed_to": str(boss.pk)})
+    assert r.status_code == 200, r.content
+    d = r.json()
+    assert d["cash_end"] == 110_000 and d["totals"]["cash_diff"] == 0 and d["handed_amount"] == 50_000 and d["totals"]["cash_out"] == 20_000
+    msg = next(p for m, p in sent if m == "sendMessage" and p["chat_id"] == 5550001)
+    assert "Topshirildi" in msg["text"] and msg["reply_markup"]["inline_keyboard"][0][0]["callback_data"] == f"shift:ok:{s['id']}"
+    from integrations.telegram.api import process_update
+    with schema_context("lazzat"):
+        from public.models import Tenant
+        process_update(Tenant.objects.get(slug="lazzat"), {"update_id": 3, "callback_query": {"id": "x", "data": f"shift:ok:{s['id']}", "message": {"message_id": 9, "chat": {"id": 5550001}}}})
+        from modules.pos.models import CashShift
+        assert CashShift.objects.get(pk=s["id"]).accepted_by_id == boss.pk
+    assert api.post("/api/v1/pos/shift/open", {"cash_start": 60_000}).status_code == 200
+    rep = api.get(f"/api/v1/pos/shift/{s['id']}/report").json()
+    assert rep["moves"][0]["reason"] == "non uchun" and "Kassa topshirildi" in rep["text"]
 
 
 @pytest.mark.django_db

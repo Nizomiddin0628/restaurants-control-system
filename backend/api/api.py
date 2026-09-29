@@ -38,6 +38,32 @@ class OtpVerify(Schema):
 class TokenOut(Schema):
     token: str
     user: dict
+    reset_token: str = ""
+
+
+RESET_SALT = "restopos.pwreset"
+
+
+def _reset_token(user: User) -> str:
+    """Telefon (kod yoki Telegram) bilan tasdiqlangandan keyin 10 daqiqa ichida eski parolsiz yangi parol qo'yish uchun."""
+    from django.core import signing
+    return signing.dumps({"u": str(user.pk), "v": int(user.token_version or 0)}, salt=RESET_SALT)
+
+
+class CheckIn(Schema):
+    phone: str
+
+
+@api.post("/auth/check", tags=["auth"])
+def auth_check(request, data: CheckIn):
+    """Kirish sahifasi: raqam ro'yxatdami, paroli bormi, Telegram ulanganmi — shunga qarab to'g'ri qadam ko'rsatiladi."""
+    phone = User.objects.normalize_phone(data.phone)
+    if len(phone) < 12:
+        raise HttpError(400, "Telefon raqamni to'liq yozing: +998 90 123 45 67")
+    u = User.objects.filter(phone=phone, is_active=True, memberships__is_active=True).distinct().first()
+    if u is None:
+        raise HttpError(404, "Bu raqam restoran xodimlari ro'yxatida yo'q. Rahbaringiz sizni «Xodimlar va kirish» bo'limida qo'shishi kerak.")
+    return {"phone": phone, "has_password": _has_pw(u), "telegram": bool(u.telegram_id), "bot": _bot_username(request.tenant)}
 
 
 @api.post("/auth/otp", tags=["auth"])
@@ -72,7 +98,7 @@ def verify_otp(request, data: OtpVerify):
     otp.save(update_fields=["used_at"])
     user = User.objects.get(phone=phone)
     security.record_login(request, user, "code")
-    return {"token": issue_token(user, request.tenant.schema_name), "user": _me(request, user)}
+    return {"token": issue_token(user, request.tenant.schema_name), "user": _me(request, user), "reset_token": _reset_token(user)}
 
 
 class TgLoginIn(Schema):
@@ -88,15 +114,16 @@ def tg_login_start(request, data: TgLoginIn):
     if user is None or not user.memberships.filter(is_active=True).exists():
         raise HttpError(404, "Bu raqam ushbu restoranda ro'yxatdan o'tmagan — rahbaringizga ayting")
     bot = _bot_username(request.tenant)
-    if not user.telegram_id:
-        return {"ok": False, "reason": "not_linked", "bot_username": bot}
     try:
         req = tglogin.start(request.tenant, user, request.META.get("REMOTE_ADDR", ""), request.headers.get("User-Agent", ""))
     except PermissionError as e:
         raise HttpError(429, str(e)) from None
     if req is None:
         return {"ok": False, "reason": "bot_off", "bot_username": bot}
-    return {"ok": True, "id": str(req.pk), "secret": req.secret, "ttl": req.TTL, "bot_username": bot}
+    # Telegram hali ulanmagan bo'lsa ham — havola orqali: botda «📱 Raqamni ulashish» → raqam mos kelsa, o'zi kiradi
+    link = f"https://t.me/{bot}?start=login_{req.pk.hex}" if bot else ""
+    return {"ok": True, "id": str(req.pk), "secret": req.secret, "ttl": req.TTL, "bot_username": bot, "link": link,
+            "linked": bool(user.telegram_id)}
 
 
 @api.get("/auth/tg-login/{rid}", tags=["auth"])
@@ -106,7 +133,7 @@ def tg_login_poll(request, rid: str, secret: str = ""):
     if status != "ok" or user is None:
         return {"status": status}
     security.record_login(request, user, "telegram")
-    return {"status": "ok", "token": issue_token(user, request.tenant.schema_name), "user": _me(request, user)}
+    return {"status": "ok", "token": issue_token(user, request.tenant.schema_name), "user": _me(request, user), "reset_token": _reset_token(user)}
 
 
 def _tg_send(tenant, user, text: str) -> bool:
@@ -165,6 +192,7 @@ def password_login(request, data: PasswordLogin):
 class PasswordChange(Schema):
     old_password: str = ""
     new_password: str
+    reset_token: str = ""      # telefon tasdiqlangandan keyin — eski parol so'ralmaydi (unutgan / birinchi marta)
 
 
 def _check_new_password(pw: str) -> None:
@@ -175,7 +203,17 @@ def _check_new_password(pw: str) -> None:
 @api.post("/me/password", auth=auth, tags=["auth"])
 def change_my_password(request, data: PasswordChange):
     u = request.auth
-    if _has_pw(u) and not u.check_password(data.old_password):
+    ok_reset = False
+    if data.reset_token:
+        from django.core import signing
+        try:
+            p = signing.loads(data.reset_token, salt=RESET_SALT, max_age=600)
+            ok_reset = p.get("u") == str(u.pk) and int(p.get("v", -1)) == int(u.token_version or 0)
+        except signing.BadSignature:
+            ok_reset = False
+        if not ok_reset:
+            raise HttpError(400, "Tasdiqlash muddati o'tdi — qaytadan kod yoki Telegram orqali tasdiqlang")
+    if _has_pw(u) and not ok_reset and not u.check_password(data.old_password):
         raise HttpError(400, "Joriy parol noto'g'ri")
     _check_new_password(data.new_password)
     u.set_password(data.new_password)

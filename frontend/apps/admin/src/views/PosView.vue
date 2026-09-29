@@ -8,6 +8,7 @@ import { api } from '@restopos/api'
 import { UiButton, UiChip, UiDrawer, UiEmpty, UiIcon, UiInput, money, t, toast } from '@restopos/ui'
 import { useAuth } from '@/stores/auth'
 import { useUi } from '@/stores/ui'
+import ShiftPanel from '@/components/pos/ShiftPanel.vue'
 
 const a = useAuth(), ui = useUi()
 const menu = ref<any>({ categories: [], payment_methods: [], order_types: [] })
@@ -25,7 +26,6 @@ const paying = ref(false)
 const payDrawer = ref(false)
 const ordersDrawer = ref(false)
 const shiftDrawer = ref(false)
-const shiftForm = ref({ cash_start: 200000, cash_end: 0, note: '' })
 const payLink = ref<string | null>(null)
 const lastPaid = ref<any>(null)
 
@@ -98,15 +98,14 @@ async function cancelOrder(o: any) {
   try { await api.post(`/pos/orders/${o.id}/cancel`, { reason }); await openOrders(); summary.value = await api.get('/pos/summary') }
   catch (e: any) { toast(e.detail ?? 'Xato', 'danger') }
 }
-async function openShift() {
-  try { shift.value = await api.post('/pos/shift/open', { cash_start: Number(shiftForm.value.cash_start) }); shiftDrawer.value = false; toast('Smena ochildi') }
-  catch (e: any) { toast(e.detail ?? 'Xato', 'danger') }
-}
-async function closeShift() {
+async function onShiftChanged(s: any) { shift.value = s; summary.value = await api.get('/pos/summary').catch(() => summary.value) }
+// kassaga kirim / chiqim (xarajat, inkassatsiya, maydalash)
+const moveOpen = ref(false), move = ref({ kind: 'out', amount: '' as number | '', reason: '' })
+const MOVE_REASONS = { out: ['Inkassatsiya (rahbarga)', 'Xarajat: non/suv', 'Bozorlik', 'Taksi/yetkazish'], in: ['Maydalash uchun pul', 'Qarz qaytarildi', 'Boshqa kirim'] } as Record<string, string[]>
+async function saveMove() {
   try {
-    const s = await api.post(`/pos/shift/${shift.value.id}/close`, { cash_end: Number(shiftForm.value.cash_end), note: shiftForm.value.note })
-    shift.value = null; shiftDrawer.value = false
-    toast(`Smena yopildi: ${money(s.totals.total)} · naqd farqi ${money(s.totals.cash_diff ?? 0)}`)
+    shift.value = await api.post(`/pos/shift/${shift.value.id}/move`, { kind: move.value.kind, amount: Number(move.value.amount || 0), reason: move.value.reason })
+    moveOpen.value = false; toast(move.value.kind === 'in' ? 'Kirim yozildi' : 'Chiqim yozildi'); move.value = { kind: 'out', amount: '', reason: '' }
   } catch (e: any) { toast(e.detail ?? 'Xato', 'danger') }
 }
 function printReceipt(o: any) {
@@ -129,7 +128,8 @@ function printReceipt(o: any) {
       <div class="sp"></div>
       <UiChip v-if="shift" tone="ok"><UiIcon name="clock" :size="13" /> Smena ochiq · {{ new Date(shift.opened_at).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' }) }}</UiChip>
       <UiChip v-else tone="warn">Smena yopiq</UiChip>
-      <UiButton v-if="a.can('pos.shift')" size="s" variant="secondary" @click="shiftDrawer = true">{{ shift ? 'Smenani yopish' : 'Smena ochish' }}</UiButton>
+      <UiButton v-if="shift && a.can('pos.shift')" size="s" variant="secondary" @click="moveOpen = true">💵 Kirim / chiqim</UiButton>
+      <UiButton v-if="a.can('pos.shift')" size="s" :variant="shift ? 'secondary' : 'brand'" @click="shiftDrawer = true">{{ shift ? '🤝 Kassani topshirish' : 'Smena ochish' }}</UiButton>
       <UiButton size="s" variant="secondary" @click="openOrders()"><UiIcon name="list" :size="14" /> Bugungi cheklar</UiButton>
     </header>
 
@@ -208,17 +208,14 @@ function printReceipt(o: any) {
       <UiEmpty v-if="!orders.length" title="Bugun chek yo'q" />
     </UiDrawer>
 
-    <UiDrawer :open="shiftDrawer" :title="shift ? 'Smenani yopish' : 'Smena ochish'" width="420px" @close="shiftDrawer = false">
-      <template v-if="!shift">
-        <UiInput v-model="shiftForm.cash_start" type="number" label="Kassadagi boshlang'ich naqd" suffix="so'm" />
-      </template>
-      <template v-else>
-        <div class="pay-total"><span>Kutilayotgan naqd</span><b>{{ money(shift.totals.expected_cash) }}</b></div>
-        <p class="mut">Savdo: {{ money(shift.totals.total) }} · {{ shift.totals.orders }} chek</p>
-        <UiInput v-model="shiftForm.cash_end" type="number" label="Kassada haqiqiy naqd (sanab yozing)" suffix="so'm" />
-        <UiInput v-model="shiftForm.note" label="Izoh" />
-      </template>
-      <template #footer><UiButton variant="ghost" @click="shiftDrawer = false">Bekor</UiButton><UiButton variant="brand" @click="shift ? closeShift() : openShift()">{{ shift ? 'Yopish' : 'Ochish' }}</UiButton></template>
+    <ShiftPanel :open="shiftDrawer" :shift="shift" :branch-id="ui.branch" @close="shiftDrawer = false" @changed="onShiftChanged" />
+    <UiDrawer :open="moveOpen" title="Kassaga kirim / chiqim" width="440px" @close="moveOpen = false">
+      <div class="mvk"><button type="button" :class="{ on: move.kind === 'out' }" @click="move.kind = 'out'">↑ Chiqim (pul olindi)</button><button type="button" :class="{ on: move.kind === 'in' }" @click="move.kind = 'in'">↓ Kirim (pul qo'yildi)</button></div>
+      <UiInput v-model="move.amount" type="number" label="Summa" suffix="so'm" />
+      <UiInput v-model="move.reason" label="Sababi" placeholder="Masalan: non uchun" />
+      <div class="mvr"><button v-for="r in MOVE_REASONS[move.kind]" :key="r" type="button" @click="move.reason = r">{{ r }}</button></div>
+      <p class="mut">Kassa topshirilganda kutilgan naqd shunga qarab hisoblanadi.</p>
+      <template #footer><span style="flex:1"></span><UiButton variant="brand" @click="saveMove">Saqlash</UiButton></template>
     </UiDrawer>
   </div>
 </template>
@@ -271,4 +268,7 @@ function printReceipt(o: any) {
 .ord { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; display: flex; flex-direction: column; gap: 4px; } .ord.cancelled { opacity: .55; }
 .oh { display: flex; align-items: center; gap: 8px; } .ot { margin-left: auto; } .oa { display: flex; gap: 4px; }
 @media (max-width: 900px) { .work { grid-template-columns: 1fr; } .cart { position: static; max-height: none; } .grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); } }
+.mvk { display: flex; gap: 6px; } .mvk button { flex: 1; min-height: 44px; border: 1px solid var(--line); background: var(--surface-2); border-radius: 12px; font: inherit; font-weight: 800; cursor: pointer; color: var(--ink-2); }
+.mvk button.on { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.mvr { display: flex; gap: 6px; flex-wrap: wrap; } .mvr button { border: 1px dashed var(--line); background: transparent; border-radius: 999px; padding: 5px 11px; font: inherit; font-size: var(--fs-xs); font-weight: 700; cursor: pointer; color: var(--ink-2); }
 </style>

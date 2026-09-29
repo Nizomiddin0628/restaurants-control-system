@@ -36,7 +36,12 @@ class PayMethod(models.TextChoices):
 
 
 class CashShift(TimeStamped):
-    """Kassa smenasi: ochildi (boshlang'ich naqd) → yopildi (haqiqiy naqd, farq)."""
+    """Kassa smenasi: ochildi (boshlang'ich naqd) → kirim/chiqim → yopildi va TOPSHIRILDI.
+
+    Topshirish: naqd kupyuralar bo'yicha sanaladi (counted), terminal (Z) summasi solishtiriladi,
+    bir qismi keyingi smenaga qoldiriladi (left_amount), qolgani kimgadir topshiriladi (handed_to, handed_amount).
+    Farq bo'lsa — sababi yoziladi. Qabul qiluvchi Telegram'da yoki panelda «Qabul qildim» deydi (accepted_at).
+    """
 
     branch = models.ForeignKey(Branch, null=True, blank=True, on_delete=models.SET_NULL, related_name="cash_shifts")
     opened_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="opened_shifts")
@@ -46,6 +51,14 @@ class CashShift(TimeStamped):
     cash_start = models.BigIntegerField(default=0)
     cash_end = models.BigIntegerField(null=True, blank=True, help_text="hisoblangan haqiqiy naqd")
     note = models.CharField(max_length=200, blank=True)
+    counted = models.JSONField(default=dict, blank=True, help_text='kupyuralar: {"200000": 3, "100000": 5, ...}')
+    card_terminal = models.BigIntegerField(null=True, blank=True, help_text="terminal Z-hisoboti bo'yicha karta summasi")
+    left_amount = models.BigIntegerField(null=True, blank=True, help_text="kassada keyingi smenaga qoldirilgan naqd")
+    handed_amount = models.BigIntegerField(null=True, blank=True, help_text="topshirilgan naqd")
+    handed_to = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="received_shifts")
+    diff_reason = models.CharField(max_length=200, blank=True)
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    accepted_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
 
     class Meta:
         ordering = ["-opened_at"]
@@ -60,9 +73,30 @@ class CashShift(TimeStamped):
         for o in qs.values("payment_method").annotate(s=models.Sum("total")):
             by[o["payment_method"]] = int(o["s"] or 0)
         total = sum(by.values())
-        expected_cash = self.cash_start + by.get("cash", 0)
+        moves = {k: int(v or 0) for k, v in self.moves.values_list("kind").annotate(s=models.Sum("amount"))}
+        cash_in, cash_out = moves.get("in", 0), moves.get("out", 0)
+        expected_cash = self.cash_start + by.get("cash", 0) + cash_in - cash_out
+        cancelled = self.orders.filter(status=OrderStatus.CANCELLED)
         return {"orders": qs.count(), "total": total, "by_method": by, "expected_cash": expected_cash,
-                "cash_diff": (self.cash_end - expected_cash) if self.cash_end is not None else None}
+                "cash_in": cash_in, "cash_out": cash_out, "discount": int(qs.aggregate(s=models.Sum("discount"))["s"] or 0),
+                "cancelled": cancelled.count(), "refunded": int(cancelled.filter(paid_at__isnull=False).aggregate(s=models.Sum("total"))["s"] or 0),
+                "avg_check": int(total / qs.count()) if qs.count() else 0,
+                "cash_diff": (self.cash_end - expected_cash) if self.cash_end is not None else None,
+                "card_diff": (self.card_terminal - by.get("card", 0)) if self.card_terminal is not None else None}
+
+
+class CashMove(TimeStamped):
+    """Smena davomida kassaga kirim (masalan maydalash uchun pul) yoki chiqim (xarajat, inkassatsiya)."""
+
+    KINDS = [("in", "Kirim"), ("out", "Chiqim")]
+    shift = models.ForeignKey(CashShift, on_delete=models.CASCADE, related_name="moves")
+    kind = models.CharField(max_length=3, choices=KINDS)
+    amount = models.BigIntegerField()
+    reason = models.CharField(max_length=160)
+    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+
+    class Meta:
+        ordering = ["-created_at"]
 
 
 class Order(TimeStamped):

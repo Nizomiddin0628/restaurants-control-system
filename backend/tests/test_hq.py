@@ -100,7 +100,7 @@ def test_billing_plan_trial_modules(client, hq, tenant, owner_token):
     from public.models import Invoice, InvoiceStatus, Plan, Tenant
     with schema_context("public"):
         plan, _ = Plan.objects.get_or_create(code="pro_t", defaults={"name": "Pro", "price_per_branch": 490_000, "allowed_modules": ["*"]})
-        Tenant.objects.filter(pk=tenant.pk).update(trial_ends_at=timezone.now() - timedelta(days=1), plan=plan)
+        Tenant.objects.filter(pk=tenant.pk).update(trial_ends_at=timezone.now() - timedelta(days=40), plan=plan)
         H.ensure_invoices()
         i = Invoice.objects.get(tenant_id=tenant.pk, period=timezone.localdate().replace(day=1))
         assert i.amount > 0 and i.status == InvoiceStatus.PENDING

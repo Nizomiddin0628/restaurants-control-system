@@ -2,11 +2,17 @@
 /**
  * Umumiy oyna (v28): kompyuter va planshetda — ekran o'rtasida modal (ichi skroll bo'ladi),
  * telefonda — pastdan chiqadigan to'liq ekran oyna. Nomi eski (UiDrawer) — 35+ joyda ishlatiladi.
+ * v37: oyna chetini (fonni) bosganda YOPILMAYDI — faqat ✕, ESC yoki saqlash/bekor tugmasi bilan.
+ *      Ichida biror narsa yozilgan bo'lsa (o'zgartirilgan), ✕ yoki ESC bosilganda «Chiqib ketasizmi?» deb so'raydi.
+ *      Bir nechta oyna ustma-ust ochilsa — ESC faqat eng ustidagisini yopadi.
  */
-import { onBeforeUnmount, watch } from 'vue'
-const props = defineProps<{ open: boolean; title?: string; width?: string }>()
+import { onBeforeUnmount, ref, watch } from 'vue'
+const props = defineProps<{ open: boolean; title?: string; width?: string; noGuard?: boolean; state?: 'clean' | 'dirty' }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
 
+const STACK: number[] = ((globalThis as any).__uimStack ??= [])
+const seq = ((globalThis as any).__uimSeq = ((globalThis as any).__uimSeq ?? 0) + 1)
+const dirty = ref(false)
 let locked = false
 function lock(on: boolean) {
   if (on === locked) return
@@ -16,20 +22,34 @@ function lock(on: boolean) {
   b.dataset.uiModals = String(Math.max(0, n))
   b.style.overflow = n > 0 ? 'hidden' : ''
 }
-function onKey(e: KeyboardEvent) { if (e.key === 'Escape') emit('close') }
+function tryClose() {
+  const d = props.state ? props.state === 'dirty' : dirty.value     // state berilsa — ota komponent o'zi hisoblaydi
+  if (d && !props.noGuard && !confirm('Kiritgan ma\'lumotlaringiz saqlanmagan. Oynani yopasizmi?')) return
+  emit('close')
+}
+function onKey(e: KeyboardEvent) {
+  if (e.key !== 'Escape' || STACK[STACK.length - 1] !== seq) return
+  e.preventDefault(); tryClose()
+}
+function onEdit(e: Event) {
+  const t = e.target as HTMLInputElement | null
+  if (!t || t.type === 'search' || t.dataset?.noGuard !== undefined) return
+  dirty.value = true
+}
 watch(() => props.open, (o) => {
   lock(o)
-  if (o) window.addEventListener('keydown', onKey)
+  const i = STACK.indexOf(seq); if (i >= 0) STACK.splice(i, 1)
+  if (o) { dirty.value = false; STACK.push(seq); window.addEventListener('keydown', onKey) }
   else window.removeEventListener('keydown', onKey)
 }, { immediate: true })
-onBeforeUnmount(() => { lock(false); window.removeEventListener('keydown', onKey) })
+onBeforeUnmount(() => { lock(false); const i = STACK.indexOf(seq); if (i >= 0) STACK.splice(i, 1); window.removeEventListener('keydown', onKey) })
 </script>
 <template>
   <Teleport to="body">
-    <div v-if="open" class="uim-ov" @click.self="emit('close')">
+    <div v-if="open" class="uim-ov">
       <section class="uim" :style="{ '--w': width ?? '520px' }" role="dialog" aria-modal="true" :aria-label="title">
-        <header class="uim-hd"><h3>{{ title }}</h3><button class="uim-x" type="button" aria-label="Yopish" @click="emit('close')">✕</button></header>
-        <div class="uim-bd"><slot /></div>
+        <header class="uim-hd"><h3>{{ title }}</h3><button class="uim-x" type="button" aria-label="Yopish" title="Yopish (Esc)" @click="tryClose">✕</button></header>
+        <div class="uim-bd" @input="onEdit" @change="onEdit"><slot /></div>
         <footer v-if="$slots.footer" class="uim-ft"><slot name="footer" /></footer>
       </section>
     </div>

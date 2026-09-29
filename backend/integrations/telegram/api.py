@@ -57,10 +57,12 @@ def process_update(tenant, upd: dict, base_url: str | None = None) -> None:
     # Saytga kirishni tasdiqlash (login:…) va xavfsizlik (sec:…) tugmalari
     cq = upd.get("callback_query") or {}
     data = str(cq.get("data") or "")
-    if data.startswith(("login:", "sec:")):
+    if data.startswith(("login:", "sec:", "shift:")):
         try:
             if data.startswith("login:"):
                 from core.tglogin import handle_callback
+            elif data.startswith("shift:"):
+                from modules.pos.handover import handle_callback
             else:
                 from core.security import handle_callback
             handle_callback(tenant, cq)
@@ -68,9 +70,18 @@ def process_update(tenant, upd: dict, base_url: str | None = None) -> None:
             log.exception("tg callback xato")
         return
 
-    # Taklif havolasi: t.me/<bot>?start=inv_<kod> — xodim bir bosishda ulanadi (telegram moduli o'chiq bo'lsa ham)
     m0 = upd.get("message") or {}
     t0 = (m0.get("text") or "").strip()
+    # Saytdan «Telegram orqali kirish» havolasi: t.me/<bot>?start=login_<id>
+    if t0.startswith("/start login_"):
+        try:
+            from core.tglogin import on_start
+            on_start(tenant, (m0.get("chat") or {}).get("id"), t0.split("login_", 1)[1].strip())
+        except Exception:
+            log.exception("tg-login start")
+        return
+
+    # Taklif havolasi: t.me/<bot>?start=inv_<kod> — xodim bir bosishda ulanadi (telegram moduli o'chiq bo'lsa ham)
     if t0.startswith("/start inv_") and not tenant.module_enabled("telegram"):
         from core.security import accept_invite
         u = accept_invite(tenant, (m0.get("chat") or {}).get("id"), t0.split("inv_", 1)[1])
@@ -112,6 +123,7 @@ def process_update(tenant, upd: dict, base_url: str | None = None) -> None:
             send_message(chat_id, "Iltimos, o'zingizning raqamingizni ulashing.", reply_markup=CONTACT_KEYBOARD)
             return
         if user:
+            User.objects.filter(telegram_id=chat_id).exclude(pk=user.pk).update(telegram_id=None)
             user.telegram_id = chat_id
             user.save(update_fields=["telegram_id"])
             try:
@@ -120,8 +132,12 @@ def process_update(tenant, upd: dict, base_url: str | None = None) -> None:
             except Exception:
                 text = f"✅ <b>{user.full_name or phone}</b>, siz <b>{tenant.name}</b> tizimiga ulandingiz.\n/vazifalar — ochiq vazifalarim"
             send_message(chat_id, text)
+            from core.tglogin import after_contact
+            after_contact(tenant, chat_id, user)
         else:
-            send_message(chat_id, "Bu raqam xodimlar ro'yxatida yo'q. Menejerga murojaat qiling.")
+            from core.tglogin import after_contact
+            if not after_contact(tenant, chat_id, None):
+                send_message(chat_id, "Bu raqam xodimlar ro'yxatida yo'q. Menejerga murojaat qiling.")
         return
 
     user = User.objects.filter(telegram_id=chat_id).first()

@@ -135,8 +135,27 @@ def test_telegram_login_flow(client, api, monkeypatch):
     sent = []
     monkeypatch.setattr("core.tglogin.call", lambda m, p, t=None: sent.append((m, p)) or {"ok": True})
     api.post("/api/v1/access/users", {"phone": "+998907000031", "full_name": "Tg Xodim", "role_codes": ["cashier"]})
-    r = client.post("/api/v1/auth/tg-login", {"phone": "+998907000031"}, content_type="application/json", **H).json()
-    assert r["ok"] is False and r["reason"] == "not_linked"
+    r0 = client.post("/api/v1/auth/tg-login", {"phone": "+998907000031"}, content_type="application/json", **H).json()
+    assert r0["ok"] is True and r0["linked"] is False                 # ulanmagan: havola orqali davom etadi
+    # havola: botda /start login_<id> → «📱 Telefonni ulashish» → raqam mos → sayt o'zi kiradi
+    from integrations.telegram.api import process_update as pu
+    with schema_context("lazzat"):
+        from public.models import Tenant as T0
+        t0 = T0.objects.get(slug="lazzat")
+        pu(t0, {"update_id": 5, "message": {"message_id": 1, "chat": {"id": 777002, "type": "private"}, "from": {"id": 777002},
+                                            "text": "/start login_" + r0["id"].replace("-", "")}})
+        assert "Telefonni ulashish" in sent[-1][1]["text"]
+        from core.models import User as U0
+        from core.tglogin import after_contact
+        stranger = U0.objects.get(phone="+998901234567")
+        assert after_contact(t0, 777002, stranger) is True                # boshqa raqam — rad
+    assert client.get(f"/api/v1/auth/tg-login/{r0['id']}", {"secret": r0["secret"]}, **H).json()["status"] == "pending"
+    with schema_context("lazzat"):
+        pu(t0, {"update_id": 6, "message": {"message_id": 2, "chat": {"id": 777002, "type": "private"}, "from": {"id": 777002},
+                                            "text": "/start login_" + r0["id"].replace("-", "")}})
+        after_contact(t0, 777002, U0.objects.get(phone="+998907000031"))
+    ok0 = client.get(f"/api/v1/auth/tg-login/{r0['id']}", {"secret": r0["secret"]}, **H).json()
+    assert ok0["status"] == "ok" and ok0["reset_token"]
     with schema_context("lazzat"):
         from core.models import User
         User.objects.filter(phone="+998907000031").update(telegram_id=777001)
@@ -302,3 +321,26 @@ def test_security_invite_logout_history(client, api, tenant, monkeypatch):
     # o'zim: boshqa qurilmalardan chiqish — yangi token beriladi
     r = api.post("/api/v1/me/logout-all").json()
     assert client.get("/api/v1/me", **{**H, "HTTP_AUTHORIZATION": f"Bearer {r['token']}"}).status_code == 200
+
+
+@pytest.mark.django_db
+def test_login_check_register_and_reset(client, api):
+    """Kirish sahifasi: raqam tekshiruvi; parolsiz xodim kod bilan tasdiqlab parol qo'yadi; unutgan — eski parolsiz yangisini qo'yadi."""
+    api.post("/api/v1/access/users", {"phone": "+998907000071", "full_name": "Yangi", "role_codes": ["cashier"]})
+    j = lambda url, d, **h: client.post(url, d, content_type="application/json", **H, **h)    # noqa: E731
+    assert j("/api/v1/auth/check", {"phone": "+998900000009"}).status_code == 404
+    c = j("/api/v1/auth/check", {"phone": "90 700 00 71"}).json()
+    assert c["has_password"] is False
+    code = j("/api/v1/auth/otp", {"phone": "+998907000071"}).json()["dev_code"]
+    v = j("/api/v1/auth/verify", {"phone": "+998907000071", "code": code}).json()
+    auth_h = {"HTTP_AUTHORIZATION": f"Bearer {v['token']}"}
+    assert j("/api/v1/me/password", {"new_password": "salom123", "reset_token": v["reset_token"]}, **auth_h).status_code == 200
+    assert j("/api/v1/auth/check", {"phone": "+998907000071"}).json()["has_password"] is True
+    # unutdi: kod bilan tasdiq → eski parolsiz yangisi
+    code = j("/api/v1/auth/otp", {"phone": "+998907000071"}).json()["dev_code"]
+    v = j("/api/v1/auth/verify", {"phone": "+998907000071", "code": code}).json()
+    auth_h = {"HTTP_AUTHORIZATION": f"Bearer {v['token']}"}
+    assert j("/api/v1/me/password", {"new_password": "yangi456"}, **auth_h).status_code == 400         # reset_token'siz — eski parol kerak
+    assert j("/api/v1/me/password", {"new_password": "yangi456", "reset_token": "buzuq"}, **auth_h).status_code == 400
+    assert j("/api/v1/me/password", {"new_password": "yangi456", "reset_token": v["reset_token"]}, **auth_h).status_code == 200
+    assert j("/api/v1/auth/login", {"phone": "+998907000071", "password": "yangi456"}).status_code == 200

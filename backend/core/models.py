@@ -245,7 +245,7 @@ class LoginRequest(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     decided_at = models.DateTimeField(null=True, blank=True)
 
-    TTL = 180   # soniya
+    TTL = 300   # soniya
 
     class Meta:
         ordering = ["-created_at"]

@@ -25,12 +25,17 @@ const tab = ref<'access' | 'login'>('access'), justCreated = ref(false), showMat
 type Form = { full_name: string; phone: string; role_codes: string[]; branch_ids: number[]; extra: string[] }
 const f = ref<Form>({ full_name: '', phone: '+998 ', role_codes: [], branch_ids: [], extra: [] })
 const open = computed(() => !!props.userId || !!props.create)
+/** O'zgartirilganmi — ✕/ESC bosilganda «saqlanmagan» deb so'rash uchun */
+const initial = ref('')
+const snap = () => JSON.stringify({ ...f.value, role_codes: [...f.value.role_codes].sort(), branch_ids: [...f.value.branch_ids].sort(), extra: [...f.value.extra].sort() })
+const changed = computed(() => !!initial.value && snap() !== initial.value && (tab.value === 'access' || !p.value))
 
 async function loadMeta() { if (!metaCache) metaCache = await api.get<Meta>('/access/meta'); meta.value = metaCache }
 async function loadPerson(id: string) {
   p.value = await api.get<Full>(`/access/users/${id}`)
   f.value = { full_name: p.value.full_name, phone: p.value.phone, role_codes: p.value.roles.map(r => r.code), branch_ids: [...p.value.branch_ids], extra: [...p.value.extra_permissions] }
   showMatrix.value = p.value.extra_permissions.some(x => x !== 'ai.use')
+  initial.value = snap()
 }
 watch(() => [props.userId, props.create] as const, async ([id, cr]) => {
   if (!id && !cr) return
@@ -44,6 +49,7 @@ watch(() => [props.userId, props.create] as const, async ([id, cr]) => {
       const def = meta.value?.roles.find(r => r.code === 'cashier' && r.grantable) ?? meta.value?.roles.filter(r => r.grantable).slice(-1)[0]
       f.value = { full_name: '', phone: '+998 ', role_codes: def ? [def.code] : [], branch_ids: meta.value?.me.all_branches ? [] : (meta.value?.branches.map(b => b.id).slice(0, 1) ?? []), extra: [] }
       showMatrix.value = false
+      initial.value = snap()
     }
   } catch (e: any) { toast(e.detail ?? 'Yuklab bo\'lmadi', 'danger'); emit('close') } finally { loading.value = false }
 }, { immediate: true })
@@ -55,6 +61,23 @@ const basePerms = computed(() => [...new Set(selRoles.value.flatMap(r => r.permi
 const allBranchRole = computed(() => selRoles.value.some(r => r.level >= 80))
 const roleChoices = computed(() => (meta.value?.roles ?? []).filter(r => r.grantable || f.value.role_codes.includes(r.code)))
 const multiBranch = computed(() => (meta.value?.branches.length ?? 0) > 1)
+/** Rol nimalarni ochadi — oddiy tilda (kartada) */
+function roleSees(r: RoleT): string {
+  if (r.permissions.includes('*')) return 'Hamma bo\'limlar, barcha filiallar'
+  const on = (meta.value?.areas ?? []).filter(x => x.code !== 'ai' && areaLevel(r.permissions, x) !== 'none').map(x => x.title.split(' (')[0])
+  return on.length ? (on.length > 5 ? `${on.slice(0, 5).join(', ')} +${on.length - 5}` : on.join(', ')) : 'Faqat o\'z vazifalari'
+}
+const roleGroups = computed(() => [
+  { title: 'Rahbarlar', items: roleChoices.value.filter(r => r.level >= 60) },
+  { title: 'Xodimlar', items: roleChoices.value.filter(r => r.level < 60) },
+].filter(g => g.items.length))
+/** Hozirgi tanlov bo'yicha xodim nimalarni ko'radi (rol + qo'shimcha) — pastda jonli xulosa */
+const LV: Record<string, string> = { view: 'ko\'radi', edit: 'ishlaydi', full: 'to\'liq', custom: 'qisman' }
+const sees = computed(() => {
+  const all = [...basePerms.value, ...f.value.extra]
+  if (all.includes('*')) return [{ t: 'Hamma bo\'limlar', l: 'to\'liq' }]
+  return (meta.value?.areas ?? []).map(x => ({ t: x.title.split(' (')[0], lv: areaLevel(all, x) })).filter(x => x.lv !== 'none').map(x => ({ t: x.t, l: LV[x.lv] ?? '' }))
+})
 function toggleRole(r: RoleT) {
   if (!editable.value || !r.grantable) return
   f.value.role_codes = f.value.role_codes.includes(r.code) ? f.value.role_codes.filter(x => x !== r.code) : [...f.value.role_codes, r.code]
@@ -130,7 +153,7 @@ const title = computed(() => (p.value ? (p.value.full_name || p.value.phone) : '
 </script>
 
 <template>
-  <UiDrawer :open="open" :title="title" width="820px" @close="emit('close')">
+  <UiDrawer :open="open" :title="title" width="820px" :state="changed ? 'dirty' : 'clean'" @close="emit('close')">
     <p v-if="loading" class="mu">Yuklanmoqda…</p>
     <template v-else-if="meta">
       <!-- holat sarlavhasi -->
@@ -163,13 +186,18 @@ const title = computed(() => (p.value ? (p.value.full_name || p.value.phone) : '
           <UiInput v-model="f.phone" label="Telefon (login)" type="tel" placeholder="+998 90 123 45 67" :disabled="!editable" />
         </div>
         <div class="blk">
-          <h4>Lavozimi <small>— bir nechtasini tanlash mumkin</small></h4>
-          <div class="chips">
-            <button v-for="r in roleChoices" :key="r.code" type="button" class="ch" :class="{ on: f.role_codes.includes(r.code) }" :disabled="!r.grantable || !editable" :title="r.description" @click="toggleRole(r)">
-              <span class="ck">{{ f.role_codes.includes(r.code) ? '✓' : '+' }}</span>{{ r.name }}
-            </button>
+          <h4>Lavozimi <small>— kerakli kartani bosing (bir nechtasini tanlash mumkin)</small></h4>
+          <div v-for="g in roleGroups" :key="g.title" class="rg">
+            <h5>{{ g.title }}</h5>
+            <div class="rcards">
+              <button v-for="r in g.items" :key="r.code" type="button" class="rcard" :class="{ on: f.role_codes.includes(r.code) }" :disabled="!r.grantable || !editable" @click="toggleRole(r)">
+                <span class="ck">{{ f.role_codes.includes(r.code) ? '✓' : '' }}</span>
+                <b>{{ r.name }}</b>
+                <small>{{ r.description || roleSees(r) }}</small>
+                <em v-if="r.description">{{ roleSees(r) }}</em>
+              </button>
+            </div>
           </div>
-          <p v-if="selRoles.length" class="mu sm">{{ selRoles.map(r => r.description).filter(Boolean).join(' · ') }}</p>
         </div>
         <div v-if="multiBranch" class="blk">
           <h4>Filial</h4>
@@ -183,9 +211,13 @@ const title = computed(() => (p.value ? (p.value.full_name || p.value.phone) : '
           <span><b>🤖 AI Kotib</b><small>Ertalabki hisobot, savol-javob, ovozli buyruq, 🌐 global qidiruv. {{ seatsText }}</small></span>
           <UiToggle :model-value="aiOn" :disabled="!editable || aiByRole || !meta.ai.enabled" @update:model-value="setAi" />
         </div>
+        <div class="blk sum">
+          <h4>👁 Bu xodim ko'radi:</h4>
+          <div class="sees"><span v-for="x in sees" :key="x.t">{{ x.t }} <i>{{ x.l }}</i></span><span v-if="!sees.length" class="mu">hali hech narsa — lavozim tanlang</span></div>
+        </div>
         <div class="blk">
           <button type="button" class="mh" :aria-expanded="showMatrix" @click="showMatrix = !showMatrix">
-            <span><b>Qaysi bo'limlarni ko'radi</b><small>Lavozimidan tashqari qo'shimcha ruxsat (masalan kassirga «Ombor — Ko'radi»)</small></span><span>{{ showMatrix ? '▾' : '▸' }}</span>
+            <span><b>➕ Qo'shimcha ruxsat (ixtiyoriy)</b><small>Lavozimidan tashqari biror bo'lim kerak bo'lsa — masalan kassirga «Ombor — ko'radi»</small></span><span>{{ showMatrix ? '▾' : '▸' }}</span>
           </button>
           <AccessMatrix v-if="showMatrix" v-model="f.extra" :areas="meta.areas" :sections="meta.sections" :base="basePerms" :disabled="!editable" :skip="['ai']" />
         </div>
@@ -274,6 +306,18 @@ const title = computed(() => (p.value ? (p.value.full_name || p.value.phone) : '
 .blk { border-top: 1px solid var(--line-2); padding-top: 12px; } .blk h4 { margin: 0 0 8px; font-size: var(--fs-s); } .blk h4 small { color: var(--muted); font-weight: 600; }
 .blk.row { display: flex; gap: 12px; align-items: center; justify-content: space-between; } .blk.row span { display: flex; flex-direction: column; } .blk.row small { color: var(--muted); font-size: var(--fs-xs); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.rg h5 { margin: 6px 0 6px; font-size: var(--fs-xs); color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.rcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.rcard { position: relative; display: flex; flex-direction: column; gap: 3px; align-items: flex-start; text-align: left; padding: 12px 36px 12px 12px; border: 1.5px solid var(--line); border-radius: 14px; background: var(--surface); font: inherit; color: var(--ink); cursor: pointer; min-height: 74px; }
+.rcard:hover:not(:disabled) { border-color: var(--accent); }
+.rcard.on { border-color: var(--accent); background: var(--accent-tint); }
+.rcard:disabled { opacity: .45; cursor: not-allowed; }
+.rcard small { color: var(--ink-2); font-size: var(--fs-xs); line-height: 1.35; } .rcard em { font-style: normal; color: var(--muted); font-size: 11px; line-height: 1.35; }
+.rcard .ck { position: absolute; top: 10px; right: 10px; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--line); display: grid; place-items: center; font-size: 12px; background: var(--surface); }
+.rcard.on .ck { background: var(--accent); border-color: var(--accent); color: #fff; }
+.sum { background: var(--surface-2); border-radius: 12px; padding: 12px; border-top: 0; }
+.sees { display: flex; flex-wrap: wrap; gap: 6px; } .sees span { font-size: var(--fs-xs); font-weight: 700; padding: 4px 10px; border-radius: 99px; background: var(--surface); border: 1px solid var(--line); }
+.sees i { font-style: normal; color: var(--muted); font-weight: 600; }
 .ch { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 7px 12px; min-height: 38px; font: inherit; font-size: var(--fs-s); font-weight: 700; cursor: pointer; color: var(--ink-2); }
 .ch.on { background: var(--accent-tint); border-color: var(--accent); color: var(--accent); } .ch:disabled { opacity: .5; cursor: not-allowed; }
 .ck { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; background: var(--surface-3); } .ch.on .ck { background: var(--accent); color: #fff; }

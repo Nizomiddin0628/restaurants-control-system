@@ -249,12 +249,18 @@ def handle_update(tenant, update: dict, base_url: str | None = None) -> bool:
         # rostdan ham shu restoran xodimimi: faol va kamida bitta faol lavozimi bor
         staff = User.objects.filter(phone=bu.phone, is_active=True, memberships__is_active=True).distinct().first()
         if staff:
+            User.objects.filter(telegram_id=bu.chat_id).exclude(pk=staff.pk).update(telegram_id=None)   # bitta Telegram — bitta xodim
             staff.telegram_id = bu.chat_id
             staff.save(update_fields=["telegram_id"])
             bu.staff = staff
         bu.save()
         if staff:
             say(tenant, bu.chat_id, staff_card(tenant, staff, first=True), main_keyboard(tenant, bu, base_url))
+            from core.tglogin import after_contact
+            after_contact(tenant, bu.chat_id, staff)          # saytdan kirish kutilayotgan bo'lsa — tasdiqlanadi
+            return True
+        from core.tglogin import after_contact
+        if after_contact(tenant, bu.chat_id, None):
             return True
         if staff_only(tenant):
             say(tenant, bu.chat_id, "Bu raqam xodimlar ro'yxatida topilmadi. Bot hozircha faqat restoran xodimlari uchun — menejerga murojaat qiling.",

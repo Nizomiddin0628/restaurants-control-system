@@ -61,8 +61,19 @@ class ShiftOpenIn(Schema):
 
 
 class ShiftCloseIn(Schema):
-    cash_end: int
+    cash_end: Optional[int] = None          # berilmasa — kupyuralar yig'indisi
+    counted: dict = {}                      # {"200000": 3, ...}
+    card_terminal: Optional[int] = None
+    left_amount: Optional[int] = None       # kassada keyingi smenaga qoldiriladi
+    handed_to: Optional[str] = None         # kimga topshirildi (user id)
+    diff_reason: str = ""
     note: str = ""
+
+
+class MoveIn(Schema):
+    kind: str          # in | out
+    amount: int
+    reason: str
 
 
 class ItemOut(Schema):
@@ -112,11 +123,32 @@ class ShiftOut(Schema):
     cash_end: Optional[int] = None
     note: str
     opened_by: Optional[str] = None
+    closed_by: Optional[str] = None
+    branch: Optional[str] = None
+    counted: dict = {}
+    card_terminal: Optional[int] = None
+    left_amount: Optional[int] = None
+    handed_amount: Optional[int] = None
+    handed_to: Optional[str] = None
+    diff_reason: str = ""
+    accepted_at: Optional[datetime] = None
     totals: dict = {}
 
     @staticmethod
     def resolve_opened_by(obj):
         return obj.opened_by.full_name if obj.opened_by_id else None
+
+    @staticmethod
+    def resolve_closed_by(obj):
+        return obj.closed_by.full_name if obj.closed_by_id else None
+
+    @staticmethod
+    def resolve_branch(obj):
+        return obj.branch.name if obj.branch_id else None
+
+    @staticmethod
+    def resolve_handed_to(obj):
+        return (obj.handed_to.full_name or obj.handed_to.phone) if obj.handed_to_id else None
 
     @staticmethod
     def resolve_totals(obj):
@@ -162,15 +194,105 @@ def open_shift(request, data: ShiftOpenIn):
 
 @router.post("/shift/{sid}/close", response=ShiftOut, auth=auth)
 def close_shift(request, sid: int, data: ShiftCloseIn):
+    """Kassa topshirish: naqd sanaladi (kupyuralar), terminal solishtiriladi, qoldiq va topshiriladigan summa, qabul qiluvchi."""
+    from . import handover
     _guard(request, "pos.shift")
     s = get_object_or_404(CashShift, pk=sid, closed_at__isnull=True)
-    if s.orders.filter(status=OrderStatus.OPEN).exists():
-        raise HttpError(400, "Ochiq buyurtmalar bor — avval ularni yoping yoki bekor qiling.")
-    s.closed_at, s.closed_by, s.cash_end, s.note = timezone.now(), request.auth, data.cash_end, data.note
+    open_n = s.orders.filter(status=OrderStatus.OPEN).count()
+    if open_n:
+        raise HttpError(400, f"{open_n} ta ochiq buyurtma bor — avval ularni to'lang yoki bekor qiling.")
+    counted = {str(k): max(0, int(v or 0)) for k, v in (data.counted or {}).items() if str(k).isdigit() and int(v or 0) > 0}
+    cash_end = data.cash_end if data.cash_end is not None else handover.counted_sum(counted)
+    if cash_end is None or cash_end < 0:
+        raise HttpError(400, "Kassadagi naqd pulni sanab yozing")
+    expected = s.totals()["expected_cash"]
+    if cash_end != expected and len(data.diff_reason.strip()) < 3:
+        raise HttpError(400, f"Naqd farqi bor ({cash_end - expected:+,} so'm) — sababini yozing".replace(",", " "))
+    left = max(0, min(int(data.left_amount or 0), cash_end))
+    receiver = None
+    if data.handed_to:
+        from core.models import User
+        receiver = User.objects.filter(pk=data.handed_to, is_active=True).first()
+        if receiver is None:
+            raise HttpError(400, "Qabul qiluvchi topilmadi")
+    s.closed_at, s.closed_by, s.cash_end, s.note = timezone.now(), request.auth, cash_end, data.note[:200]
+    s.counted, s.card_terminal, s.left_amount, s.handed_amount = counted, data.card_terminal, left, cash_end - left
+    s.handed_to, s.diff_reason = receiver, data.diff_reason.strip()[:200]
     s.save()
     record(request, "shift_close", s, after=s.totals())
     emit("pos.shift_closed", {"shift_id": s.pk, **s.totals()}, tenant=request.tenant)
+    handover.notify(request.tenant, s)
     return s
+
+
+@router.post("/shift/{sid}/move", response=ShiftOut, auth=auth)
+def cash_move(request, sid: int, data: MoveIn):
+    """Smena davomida kassaga kirim yoki chiqim (xarajat, inkassatsiya, maydalash)."""
+    from .models import CashMove
+    _guard(request, "pos.shift")
+    s = get_object_or_404(CashShift, pk=sid, closed_at__isnull=True)
+    if data.kind not in ("in", "out") or data.amount <= 0:
+        raise HttpError(400, "Summani to'g'ri kiriting")
+    if len(data.reason.strip()) < 3:
+        raise HttpError(400, "Sababini yozing (masalan: non uchun, inkassatsiya)")
+    if data.kind == "out" and data.amount > s.totals()["expected_cash"]:
+        raise HttpError(400, "Kassada buncha naqd yo'q")
+    CashMove.objects.create(shift=s, kind=data.kind, amount=data.amount, reason=data.reason.strip()[:160], user=request.auth)
+    record(request, "cash_move", s, after={"kind": data.kind, "amount": data.amount, "reason": data.reason})
+    return s
+
+
+@router.get("/shift/{sid}/report", auth=auth)
+def shift_report(request, sid: int):
+    """Z-hisobot: jami, to'lov turlari, kassirlar, soatlar, kirim/chiqim, farq."""
+    from django.db.models import Count
+    from django.db.models.functions import ExtractHour
+
+    from . import handover
+    _guard(request, "pos.sell")
+    s = get_object_or_404(CashShift, pk=sid)
+    paid = s.orders.filter(status=OrderStatus.PAID)
+    return {
+        "shift": ShiftOut.from_orm(s).dict(), "denoms": handover.DENOMS,
+        "cashiers": [{"name": r["cashier__full_name"] or "—", "orders": r["n"], "total": int(r["t"] or 0)}
+                     for r in paid.values("cashier__full_name").annotate(n=Count("id"), t=Sum("total")).order_by("-t")],
+        "by_type": [{"type": dict(OrderType.choices).get(r["type"], r["type"]), "orders": r["n"], "total": int(r["t"] or 0)}
+                    for r in paid.values("type").annotate(n=Count("id"), t=Sum("total")).order_by("-t")],
+        "hours": [{"hour": r["h"], "total": int(r["t"] or 0)} for r in paid.annotate(h=ExtractHour("paid_at")).values("h").annotate(t=Sum("total")).order_by("h")],
+        "moves": [{"kind": x.kind, "amount": x.amount, "reason": x.reason, "at": x.created_at.isoformat(), "user": x.user.full_name if x.user_id else ""}
+                  for x in s.moves.select_related("user")],
+        "open_orders": s.orders.filter(status=OrderStatus.OPEN).count(),
+        "text": handover.z_text(s, request.tenant.name) if s.closed_at else "",
+    }
+
+
+@router.post("/shift/{sid}/accept", response=ShiftOut, auth=auth)
+def accept_shift(request, sid: int):
+    from . import handover
+    s = get_object_or_404(CashShift, pk=sid)
+    if not handover.accept(s, request.auth):
+        raise HttpError(400, "Bu topshiriq sizga emas yoki allaqachon qabul qilingan")
+    return s
+
+
+@router.get("/shift-helpers", auth=auth)
+def shift_helpers(request, branch_id: Optional[int] = None):
+    """Smena ochish/yopish uchun: oldingi smenadan qoldiq, kimga topshirish mumkin (rahbar/kassirlar), oxirgi smenalar."""
+    from core.models import User
+
+    from .handover import DENOMS
+    _guard(request, "pos.shift")
+    last = CashShift.objects.filter(closed_at__isnull=False, branch_id=branch_id).first() if branch_id else CashShift.objects.filter(closed_at__isnull=False).first()
+    people = [u for u in User.objects.filter(is_active=True, memberships__is_active=True).distinct().order_by("full_name")
+              if u.pk != request.auth.pk and (u.has_perm_code("pos.shift") or u.access_level() >= 60)]
+    pending = CashShift.objects.filter(handed_to=request.auth, accepted_at__isnull=True, closed_at__isnull=False)[:5]
+    return {"left_from_last": (last.left_amount if last and last.left_amount is not None else None),
+            "last_closed_by": (last.closed_by.full_name if last and last.closed_by_id else None),
+            "receivers": [{"id": str(u.pk), "name": u.full_name or u.phone, "role": ", ".join(mm.role.name for mm in u.memberships.filter(is_active=True).select_related("role"))[:60]}
+                          for u in people[:40]],
+            "to_accept": [ShiftOut.from_orm(x).dict() for x in pending],
+            "recent": [ShiftOut.from_orm(x).dict() for x in CashShift.objects.filter(closed_at__isnull=False).select_related("opened_by", "closed_by", "handed_to", "branch")[:8]],
+            "denoms": DENOMS}
 
 
 @router.get("/shifts", response=list[ShiftOut], auth=auth)
