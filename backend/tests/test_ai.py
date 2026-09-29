@@ -343,3 +343,124 @@ def test_global_mode_web_search_and_snapshot(ai_env, monkeypatch):
     assert AiChat.objects.get(chat_id=777001).mode == "web"
     assert tg.maybe_handle(ai_env["tenant"], {"callback_query": {"id": "m", "data": "ai:mode:local", "message": {"chat": chat, "message_id": 3}}})
     assert AiChat.objects.get(chat_id=777001).mode == "local"
+
+
+@pytest.mark.django_db
+def test_ai_actions_need_confirmation_and_skip_money(ai_env, api, monkeypatch):
+    """AI o'zgartirishni faqat TAYYORLAYDI; «Tasdiqlash»dan keyin bajariladi. Kassa/moliya/egasi roli — mumkin emas."""
+    from core.models import User
+    from modules.ai import actions, agent, gemini
+    from modules.ai.models import AiAction
+    assert api.post("/api/v1/access/users", {"phone": "+998907000091", "full_name": "Aziz Karimov", "role_codes": ["waiter"]}).status_code == 200
+    fake = FakeGemini([{"call": ("staff_access", {"employee": "Aziz", "section": "inventory", "level": "view"})},
+                       {"call": ("staff_access", {"employee": "Aziz", "section": "pos", "level": "full"})},
+                       {"call": ("staff_role", {"employee": "Aziz", "role": "owner", "action": "add"})},
+                       {"text": "Tayyor — tasdiqlang."}])
+    monkeypatch.setattr(gemini, "generate", fake)
+    res = agent.ask(ai_env["tenant"], ai_env["user"], "Azizga omborni ko'rishga ruxsat ber", channel="panel")
+    assert res["ok"] and len(res["actions"]) == 1 and res["actions"][0]["status"] == "proposed"
+    outs = [p["functionResponse"]["response"]["result"] for c in fake.seen[-1]["contents"] for p in c.get("parts", []) if "functionResponse" in p]
+    assert any("pul bilan bog'liq" in (o.get("error") or "") for o in outs)
+    assert any("Superadmin" in (o.get("error") or "") for o in outs)
+    aziz = User.objects.get(phone="+998907000091")
+    assert not aziz.has_perm_code("inventory.view")                     # hali o'zgarmadi
+    lst = api.get("/api/v1/ai/actions").json()
+    assert len(lst) == 1 and lst[0]["can_confirm"]
+    r = api.post(f"/api/v1/ai/actions/{lst[0]['id']}/confirm")
+    assert r.status_code == 200, r.content
+    aziz.refresh_from_db()
+    assert aziz.has_perm_code("inventory.view") and not aziz.has_perm_code("inventory.edit")
+    assert api.post(f"/api/v1/ai/actions/{lst[0]['id']}/confirm").status_code == 400      # ikki marta bajarilmaydi
+    assert api.get("/api/v1/ai/actions").json() == []
+    # bekor qilish
+    from types import SimpleNamespace
+    ctx = SimpleNamespace(tenant=ai_env["tenant"], user=ai_env["user"], channel="panel", actions=[])
+    r = actions.propose(ctx, "active", aziz, {"active": False}, "Azizni bloklash")
+    assert r["ok"]
+    aid = ctx.actions[0]
+    assert api.post(f"/api/v1/ai/actions/{aid}/cancel").status_code == 200
+    aziz.refresh_from_db()
+    assert aziz.is_active and AiAction.objects.get(pk=aid).status == "cancelled"
+    # boshqa odam tasdiqlay olmaydi
+    r = actions.propose(ctx, "active", aziz, {"active": False}, "Azizni bloklash")
+    ok, _ = actions.confirm(ai_env["tenant"], ctx.actions[-1], aziz)
+    assert not ok
+
+
+@pytest.mark.django_db
+def test_ai_password_reset_via_bot_and_manager_confirms(ai_env, api, monkeypatch):
+    """Rahbar Telegram'da: «Nodiraning parolini tiklab ber» → xodim botda 2 marta yozadi (xabarlar o'chiriladi) → rahbarga «Tasdiqlaysizmi?» → Ha."""
+    from core.models import User
+    from integrations.telegram.api import process_update
+    from modules.ai import agent, gemini
+    from modules.ai.models import AiAction
+    api.post("/api/v1/access/users", {"phone": "+998907000092", "full_name": "Nodira Aliyeva", "role_codes": ["cashier"]})
+    User.objects.filter(phone="+998907000092").update(telegram_id=880300)
+    monkeypatch.setattr(gemini, "generate", FakeGemini([{"call": ("staff_reset_password", {"employee": "Nodira"})}, {"text": "Nodiraga yubordim."}]))
+    res = agent.ask(ai_env["tenant"], ai_env["user"], "Nodiraning parolini tiklab ber", channel="telegram")
+    assert res["ok"] and res["actions"][0]["status"] == "waiting"
+    sent = ai_env["sent"]
+    assert any(p.get("chat_id") == 880300 and "Yangi parol" in p.get("text", "") for m, p in sent)
+    t = ai_env["tenant"]
+
+    def say(text, mid):
+        process_update(t, {"update_id": mid, "message": {"message_id": mid, "chat": {"id": 880300, "type": "private"}, "from": {"id": 880300}, "text": text}})
+    say("123", 1)
+    assert "kamida 6" in _texts(sent)[-1]
+    say("salom123", 2)
+    say("salom999", 3)
+    assert "bir xil emas" in _texts(sent)[-1]
+    say("salom123", 4)
+    say("salom123", 5)
+    a = AiAction.objects.get(kind="password")
+    assert a.status == "ready" and "salom123" not in str(a.params)
+    assert sum(1 for m, p in sent if m == "deleteMessage") == 5            # 5 ta parol xabari ham o'chirildi
+    ask = [p for m, p in sent if m == "sendMessage" and p.get("chat_id") == 777001 and "Tasdiqlash" in str(p.get("reply_markup"))]
+    assert ask and "Nodira" in ask[-1]["text"]
+    nod = User.objects.get(phone="+998907000092")
+    assert not nod.check_password("salom123")                                            # rahbar tasdiqlamaguncha — eski
+    process_update(t, {"update_id": 9, "callback_query": {"id": "cb1", "data": f"aiact:ok:{a.pk}", "from": {"id": 777001},
+                                                          "message": {"message_id": 70, "chat": {"id": 777001}}}})
+    nod.refresh_from_db()
+    assert nod.check_password("salom123")
+    a.refresh_from_db()
+    assert a.status == "done" and a.params == {}
+    assert any(p.get("chat_id") == 880300 and "Parolingiz yangilandi" in p.get("text", "") for m, p in sent)
+    # xodim endi oddiy yozsa — parol sifatida ushlanmaydi
+    assert AiAction.objects.filter(status="waiting").count() == 0
+
+
+@pytest.mark.django_db
+def test_ai_actions_create_role_phone_branch_stop(ai_env, api):
+    """Har amal turi tasdiqdan keyin to'g'ri bajariladi."""
+    from types import SimpleNamespace
+
+    from core.models import Branch, User
+    from modules.ai import tools
+    from modules.catalog.models import Category, Product
+    t, boss = ai_env["tenant"], ai_env["user"]
+    ctx = SimpleNamespace(tenant=t, user=boss, channel="panel", actions=[], branch_ids=None)
+    from modules.ai import actions
+    b = Branch.objects.filter(deleted_at__isnull=True).first()
+    r = tools.staff_add(ctx, {"full_name": "Jasur Toshev", "phone": "91 234 56 78", "role": "Ofitsiant", "branches": [b.name]})
+    assert r["ok"], r
+    assert tools.staff_add(ctx, {"full_name": "Xato Raqam", "phone": "+998 12 345 67 89", "role": "waiter"})["ok"] is False
+    assert actions.confirm(t, ctx.actions[-1], boss)[0]
+    j = User.objects.get(phone="+998912345678")
+    assert j.memberships.filter(role__code="waiter").exists()
+    assert tools.staff_role(ctx, {"employee": "Jasur", "role": "cashier"})["ok"]
+    assert actions.confirm(t, ctx.actions[-1], boss)[0]
+    assert tools.staff_phone(ctx, {"employee": "Jasur", "new_phone": "+998 93 111 22 33"})["ok"]
+    assert actions.confirm(t, ctx.actions[-1], boss)[0]
+    j.refresh_from_db()
+    assert j.phone == "+998931112233" and {m.role.code for m in j.memberships.all()} == {"waiter", "cashier"}
+    assert tools.staff_branches(ctx, {"employee": "Jasur", "branches": [b.name]})["ok"]
+    assert actions.confirm(t, ctx.actions[-1], boss)[0]
+    cat = Category.objects.create(name={"uz": "Issiq"})
+    p = Product.objects.create(category=cat, name={"uz": "Samarqand oshi", "ru": "", "en": ""}, price=45000)
+    assert tools.menu_stop(ctx, {"dish": "samarqand", "stop": True})["ok"]
+    ok, msg = actions.confirm(t, ctx.actions[-1], boss)
+    p.refresh_from_db()
+    assert ok and p.in_stop_list and p.price == 45000
+    # o'zini o'zgartira olmaydi
+    assert tools.staff_block(ctx, {"employee": boss.phone, "active": False})["ok"] is False

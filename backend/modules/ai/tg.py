@@ -180,7 +180,9 @@ SAVED_KB = {"inline_keyboard": [[{"text": "🔁 Qayta so'rash", "callback_data":
 PROMPT = ("🎙 <b>Ovozli xabar yuboring</b> (yoki yozing) — nima kerakligini ayting.\n\n"
           "Masalan:\n• «Kecha qancha savdo bo'ldi, o'tgan haftadan farqi qancha?»\n• «Omborda nima tugayapti?»\n"
           "• «Oxirgi 7 kun savdosini filiallar bo'yicha diagrammada ko'rsat»\n"
-          "• «Rustamga ertaga soat 10 gacha muzlatgichni tozalash vazifasini ber»\n\n"
+          "• «Rustamga ertaga soat 10 gacha muzlatgichni tozalash vazifasini ber»\n"
+          "• «Nodira parolini unutibdi — tiklab ber» · «Azizga Ombor bo'limini ko'rishga ruxsat ber» · «Palovni stop-listga qo'y»\n\n"
+          "<i>O'zgartirishlar faqat siz «✅ Tasdiqlash» ni bosgach bajariladi. Pul, kassa, moliyaga AI tegmaydi.</i>\n"
           "<i>Javob yozilayotganda «⏹ To'xtatish» tugmasi bo'ladi.</i>")
 EDIT_EVERY = 1.1                      # soniya: javob qoralamasi shunchalik tez-tez yangilanadi
 PREVIEW_MAX = 3500
@@ -298,6 +300,14 @@ def _do_run(tenant, user_id: int, chat_id: int, run: str, text: str = "", file_i
             send(tenant, chat_id, p)
         for ch in res.get("charts") or []:
             send_photo(tenant, chat_id, ch["png"], "📈 " + ch["title"] if ch["title"] else "")
+        if res.get("actions"):                       # o'zgartirish amallari — «✅ Tasdiqlash / ✖️ Bekor»
+            from . import actions as act
+            from .models import AiAction
+            for x in res["actions"]:
+                if x["status"] == AiAction.PROPOSED:
+                    a = AiAction.objects.select_related("requested_by").filter(pk=x["id"]).first()
+                    if a:
+                        act.send_confirm(tenant, a)
     finally:
         _finish(chat_id, run)
 

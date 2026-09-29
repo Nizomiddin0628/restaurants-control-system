@@ -323,3 +323,32 @@ def set_seat(request, data: SeatIn):
                 raise HttpError(400, "Bu xodimda AI Kotib roli orqali bor — «Xodimlar kirishi» sahifasida rolini o'zgartiring")
     record(request, "update", u, after={"ai": data.on})
     return {**limits.seats_info(request.tenant), "user": _seat_row(u, request.auth)}
+
+
+# ------------------------------------------------------------------ o'zgartirish amallari (tasdiq bilan)
+@router.get("/actions", auth=auth)
+def actions_list(request):
+    """Men buyurgan, tasdiq kutayotgan amallar (AI Kotib oynasida kartalar)."""
+    require_module(request, "ai")
+    from . import actions as act
+    return [act.out(a) for a in act.open_for(request.auth)]
+
+
+@router.post("/actions/{aid}/confirm", auth=auth)
+def actions_confirm(request, aid: int):
+    require_module(request, "ai")
+    from . import actions as act
+    ok, msg = act.confirm(request.tenant, aid, request.auth)
+    if not ok:
+        raise HttpError(400, msg)
+    return {"ok": True, "result": msg}
+
+
+@router.post("/actions/{aid}/cancel", auth=auth)
+def actions_cancel(request, aid: int):
+    require_module(request, "ai")
+    from . import actions as act
+    ok, msg = act.cancel(request.tenant, aid, request.auth)
+    if not ok:
+        raise HttpError(400, msg)
+    return {"ok": True}

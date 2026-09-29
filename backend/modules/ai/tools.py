@@ -1,6 +1,7 @@
 """
 AI Kotib asboblari — AI raqamlarni o'zi to'qimaydi, faqat shu funksiyalar orqali tizimdan oladi.
-Hammasi faqat o'qiydi. Yagona o'zgartiruvchi amal — `create_task` (foydalanuvchi buyruqni tasdiqlagandan keyin).
+Ko'pchiligi faqat o'qiydi. O'zgartiruvchilar: `create_task` va `staff_*` / `menu_stop` — ular actions.py orqali TASDIQ bilan bajariladi
+(pul, kassa, moliya, narx, oylik, bonus — umuman yo'q).
 Har asbob foydalanuvchining filial doirasida ishlaydi (menejer — o'z filiali, egasi — hammasi).
 """
 from __future__ import annotations
@@ -11,6 +12,8 @@ from types import SimpleNamespace
 
 from django.db.models import Count, F, Q, Sum
 from django.utils import timezone
+
+from core import access as _acc
 
 from . import report
 
@@ -245,8 +248,150 @@ def make_chart(ctx, args):
     return {"ok": True, "note": "Diagramma foydalanuvchiga rasm sifatida yuboriladi. Matnda uni qisqa izohla, raqamlarni takrorlama."}
 
 
+# ------------------------------------------------------------------ xodimlar va menyu: o'zgartirish (tasdiq bilan) — actions.py
+def _emp(ctx, args, key="employee"):
+    from .actions import ActionError, find_user
+    try:
+        return find_user(ctx.user, args.get(key) or ""), None
+    except ActionError as e:
+        return None, {"ok": False, "error": str(e)}
+
+
+def _branch_ids(names) -> tuple[list[int], str | None]:
+    from core.models import Branch
+    ids, bad = [], []
+    for n in (names if isinstance(names, list) else [names]):
+        n = str(n or "").strip()
+        if not n:
+            continue
+        b = Branch.objects.filter(deleted_at__isnull=True, name__iexact=n).first() or Branch.objects.filter(deleted_at__isnull=True, name__icontains=n).first()
+        (ids.append(b.pk) if b else bad.append(n))
+    return ids, (f"filial topilmadi: {', '.join(bad)}" if bad else None)
+
+
+def staff_info(ctx, args):
+    """Xodim haqida: lavozim, filial, qaysi bo'limlarga kiradi, AI, Telegram, parol."""
+    from core import access as acc
+    u, err = _emp(ctx, args)
+    if err:
+        # o'zidan yuqorini boshqara olmasa ham — ko'rish mumkin emas (maxfiylik)
+        return err
+    ms = list(u.memberships.filter(is_active=True).select_related("role").prefetch_related("branches"))
+    perms = set(u.extra_permissions or [])
+    for m in ms:
+        perms |= set(m.role.permissions or [])
+    on = {a["title"]: acc.LEVEL_LABELS[acc.area_level(perms, a)] for a in acc.AREAS
+          if (not a["module"] or ctx.tenant.module_enabled(a["module"])) and acc.area_level(perms, a) != "none"}
+    bids = sorted({b.pk for m in ms if m.role.level < 80 for b in m.branches.all()})
+    from .actions import _bname
+    return {"name": u.full_name, "phone": u.phone, "active": u.is_active, "roles": [m.role.name for m in ms],
+            "branches": _bname(bids) if bids else "barcha filiallar", "sections": on, "ai": acc.covers(perms, "ai.use"),
+            "telegram_linked": bool(u.telegram_id), "has_password": bool(u.password) and u.has_usable_password()}
+
+
+def staff_access(ctx, args):
+    from .actions import LEVELS, ActionError, _area, propose
+    u, err = _emp(ctx, args)
+    if err:
+        return err
+    try:
+        a = _area(args.get("section") or "")
+    except ActionError as e:
+        return {"ok": False, "error": str(e)}
+    lv = args.get("level") or "view"
+    return propose(ctx, "access", u, {"area": a["code"], "level": lv},
+                   f"{u.full_name}: «{a['title']}» bo'limi — {LEVELS.get(lv, lv)}")
+
+
+def staff_role(ctx, args):
+    from .actions import ActionError, _role, propose
+    u, err = _emp(ctx, args)
+    if err:
+        return err
+    try:
+        r = _role(args.get("role") or "")
+    except ActionError as e:
+        return {"ok": False, "error": str(e)}
+    op = "remove" if args.get("action") == "remove" else "add"
+    return propose(ctx, "role", u, {"role": r.code, "op": op},
+                   f"{u.full_name}: «{r.name}» lavozimini " + ("olib tashlash" if op == "remove" else "qo'shish"))
+
+
+def staff_branches(ctx, args):
+    from .actions import _bname, propose
+    u, err = _emp(ctx, args)
+    if err:
+        return err
+    ids, bad = _branch_ids(args.get("branches") or [])
+    if bad or not ids:
+        return {"ok": False, "error": bad or "filial nomini ayting"}
+    return propose(ctx, "branches", u, {"branch_ids": ids}, f"{u.full_name}: ishlaydigan filial — {_bname(ids)}")
+
+
+def staff_block(ctx, args):
+    from .actions import propose
+    u, err = _emp(ctx, args)
+    if err:
+        return err
+    on = bool(args.get("active"))
+    return propose(ctx, "active", u, {"active": on},
+                   f"{u.full_name}: " + ("kirishni qayta yoqish" if on else "bloklash — tizimga kira olmaydi, ochiq kirishlari yopiladi"))
+
+
+def staff_phone(ctx, args):
+    from .actions import propose
+    u, err = _emp(ctx, args)
+    if err:
+        return err
+    ph = args.get("new_phone") or ""
+    return propose(ctx, "phone", u, {"phone": ph}, f"{u.full_name}: login (telefon) {u.phone} → {ph}")
+
+
+def staff_add(ctx, args):
+    from .actions import ActionError, _bname, _role, propose
+    try:
+        r = _role(args.get("role") or "")
+    except ActionError as e:
+        return {"ok": False, "error": str(e)}
+    ids, bad = _branch_ids(args.get("branches") or [])
+    if bad:
+        return {"ok": False, "error": bad}
+    name = (args.get("full_name") or "").strip()
+    return propose(ctx, "create", None, {"full_name": name, "phone": args.get("phone") or "", "role": r.code, "branch_ids": ids},
+                   f"Yangi xodim: {name}, {args.get('phone') or ''} — {r.name}" + (f", {_bname(ids)}" if ids else ""))
+
+
+def staff_reset_password(ctx, args):
+    from .actions import start_password
+    u, err = _emp(ctx, args)
+    if err:
+        return err
+    return start_password(ctx, u)
+
+
+def menu_stop(ctx, args):
+    from modules.catalog.models import Product
+
+    from .actions import propose
+    q = (args.get("dish") or "").strip()
+    if not q:
+        return {"ok": False, "error": "taom nomini ayting"}
+    qs = Product.objects.filter(deleted_at__isnull=True, is_active=True)
+    hit = list(qs.filter(name__uz__iexact=q)) or list(qs.filter(name__uz__icontains=q)) or list(qs.filter(name__ru__icontains=q))
+    if not hit:
+        return {"ok": False, "error": f"«{q}» degan taom menyuda topilmadi"}
+    if len(hit) > 1:
+        return {"ok": False, "error": "bir nechta taom topildi, aniqlashtiring", "candidates": [(p.name or {}).get("uz") for p in hit[:8]]}
+    p = hit[0]
+    name = (p.name or {}).get("uz") or str(p.pk)
+    stop = args.get("stop", True) is not False
+    return propose(ctx, "stop", None, {"product_id": p.pk, "stop": stop, "name": name},
+                   f"«{name}» — " + ("stop-listga qo'yish (vaqtincha yo'q)" if stop else "stop-listdan chiqarish (yana sotuvda)"))
+
+
 # ------------------------------------------------------------------ Gemini uchun e'lonlar
 _D = {"type": "string", "description": "sana YYYY-MM-DD"}
+_E = {"type": "string", "description": "xodim ismi (yoki telefoni)"}
 DECLS = [
     {"name": "daily_report", "description": "Kunlik to'liq hisobot: kechagi savdo, muammolar (tugayotgan xomashyo, kechikkan vazifalar, kechikkan xodimlar, qarz), bugungi smena, bron, ta'minot, prognoz. Umumiy «qanday ketyapti», «bugun nima qilish kerak» savollari uchun.",
      "parameters": {"type": "object", "properties": {"date": _D}}},
@@ -281,11 +426,38 @@ DECLS = [
      "parameters": {"type": "object", "properties": {"title": {"type": "string"}, "assignee": {"type": "string"}, "due": {"type": "string"},
                                                      "priority": {"type": "string", "enum": ["urgent", "high", "normal", "low"]}, "description": {"type": "string"}},
                     "required": ["title"]}},
+    {"name": "staff_info", "description": "Xodim haqida: lavozimi, filiali, qaysi bo'limlarga qanday kiradi, AI Kotib, Telegram, paroli bormi. O'zgartirishdan oldin tekshirish uchun ham.",
+     "parameters": {"type": "object", "properties": {"employee": _E}, "required": ["employee"]}},
+    {"name": "staff_access", "description": "Xodimga bo'lim(sahifa)ga kirish berish yoki olish. level: none=yopish, view=faqat ko'radi, edit=ishlaydi/o'zgartiradi, full=to'liq. "
+     "section kodi: " + ", ".join(f"{a['code']}={a['title']}" for a in _acc.AREAS if a["code"] not in ("pos", "finance", "dashboard")) +
+     ". AI Kotibni yoqish/o'chirish — section=ai (edit / none). Kassa, Moliya — MUMKIN EMAS.",
+     "parameters": {"type": "object", "properties": {"employee": _E, "section": {"type": "string"}, "level": {"type": "string", "enum": ["none", "view", "edit", "full"]}},
+                    "required": ["employee", "section", "level"]}},
+    {"name": "staff_role", "description": "Xodimga lavozim (rol) qo'shish yoki olib tashlash: Kassir, Ofitsiant, Oshpaz, Filial menejeri va h.k.",
+     "parameters": {"type": "object", "properties": {"employee": _E, "role": {"type": "string"}, "action": {"type": "string", "enum": ["add", "remove"]}},
+                    "required": ["employee", "role"]}},
+    {"name": "staff_branches", "description": "Xodim qaysi filial(lar)da ishlashini belgilash (boshqa filialga o'tkazish).",
+     "parameters": {"type": "object", "properties": {"employee": _E, "branches": {"type": "array", "items": {"type": "string"}}}, "required": ["employee", "branches"]}},
+    {"name": "staff_block", "description": "Xodimni bloklash (active=false — tizimga kira olmaydi) yoki qayta yoqish (active=true).",
+     "parameters": {"type": "object", "properties": {"employee": _E, "active": {"type": "boolean"}}, "required": ["employee", "active"]}},
+    {"name": "staff_phone", "description": "Xodimning login telefon raqamini o'zgartirish (faqat O'zbekiston raqami).",
+     "parameters": {"type": "object", "properties": {"employee": _E, "new_phone": {"type": "string"}}, "required": ["employee", "new_phone"]}},
+    {"name": "staff_add", "description": "Yangi xodim qo'shish: ism familiya, telefon, lavozim, filial(lar).",
+     "parameters": {"type": "object", "properties": {"full_name": {"type": "string"}, "phone": {"type": "string"}, "role": {"type": "string"},
+                                                     "branches": {"type": "array", "items": {"type": "string"}}}, "required": ["full_name", "phone", "role"]}},
+    {"name": "staff_reset_password", "description": "Xodim parolini unutgan bo'lsa: unga Telegram botda yangi parol qo'yish taklifi yuboriladi, u 2 marta yozadi, "
+     "keyin rahbar tasdiqlaydi. Parolni hech qachon so'rama va o'zing yozma.",
+     "parameters": {"type": "object", "properties": {"employee": _E}, "required": ["employee"]}},
+    {"name": "menu_stop", "description": "Taomni stop-listga qo'yish (stop=true — vaqtincha yo'q, kassa va saytda ko'rinmaydi) yoki chiqarish (stop=false). Narx o'zgartirish — MUMKIN EMAS.",
+     "parameters": {"type": "object", "properties": {"dish": {"type": "string"}, "stop": {"type": "boolean"}}, "required": ["dish"]}},
 ]
 FUNCS = {"daily_report": daily_report, "sales": sales, "top_products": top_products, "stock": stock, "tasks": tasks, "staff": staff,
-         "bookings": bookings, "supply": supply, "forecast": forecast, "finance": finance, "create_task": create_task, "make_chart": make_chart}
+         "bookings": bookings, "supply": supply, "forecast": forecast, "finance": finance, "create_task": create_task, "make_chart": make_chart,
+         "staff_info": staff_info, "staff_access": staff_access, "staff_role": staff_role, "staff_branches": staff_branches, "staff_block": staff_block,
+         "staff_phone": staff_phone, "staff_add": staff_add, "staff_reset_password": staff_reset_password, "menu_stop": menu_stop}
 NEEDS = {"sales": "pos", "top_products": "pos", "stock": "inventory", "tasks": "tasks", "staff": "hr", "bookings": "reservations",
-         "supply": "procurement", "forecast": "forecast", "finance": "finance", "create_task": "tasks"}
+         "supply": "procurement", "forecast": "forecast", "finance": "finance", "create_task": "tasks", "menu_stop": "catalog"}
+STAFF_TOOLS = {"staff_info", "staff_access", "staff_role", "staff_branches", "staff_block", "staff_phone", "staff_add", "staff_reset_password"}
 
 
 def available(tenant) -> list[dict]:
@@ -299,6 +471,10 @@ def run(ctx, name: str, args: dict) -> dict:
         return {"error": f"noma'lum asbob: {name}"}
     if name == "create_task" and not ctx.user.has_perm_code("tasks.create"):
         return {"ok": False, "error": "sizda vazifa yaratish ruxsati yo'q"}
+    if name in STAFF_TOOLS and not ctx.user.has_perm_code("core.users.manage"):
+        return {"ok": False, "error": "sizda xodimlarni boshqarish ruxsati yo'q — buni rahbaringiz qiladi"}
+    if name == "menu_stop" and not ctx.user.has_perm_code("catalog.edit"):
+        return {"ok": False, "error": "sizda menyuni o'zgartirish ruxsati yo'q"}
     try:
         return fn(ctx, args or {})
     except Exception as e:

@@ -59,3 +59,29 @@ class AiDaily(models.Model):
 
     class Meta:
         unique_together = [("date", "user")]
+
+
+class AiAction(TimeStamped):
+    """AI Kotib o'zgartiruvchi amali — hech narsa darhol bajarilmaydi, buyruq bergan rahbar «✅ Tasdiqlash» ni bosgach bajariladi.
+    Pul/kassa/moliya bilan bog'liq amallar umuman yo'q (actions.py). Parol tiklash: xodim botda yangi parolni 2 marta yozadi → rahbar tasdiqlaydi."""
+    PROPOSED, WAITING, READY, DONE, CANCELLED, EXPIRED, FAILED = "proposed", "waiting", "ready", "done", "cancelled", "expired", "failed"
+    STATUS = [(PROPOSED, "Tasdiq kutilmoqda"), (WAITING, "Xodim javobi kutilmoqda"), (READY, "Tasdiq kutilmoqda"), (DONE, "Bajarildi"),
+              (CANCELLED, "Bekor qilindi"), (EXPIRED, "Muddati o'tdi"), (FAILED, "Bajarilmadi")]
+    kind = models.CharField(max_length=24)
+    params = models.JSONField(default=dict, blank=True)
+    summary = models.TextField()
+    status = models.CharField(max_length=10, choices=STATUS, default=PROPOSED, db_index=True)
+    channel = models.CharField(max_length=10, default="panel", help_text="telegram | panel — tasdiq qayerga so'raladi")
+    requested_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
+    target = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE, related_name="+")
+    result = models.CharField(max_length=400, blank=True)
+    tg_msgs = models.JSONField(default=list, blank=True, help_text="[[chat_id, message_id]] — tasdiq xabarlari (tugmalarni yangilash uchun)")
+    expires_at = models.DateTimeField()
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-id"]
+
+    @property
+    def expired(self) -> bool:
+        return timezone.now() > self.expires_at

@@ -5,7 +5,9 @@
  *   • javob chatdagidek yozila boradi (oqim), kerak bo'lsa diagramma (rasm) ham keladi;
  *   • «⏹ To'xtatish» — AI ishi to'xtaydi, savol maydonga qaytadi (o'zgartirib qayta yuborish mumkin);
  *   • «📊 Hisobot» — bugungi hisobot; javob kelmaguncha yangi savol yuborilmaydi;
- *   • suhbat shu brauzer oynasida saqlanadi (sessionStorage), oxirgi xabarlar AI'ga kontekst sifatida boradi.
+ *   • suhbat shu brauzer oynasida saqlanadi (sessionStorage), oxirgi xabarlar AI'ga kontekst sifatida boradi;
+ *   • o'zgartirish buyruqlari (kirish berish, lavozim, filial, bloklash, stop-list, parolni tiklash) — pastda karta: «✅ Tasdiqlash» / «✖ Bekor».
+ *     Hech narsa tasdiqsiz o'zgarmaydi; pul/kassa/moliyaga AI tegmaydi.
  */
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
@@ -28,7 +30,25 @@ const MKEY = 'restopos.aimode'
 const mode = ref<'local' | 'web'>((() => { try { return (sessionStorage.getItem(MKEY) as 'web') || 'local' } catch { return 'local' } })())
 watch(mode, (v) => { try { sessionStorage.setItem(MKEY, v) } catch { /* private */ } })
 const SUG_WEB = ['Go\'sht narxi hozir qancha, tannarximizga ta\'siri?', '30-oktabrga qanday bonus va aksiya qilsak bo\'ladi?', 'Toshkent restoranlarida qanday trendlar bor?', 'RestoPOS boshqa tizimlardan nimasi bilan yaxshi?']
-const SUG = ['Kecha savdo qancha bo\'ldi?', 'Oxirgi 7 kun savdosini diagrammada ko\'rsat', 'Omborda nima tugayapti?', 'Kechikkan vazifalar kimda?']
+const SUG = ['Kecha savdo qancha bo\'ldi?', 'Oxirgi 7 kun savdosini diagrammada ko\'rsat', 'Omborda nima tugayapti?', 'Kechikkan vazifalar kimda?', 'Palovni stop-listga qo\'y']
+
+// ---------- o'zgartirish amallari: AI tayyorlaydi, rahbar tasdiqlaydi
+type Act = { id: number; kind: string; summary: string; status: string; status_label: string; target: string | null; can_confirm: boolean }
+const acts = ref<Act[]>([]), actBusy = ref(0)
+const need = computed(() => acts.value.filter(a => a.can_confirm).length)
+async function loadActs() { try { acts.value = await api.get<Act[]>('/ai/actions') } catch { /* modul o'chiq */ } }
+async function decide(a: Act, ok: boolean) {
+  if (actBusy.value) return
+  actBusy.value = a.id
+  try {
+    if (ok) { const r = await api.post<{ result: string }>(`/ai/actions/${a.id}/confirm`); push({ role: 'ai', html: `✅ <b>Bajarildi:</b> ${esc(r.result)}`, text: `Bajarildi: ${r.result}` }) }
+    else { await api.post(`/ai/actions/${a.id}/cancel`); push({ role: 'ai', html: `✖️ Bekor qilindi: ${esc(a.summary)}`, text: 'Bekor qilindi' }) }
+  } catch (e: any) { push({ role: 'ai', html: `⚠️ ${esc(e.detail ?? 'Xato')}`, text: '', err: true }) }
+  finally { actBusy.value = 0; loadActs() }
+}
+loadActs()
+const actTimer = window.setInterval(() => { if (document.visibilityState === 'visible') loadActs() }, 20_000)
+onBeforeUnmount(() => clearInterval(actTimer))
 
 watch(msgs, (v) => { try { sessionStorage.setItem(KEY, JSON.stringify(v.slice(-30).map(m => ({ ...m, live: false })))) } catch { /* to'lsa — saqlanmaydi */ } }, { deep: true })
 const now = () => new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })
@@ -39,7 +59,7 @@ async function toggle() {
   open.value = !open.value
   if (open.value) {
     if (!status.value) { try { status.value = await api.get('/ai/status') } catch { status.value = { has_key: false } } }
-    scroll(); nextTick(() => inputEl.value?.focus())
+    loadActs(); scroll(); nextTick(() => inputEl.value?.focus())
   }
 }
 function push(m: Omit<Msg, 'at'>) { msgs.value.push({ ...m, at: now() }); scroll() }
@@ -79,7 +99,7 @@ async function send(text?: string) {
     m.live = false
     if (e?.name === 'AbortError') { m.html = (raw ? fmt(raw) + '\n\n' : '') + '⏹ <i>To\'xtatildi.</i>'; m.err = true }
     else { m.html = `⚠️ ${esc(e.detail ?? 'Xato')}`; m.err = true }
-  } finally { busy.value = false; ctrl = null; nextTick(() => inputEl.value?.focus()) }
+  } finally { busy.value = false; ctrl = null; loadActs().then(scroll); nextTick(() => inputEl.value?.focus()) }
 }
 /** ⏹ To'xtatish: AI ishi to'xtaydi, savol maydonga qaytadi — o'zgartirib qayta yuborish mumkin */
 function stop() {
@@ -139,6 +159,7 @@ const lifted = computed(() => route.path.startsWith('/tasks'))     // telefonda 
     <button type="button" class="aic-fab" :class="{ on: open }" :aria-expanded="open" aria-label="AI Kotib" title="AI Kotib — savol bering" @click="toggle">
       <UiIcon :name="open ? 'x' : 'spark'" :size="24" />
       <span v-if="busy && !open" class="aic-dot"></span>
+      <span v-else-if="need && !open" class="aic-cnt" :title="`${need} ta amal tasdiqingizni kutyapti`">{{ need }}</span>
     </button>
 
     <section v-if="open" class="aic" role="dialog" aria-label="AI Kotib chati">
@@ -154,7 +175,7 @@ const lifted = computed(() => route.path.startsWith('/tasks'))     // telefonda 
         <div v-if="status && !status.has_key" class="aic-note">⚠️ AI kaliti hali kiritilmagan. <RouterLink to="/ai" @click="open = false">AI Kotib sahifasida</RouterLink> kalitni qo'ying.</div>
         <div v-if="!msgs.length" class="aic-empty">
           <p v-if="mode === 'web'">🌐 <b>Global qidiruv:</b> internetdan (Google) izlab, restoraningiz raqamlari bilan birlashtirib javob beraman — narxlar, trendlar, aksiya g'oyalari. Manbalarni ham ko'rsataman.</p>
-          <p v-else>Salom! Men restoraningiz bo'yicha savollarga tizimdagi haqiqiy raqamlar bilan javob beraman, kerak bo'lsa diagramma chizaman. Vazifa ham bera olaman: «Rustamga ertaga 10:00 gacha … vazifasini ber».</p>
+          <p v-else>Salom! Savollarga tizimdagi haqiqiy raqamlar bilan javob beraman, diagramma chizaman, vazifa beraman. Xodimlarga kirish, lavozim, filial, stop-list, parolni tiklash — ham qila olaman (siz <b>tasdiqlagach</b>). Pul va kassaga tegmayman.</p>
           <div class="aic-sug"><button v-for="s in (mode === 'web' ? SUG_WEB : SUG)" :key="s" type="button" :disabled="busy" @click="send(s)">{{ s }}</button></div>
         </div>
         <div v-for="(m, i) in msgs" :key="i" class="aic-m" :class="[m.role, { err: m.err }]">
@@ -162,6 +183,15 @@ const lifted = computed(() => route.path.startsWith('/tasks'))     // telefonda 
           <div v-else class="aic-b" :class="{ live: m.live }" v-html="m.html"></div>
           <a v-for="(c, k) in m.charts ?? []" :key="k" class="aic-chart" :href="c.src" :download="`${c.title || 'diagramma'}.png`" :title="`${c.title} — yuklab olish`"><img :src="c.src" :alt="c.title" loading="lazy" /></a>
           <small>{{ m.at }}</small>
+        </div>
+        <div v-for="a in acts" :key="'a' + a.id" class="aic-act" :class="{ wait: !a.can_confirm }">
+          <b>{{ a.kind === 'password' ? '🔐 Parolni yangilash' : '🛠 Tasdiqlaysizmi?' }}</b>
+          <p>{{ a.summary }}</p>
+          <small v-if="!a.can_confirm">⏳ {{ a.kind === 'password' ? 'Xodim Telegram botda yangi parolni yozishini kutyapmiz' : a.status_label }}</small>
+          <div class="aic-act-b">
+            <button v-if="a.can_confirm" type="button" class="ok" :disabled="!!actBusy" @click="decide(a, true)">✅ Tasdiqlash</button>
+            <button type="button" :disabled="!!actBusy" @click="decide(a, false)">✖ Bekor</button>
+          </div>
         </div>
       </div>
 
@@ -191,6 +221,13 @@ const lifted = computed(() => route.path.startsWith('/tasks'))     // telefonda 
 .aic-fab { position: fixed; right: 20px; bottom: 20px; z-index: 45; width: 56px; height: 56px; border-radius: 18px; border: 0; cursor: pointer; color: #fff;
   background: linear-gradient(135deg, #7C3AED, #0891B2); box-shadow: 0 12px 28px -8px rgba(124, 58, 237, .55); display: grid; place-items: center; transition: transform .15s; }
 .aic-fab:hover { transform: translateY(-2px) scale(1.03); } .aic-fab.on { border-radius: 50%; }
+.aic-cnt { position: absolute; top: -4px; right: -4px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 99px; background: var(--danger); color: #fff; font-size: 12px; font-weight: 800; display: grid; place-items: center; border: 2px solid var(--surface); }
+.aic-act { align-self: stretch; border: 1.5px solid #7C3AED; background: color-mix(in srgb, #7C3AED 7%, var(--surface)); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.aic-act.wait { border-style: dashed; border-color: var(--line); background: var(--surface); }
+.aic-act p { margin: 0; } .aic-act small { color: var(--muted); font-size: 12px; }
+.aic-act-b { display: flex; gap: 8px; flex-wrap: wrap; }
+.aic-act-b button { flex: 1; min-height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-weight: 700; cursor: pointer; }
+.aic-act-b button.ok { background: #16A34A; border-color: #16A34A; color: #fff; } .aic-act-b button:disabled { opacity: .5; cursor: default; }
 .aic-dot { position: absolute; top: 8px; right: 8px; width: 10px; height: 10px; border-radius: 50%; background: #F59E0B; border: 2px solid #fff; animation: aic-p 1s infinite alternate; }
 @keyframes aic-p { to { transform: scale(1.3); } }
 .aic { position: fixed; right: 20px; bottom: 88px; z-index: 46; width: min(400px, calc(100vw - 40px)); height: min(600px, calc(100dvh - 120px)); display: flex; flex-direction: column;

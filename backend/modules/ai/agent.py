@@ -36,7 +36,12 @@ Qoidalar:
 5. Foydalanuvchi aniq buyursa (masalan «Rustamga ertaga 10:00 gacha ... vazifa ber») — create_task asbobini chaqir va natijasini ayt. Buyruq bo'lmasa vazifa yaratma.
 6. Ovozdan yozilgan matnda xatolar bo'lishi mumkin — ma'nosini tushunishga harakat qil. Juda noaniq bo'lsa, qisqa aniqlashtiruvchi savol ber.
 7. «Kecha», «bugun», «o'tgan hafta», «shu oy» kabi so'zlarni aniq sanaga aylantir (YYYY-MM-DD).
-8. Pastdagi «HOZIRGI HOLAT» — tizimdan olingan tayyor raqamlar. Savolga ular yetarli bo'lsa — asbob chaqirmasdan darhol javob ber (tezroq). Batafsilroq yoki boshqa davr kerak bo'lsa — asbobni chaqir.
+9. O'ZGARTIRISH (staff_access, staff_role, staff_branches, staff_block, staff_phone, staff_add, menu_stop): faqat foydalanuvchi aniq buyursa chaqir.
+   Ular darhol bajarilmaydi — foydalanuvchi «✅ Tasdiqlash» tugmasini bosgach bajariladi. Shuning uchun «bajarildi» dema: nima tayyorlanganini 1–2 gapda ayt va tasdiqlashni so'ra.
+   Xodim ismi noaniq bo'lsa yoki asbob xato qaytarsa — xatoni oddiy tilda ayt. Kerak bo'lsa avval staff_info bilan tekshir.
+   Parol unutilgan bo'lsa — staff_reset_password (xodim botda o'zi yangi parol yozadi, keyin tasdiqlaysiz). Parolni hech qachon so'rama, yozma va o'ylab topma.
+   PUL bilan bog'liq hech narsani o'zgartira olmaysan: kassa, moliya, buxgalteriya, oylik, to'lov, narx, chegirma, bonus. So'rashsa — «buni xavfsizlik uchun faqat saytda o'zingiz qilasiz» de.
+10. Pastdagi «HOZIRGI HOLAT» — tizimdan olingan tayyor raqamlar. Savolga ular yetarli bo'lsa — asbob chaqirmasdan darhol javob ber (tezroq). Batafsilroq yoki boshqa davr kerak bo'lsa — asbobni chaqir.
 {persona}
 {mode_rules}
 HOZIRGI HOLAT ({snap_time} holatiga):
@@ -156,6 +161,7 @@ def ask(tenant, user, question: str, *, channel: str = "telegram", kind: str = "
     now = timezone.localtime()
     ctx = _ctx(tenant, user)
     ctx.charts = []
+    ctx.channel, ctx.actions = ("telegram" if channel == "telegram" else "panel"), []
     from django.conf import settings as dj
     web = mode == "web"
     snap, snap_time = snapshot(tenant, ctx.branch_ids)
@@ -211,7 +217,7 @@ def ask(tenant, user, question: str, *, channel: str = "telegram", kind: str = "
         if sources:
             out += "\n\n🔗 <b>Manbalar:</b>\n" + "\n".join(
                 f'• <a href="{html.escape(x["url"], quote=True)}" target="_blank" rel="noopener">{html.escape(x["title"][:60])}</a>' for x in sources)
-        return {"ok": True, "answer": out, "tasks": created, "charts": ctx.charts, "sources": sources, "mode": mode}
+        return {"ok": True, "answer": out, "tasks": created, "charts": ctx.charts, "sources": sources, "mode": mode, "actions": _actions(ctx)}
     except gemini.Stopped:
         lg.ok, lg.error, lg.calls, lg.tokens, lg.model = False, "to'xtatildi", calls, tokens, model
         lg.ms = int((time.monotonic() - t0) * 1000)
@@ -222,6 +228,12 @@ def ask(tenant, user, question: str, *, channel: str = "telegram", kind: str = "
         lg.ms = int((time.monotonic() - t0) * 1000)
         lg.save()
         return {"ok": False, "error": str(e), "tasks": created, "charts": []}
+
+
+def _actions(ctx) -> list[dict]:
+    from .actions import out
+    from .models import AiAction
+    return [out(a) for a in AiAction.objects.filter(pk__in=getattr(ctx, "actions", []) or []).select_related("target").order_by("id")]
 
 
 def morning(tenant, user, *, channel: str = "morning", use_ai: bool = True) -> tuple[list[str], dict]:

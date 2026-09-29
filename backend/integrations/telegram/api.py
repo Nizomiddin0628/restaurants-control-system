@@ -57,9 +57,11 @@ def process_update(tenant, upd: dict, base_url: str | None = None) -> None:
     # Saytga kirishni tasdiqlash (login:…) va xavfsizlik (sec:…) tugmalari
     cq = upd.get("callback_query") or {}
     data = str(cq.get("data") or "")
-    if data.startswith(("login:", "sec:", "shift:", "join:")):
+    if data.startswith(("login:", "sec:", "shift:", "join:", "aiact:")):
         try:
-            if data.startswith("login:"):
+            if data.startswith("aiact:"):
+                from modules.ai.actions import handle_callback
+            elif data.startswith("login:"):
                 from core.tglogin import handle_callback
             elif data.startswith("join:"):
                 from core.join import handle_callback
@@ -102,6 +104,15 @@ def process_update(tenant, upd: dict, base_url: str | None = None) -> None:
         else:
             send_message(m0["chat"]["id"], "⌛ Taklif havolasi eskirgan yoki noto'g'ri. Rahbaringizdan yangisini so'rang.")
         return
+
+    # Xodim rahbar so'ragan yangi parolni botda yozyapti (AI Kotib orqali «parolini tiklab ber»)
+    if tenant.module_enabled("ai"):
+        try:
+            from modules.ai.actions import maybe_password
+            if maybe_password(tenant, upd):
+                return
+        except Exception:
+            log.exception("AI parol")
 
     # AI Kotib (rahbar/menejer): «🤖 AI Kotib», «📊 Bugungi hisobot», ovozli buyruq va tasdiq tugmalari
     try:
