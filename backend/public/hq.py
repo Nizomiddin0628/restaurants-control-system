@@ -145,25 +145,87 @@ def stats_by_tenant(days: int = 30) -> dict[int, dict]:
 
 
 # ------------------------------------------------------------------ billing
+# Narx manbai: shartnoma (Contract) → bo'lmasa sayt narxi (SiteOffer: Dastur / Dastur+AI, restoran uchun).
+# Valyutalar aralash bo'lishi mumkin (USD va so'm) — umumiy ko'rsatkichlar $ ekvivalentida (USD_UZS_RATE).
+TARIFF_UZ = {"base": "Dastur", "ai": "Dastur + AI Kotib"}
+
+
+def usd_rate() -> int:
+    import os
+    try:
+        return max(1000, int(os.environ.get("USD_UZS_RATE", "12800")))
+    except ValueError:
+        return 12800
+
+
+def to_usd(amount: int, currency: str) -> float:
+    return amount if currency == "USD" else amount / usd_rate()
+
+
+def contract_of(t: Tenant):
+    from .models import Contract
+    try:
+        c = t.contract
+    except Contract.DoesNotExist:
+        return None
+    return c if c.is_active else None
+
+
+def _month_day(period: date, day: int) -> date:
+    import calendar
+    return period.replace(day=min(max(1, day), calendar.monthrange(period.year, period.month)[1]))
+
+
+def terms(t: Tenant, branches: int | None = None) -> dict:
+    """Restoranning oylik to'lov sharti: narx, valyuta, tarif, to'lov kuni, qachondan pullik."""
+    from .models import SiteOffer
+    branches = max(1, branches or 1)
+    c = contract_of(t)
+    if c:
+        start = c.paid_from or (t.trial_ends_at.date() if t.trial_ends_at else None)
+        return {"source": "contract", "tariff": c.tariff, "tariff_label": TARIFF_UZ[c.tariff], "amount": c.monthly(branches), "currency": c.currency,
+                "billing_day": c.billing_day, "paid_from": start, "number": c.number}
+    o = SiteOffer.get()
+    ai = t.module_enabled("ai")
+    return {"source": "site", "tariff": "ai" if ai else "base", "tariff_label": TARIFF_UZ["ai" if ai else "base"],
+            "amount": o.ai_price if ai else o.base_price, "currency": "USD" if o.currency.strip() in ("$", "USD") else "UZS",
+            "billing_day": 10, "paid_from": t.trial_ends_at.date() if t.trial_ends_at else None, "number": None}
+
+
+def due_date_of(t: Tenant, period: date, tr: dict | None = None) -> date:
+    tr = tr or terms(t)
+    return _month_day(period, tr["billing_day"])
+
+
 def ensure_invoices(period: date | None = None) -> int:
-    """Oy boshida har faol (sinov muddati tugagan) restoranga hisob: tarif × filiallar soni. Muddati o'tganlar belgilanadi."""
+    """Oy uchun hisob: har faol restoran, pullik davri boshlangan bo'lsa. To'lanmagan joriy hisob shart o'zgarsa yangilanadi.
+    Muddati o'tganlar «overdue» bo'ladi."""
     today = timezone.localdate()
     period = (period or today).replace(day=1)
     st = stats_by_tenant(7)
     n = 0
-    for t in tenants_qs().filter(is_active=True):
-        if t.trial_ends_at and t.trial_ends_at.date() >= period + timedelta(days=27):
-            continue
+    for t in tenants_qs().filter(is_active=True).select_related("contract"):
         branches = max(1, st.get(t.pk, {}).get("branches") or 1)
-        amount = (t.plan.price_per_branch if t.plan else 0) * branches
-        _, created = Invoice.objects.get_or_create(tenant=t, period=period, defaults={
-            "plan_name": t.plan.name if t.plan else "—", "branches": branches, "amount": amount, "due_date": max(period + timedelta(days=10), today + timedelta(days=5))})
+        tr = terms(t, branches)
+        due = due_date_of(t, period, tr)
+        if tr["paid_from"] and tr["paid_from"] > due:  # hali bepul davr — avval avtomatik chiqqan to'lanmagan hisob bekor bo'ladi
+            Invoice.objects.filter(tenant=t, period=period, status__in=[InvoiceStatus.PENDING, InvoiceStatus.OVERDUE], note="").update(
+                status=InvoiceStatus.CANCELLED, note="bepul davr")
+            continue
+        inv, created = Invoice.objects.get_or_create(tenant=t, period=period, defaults={
+            "plan_name": tr["tariff_label"], "branches": branches, "amount": tr["amount"], "currency": tr["currency"], "due_date": due})
         n += created
+        if not created and inv.status in (InvoiceStatus.PENDING, InvoiceStatus.OVERDUE) and not inv.note and \
+                (inv.amount, inv.currency, inv.plan_name) != (tr["amount"], tr["currency"], tr["tariff_label"]):
+            # shart o'zgardi (tarif, narx, filiallar) — to'lanmagan hisob yangi shartga moslanadi (qo'lda o'zgartirilgan muddat saqlanadi)
+            inv.amount, inv.currency, inv.plan_name, inv.branches = tr["amount"], tr["currency"], tr["tariff_label"], branches
+            inv.save(update_fields=["amount", "currency", "plan_name", "branches"])
     Invoice.objects.filter(status=InvoiceStatus.PENDING, due_date__lt=today).update(status=InvoiceStatus.OVERDUE)
     return n
 
 
 def mrr_series(months: int = 12) -> list[dict]:
+    """Oylar bo'yicha hisoblangan summa ($ ekvivalenti)."""
     today = timezone.localdate().replace(day=1)
     out = []
     for i in range(months - 1, -1, -1):
@@ -172,9 +234,79 @@ def mrr_series(months: int = 12) -> list[dict]:
             m += 12
             y -= 1
         p = date(y, m, 1)
-        amt = sum(Invoice.objects.filter(period=p).exclude(status=InvoiceStatus.CANCELLED).values_list("amount", flat=True))
-        out.append({"period": p.isoformat(), "label": ["Yan", "Fev", "Mar", "Apr", "May", "Iyun", "Iyul", "Avg", "Sen", "Okt", "Noy", "Dek"][m - 1], "amount": int(amt)})
+        amt = sum(to_usd(a, c) for a, c in Invoice.objects.filter(period=p).exclude(status=InvoiceStatus.CANCELLED).values_list("amount", "currency"))
+        out.append({"period": p.isoformat(), "label": ["Yan", "Fev", "Mar", "Apr", "May", "Iyun", "Iyul", "Avg", "Sen", "Okt", "Noy", "Dek"][m - 1], "amount": round(amt)})
     return out
+
+
+def upcoming(days: int = 45) -> list[dict]:
+    """To'lov kalendari: muddati o'tgan va yaqin hisoblar + sinovi tugab, pullik davri boshlanadiganlar."""
+    today = timezone.localdate()
+    out = []
+    for i in Invoice.objects.filter(status__in=[InvoiceStatus.PENDING, InvoiceStatus.OVERDUE], due_date__lte=today + timedelta(days=days)).select_related("tenant"):
+        late = (today - i.due_date).days if i.due_date else 0
+        out.append({"kind": "invoice", "invoice_id": i.pk, "tenant_id": i.tenant_id, "tenant": i.tenant.name, "region": i.tenant.region,
+                    "date": i.due_date.isoformat() if i.due_date else None, "amount": i.amount, "currency": i.currency, "tariff": i.plan_name,
+                    "state": "overdue" if late > 0 else ("today" if late == 0 else "soon"), "days": -late})
+    have = {(x["tenant_id"]) for x in out}
+    st = stats_by_tenant(7)
+    for t in tenants_qs().filter(is_active=True).select_related("contract"):
+        if t.pk in have:
+            continue
+        tr = terms(t, st.get(t.pk, {}).get("branches") or 1)
+        start = tr["paid_from"]
+        if start is None or start < today or start > today + timedelta(days=days):
+            continue
+        first = due_date_of(t, start.replace(day=1), tr)
+        if first < start:                               # birinchi to'lov — keyingi oyning to'lov kunida
+            nm = (start.replace(day=1) + timedelta(days=32)).replace(day=1)
+            first = due_date_of(t, nm, tr)
+        out.append({"kind": "trial_end", "tenant_id": t.pk, "tenant": t.name, "region": t.region, "date": first.isoformat(), "trial_end": start.isoformat(),
+                    "amount": tr["amount"], "currency": tr["currency"], "tariff": tr["tariff_label"], "state": "trial", "days": (first - today).days})
+    return sorted(out, key=lambda x: (x["date"] or "9999", x["tenant"]))
+
+
+def money_totals(rows) -> dict:
+    """{"USD": 450, "UZS": 980000, "usd_eq": 526.6}"""
+    out: dict = defaultdict(int)
+    for amount, cur in rows:
+        out[cur] += amount
+    out["usd_eq"] = round(sum(to_usd(v, k) for k, v in list(out.items()) if k in ("USD", "UZS")), 1)
+    return dict(out)
+
+
+def daily_tick(force: bool = False) -> dict | None:
+    """Kuniga bir marta (09:00 dan keyin): hisoblarni yangilash va HQ Telegram chatiga qisqa xulosa — kim bugun/kechikib to'lashi kerak,
+    muddati o'tgan murojaatlar."""
+    now = timezone.localtime()
+    key = f"hq_daily:{now.date().isoformat()}"
+    if not force and (now.hour < 9 or cache.get(key)):
+        return None
+    cache.set(key, 1, 26 * 3600)
+    ensure_invoices()
+    up = upcoming(3)
+    late_t = Ticket.objects.exclude(status=TicketStatus.CLOSED).filter(due_at__lt=timezone.now()).count()
+    lines = []
+    for x in up:
+        cur = "$" if x["currency"] == "USD" else " so'm"
+        amt = f"{x['amount']:,}".replace(",", " ")
+        if x["state"] == "overdue":
+            lines.append(f"🔴 {x['tenant']} — {amt}{cur}, {-x['days']} kun kechikdi")
+        elif x["state"] == "today":
+            lines.append(f"🟠 {x['tenant']} — {amt}{cur}, bugun")
+        elif x["state"] == "trial":
+            lines.append(f"🔵 {x['tenant']} — sinov tugaydi, birinchi to'lov {x['date'][8:10]}.{x['date'][5:7]}")
+        else:
+            lines.append(f"🟡 {x['tenant']} — {amt}{cur}, {x['date'][8:10]}.{x['date'][5:7]}")
+    if late_t:
+        lines.append(f"🛠 Muddati o'tgan murojaatlar: {late_t} ta")
+    if lines:
+        try:
+            from website.sales_ai import notify
+            notify("📅 <b>Bugungi to'lovlar va vazifalar</b>\n" + "\n".join(lines[:25]))
+        except Exception:
+            pass
+    return {"lines": lines}
 
 
 # ------------------------------------------------------------------ holat (sog'lom / e'tibor / kritik)
@@ -254,6 +386,6 @@ def tenant_base(t: Tenant) -> str:
 
 def open_ticket_counts() -> dict[int, list]:
     out: dict[int, list] = defaultdict(list)
-    for tk in Ticket.objects.exclude(status=TicketStatus.CLOSED):
+    for tk in Ticket.objects.exclude(status=TicketStatus.CLOSED).filter(tenant__isnull=False):
         out[tk.tenant_id].append(tk)
     return out

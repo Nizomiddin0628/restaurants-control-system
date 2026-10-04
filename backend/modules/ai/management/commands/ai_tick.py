@@ -18,6 +18,11 @@ class Command(BaseCommand):
         parser.add_argument("--slug", default="")
 
     def handle(self, *args, **o):
+        try:                                      # platforma: kuniga bir marta to'lovlar va muddati o'tgan vazifalar xulosasi (HQ Telegram)
+            from public.hq import daily_tick
+            daily_tick()
+        except Exception as e:
+            self.stderr.write(f"hq daily: {e}")
         from public.models import Tenant
         qs = Tenant.objects.exclude(schema_name="public").filter(is_active=True)
         if o["slug"]:

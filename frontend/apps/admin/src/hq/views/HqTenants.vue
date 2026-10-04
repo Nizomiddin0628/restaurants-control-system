@@ -3,21 +3,21 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '@restopos/api'
-import { UiAvatar, UiCard, UiChip, UiEmpty, UiIcon } from '@restopos/ui'
-import { HEALTH, STATUS_TONE, big, d, sum } from '../fmt'
+import { UiAvatar, UiButton, UiCard, UiChip, UiEmpty, UiIcon } from '@restopos/ui'
+import { HEALTH, STATUS_TONE, big, d, money, sum } from '../fmt'
 
 const route = useRoute(), router = useRouter()
 const R = ref<any>(null)
 const q = ref(String(route.query.q ?? ''))
-const status = ref(''), health = ref(''), plan = ref('')
+const status = ref(''), health = ref(''), plan = ref(''), region = ref(''), tariff = ref('')
 const sort = ref<'revenue' | 'branches' | 'employees' | 'name'>('revenue')
 async function load() {
-  R.value = await api.get('/hq/tenants', { q: q.value || undefined, status: status.value || undefined, health: health.value || undefined, plan: plan.value || undefined })
+  R.value = await api.get('/hq/tenants', { q: q.value || undefined, status: status.value || undefined, health: health.value || undefined, region: region.value || undefined, tariff: tariff.value || undefined })
 }
 onMounted(load)
 let t: number | undefined
 watch(q, () => { clearTimeout(t); t = window.setTimeout(load, 250) })
-watch([status, health, plan], load)
+watch([status, health, plan, region, tariff], load)
 watch(() => route.query.q, (v) => { if (v !== undefined) q.value = String(v) })
 const rows = computed(() => [...(R.value?.items ?? [])].sort((a: any, b: any) => sort.value === 'name' ? a.name.localeCompare(b.name) : (b[sort.value === 'revenue' ? 'revenue_30d' : sort.value] ?? -1) - (a[sort.value === 'revenue' ? 'revenue_30d' : sort.value] ?? -1)))
 const totals = computed(() => ({ n: rows.value.length, br: rows.value.reduce((s: number, r: any) => s + r.branches, 0), emp: rows.value.reduce((s: number, r: any) => s + r.employees, 0) }))
@@ -29,25 +29,27 @@ const totals = computed(() => ({ n: rows.value.length, br: rows.value.reduce((s:
       <label class="sr"><UiIcon name="search" :size="16" /><input v-model="q" placeholder="Nomi, manzil yoki egasi telefoni…" /></label>
       <select v-model="status" aria-label="Holat"><option value="">Barcha holatlar</option><option value="active">Faol</option><option value="trial">Sinov</option><option value="stopped">To'xtatilgan</option></select>
       <select v-model="health" aria-label="Sog'lomlik"><option value="">Barcha sog'lomlik</option><option value="healthy">Sog'lom</option><option value="warning">E'tibor kerak</option><option value="critical">Kritik</option></select>
-      <select v-model="plan" aria-label="Tarif"><option value="">Barcha tariflar</option><option v-for="p in R.plans" :key="p.code" :value="p.code">{{ p.name }}</option></select>
+      <select v-model="tariff" aria-label="Tarif"><option value="">Barcha tariflar</option><option value="base">Dastur</option><option value="ai">Dastur + AI Kotib</option></select>
+      <select v-model="region" aria-label="Hudud"><option value="">Barcha hududlar</option><option v-for="r in R.regions" :key="r" :value="r">{{ r }}</option><option value="-">Hudud ko'rsatilmagan</option></select>
+      <UiButton variant="brand" @click="router.push('/tenants/new')"><UiIcon name="plus" :size="14" /> Yangi restoran</UiButton>
       <select v-model="sort" aria-label="Saralash"><option value="revenue">Savdo bo'yicha</option><option value="branches">Filiallar bo'yicha</option><option value="employees">Xodimlar bo'yicha</option><option value="name">Nomi bo'yicha</option></select>
     </div>
     <p class="sum">{{ totals.n }} ta mijoz · {{ totals.br }} filial · {{ totals.emp }} xodim</p>
 
     <UiCard :padded="false">
-      <div class="th"><span>Mijoz</span><span>Filial</span><span>Xodim</span><span>Savdo (30 kun)</span><span>Tarif</span><span>Holat</span><span>Sog'lomlik</span></div>
+      <div class="th"><span>Mijoz</span><span>Filial</span><span>Xodim</span><span>Savdo (30 kun)</span><span>Tarif / to'lov</span><span>Holat</span><span>Sog'lomlik</span></div>
       <button v-for="r in rows" :key="r.id" type="button" class="tr" @click="router.push(`/tenants/${r.id}`)">
-        <span class="nm"><UiAvatar :name="r.name" :size="36" /><span><b>{{ r.name }}</b><small>{{ r.domain }}</small></span></span>
+        <span class="nm"><UiAvatar :name="r.name" :size="36" /><span><b>{{ r.name }}</b><small>{{ r.domain }}{{ r.region ? ' · 📍 ' + [r.region, r.district].filter(Boolean).join(', ') : '' }}</small></span></span>
         <span class="c"><em>Filial</em>{{ r.branches }}</span>
         <span class="c"><em>Xodim</em>{{ r.employees }}</span>
         <span class="c rv"><em>Savdo</em><template v-if="r.shares_finance"><b>{{ big(r.revenue_30d) }}</b><small v-if="r.trend != null" :class="r.trend >= 0 ? 'up' : 'dn'">{{ r.trend >= 0 ? '↑' : '↓' }} {{ Math.abs(r.trend) }}%</small></template><small v-else class="lock">🔒 yashirin</small></span>
-        <span class="c"><em>Tarif</em>{{ r.plan }}</span>
+        <span class="c"><em>Tarif</em>{{ r.tariff_label }}<small>{{ money(r.price, r.currency) }}/oy · {{ r.billing_day }}-sana{{ r.contract_no ? '' : ' · shartnomasiz' }}</small></span>
         <span class="c"><UiChip :tone="STATUS_TONE[r.status]">{{ r.status_label }}</UiChip><small v-if="r.status === 'trial' && r.trial_ends_at">{{ d(r.trial_ends_at) }} gacha</small></span>
         <span class="c hl" :title="r.reasons.join(' · ')"><i :class="r.health"></i>{{ HEALTH[r.health][0] }}<small v-if="r.reasons.length">{{ r.reasons[0] }}</small></span>
       </button>
       <UiEmpty v-if="!rows.length" title="Mijoz topilmadi" text="Qidiruv yoki filtrni o'zgartiring." />
     </UiCard>
-    <p class="note">Jami {{ sum(R.items.length) }} ta. Mijoz o'zi ro'yxatdan o'tadi (platforma sayti) yoki sotuv jamoasi yaratadi.</p>
+    <p class="note">Jami {{ sum(R.items.length) }} ta. Mijoz o'zi ro'yxatdan o'tadi (platforma sayti) yoki shartnoma bo'yicha «Yangi restoran» tugmasi bilan ochiladi.</p>
   </div>
 </template>
 

@@ -10,7 +10,7 @@ import { UiButton, UiCard, UiChip, UiEmpty, UiIcon, toast } from '@restopos/ui'
 import AreaChart from '../charts/AreaChart.vue'
 import { trimZeros } from '../fmt'
 import Donut from '../charts/Donut.vue'
-import { ACTION, HEALTH, ago, big, sum } from '../fmt'
+import { ACTION, HEALTH, ago, big, d, money, sum } from '../fmt'
 
 const O = ref<any>(null)
 const busy = ref(false)
@@ -26,7 +26,7 @@ const tiles = computed(() => !K.value ? [] : [
   { label: 'Mijozlar', value: sum(K.value.clients), note: K.value.clients_new ? `+${K.value.clients_new} shu oy` : 'restoran kompaniyalari', icon: 'users', bg: '#2563EB', to: '/tenants' },
   { label: 'Filiallar', value: sum(K.value.branches), note: 'jami restoran nuqtalari', icon: 'store', bg: '#0EA5E9', to: '/tenants' },
   { label: 'Xodimlar', value: sum(K.value.employees), note: `${sum(K.value.users)} ta foydalanuvchi`, icon: 'users', bg: '#8B5CF6', to: '/tenants' },
-  { label: 'Oylik daromad (MRR)', value: `${big(K.value.mrr)}`, note: delta(K.value.mrr, K.value.mrr_prev) != null ? `${delta(K.value.mrr, K.value.mrr_prev)! >= 0 ? '↑' : '↓'} ${Math.abs(delta(K.value.mrr, K.value.mrr_prev)!)}% o'tgan oyga` : 'so\'m / oy', icon: 'receipt', bg: '#16A34A', to: '/billing' },
+  { label: 'Oylik daromad (MRR)', value: `$${sum(K.value.mrr)}`, note: delta(K.value.mrr, K.value.mrr_prev) != null ? `${delta(K.value.mrr, K.value.mrr_prev)! >= 0 ? '↑' : '↓'} ${Math.abs(delta(K.value.mrr, K.value.mrr_prev)!)}% o'tgan oyga` : '$ ekvivalenti / oy', icon: 'receipt', bg: '#16A34A', to: '/billing' },
   { label: 'Platformadagi savdo', value: big(K.value.revenue_30d), note: `30 kun · ${K.value.share_count} ta restoran ulashgan`, icon: 'chart', bg: '#F59E0B', to: '/tenants' },
   { label: 'Buyurtmalar', value: sum(K.value.orders_30d), note: `o'rtacha chek ${big(K.value.avg_check)}`, icon: 'list', bg: '#EF4444', to: '/tenants' },
 ])
@@ -37,6 +37,8 @@ const donut = computed(() => [
 ])
 const mrrPts = computed(() => trimZeros((O.value?.mrr ?? []).map((m: any) => ({ label: m.label, value: m.amount }))))
 const dayPts = computed(() => (O.value?.daily ?? []).map((m: any) => ({ label: m.date.slice(8, 10) + '.' + m.date.slice(5, 7), value: m.revenue })))
+const regMax = computed(() => Math.max(1, ...(O.value?.regions ?? []).map((r: any) => r.tenants)))
+const UPS: Record<string, string> = { overdue: 'kechikdi', today: 'bugun', soon: '', trial: 'sinov tugaydi' }
 const topMax = computed(() => Math.max(1, ...(O.value?.top_products ?? []).map((p: any) => p.qty)))
 </script>
 
@@ -66,6 +68,31 @@ const topMax = computed(() => Math.max(1, ...(O.value?.top_products ?? []).map((
           <li v-for="a in O.attention" :key="a.id"><RouterLink :to="`/tenants/${a.id}`"><UiChip :tone="HEALTH[a.level][1] as any">{{ HEALTH[a.level][0] }}</UiChip><b>{{ a.name }}</b><small>{{ a.reasons.join(' · ') }}</small></RouterLink></li>
         </ul>
         <p v-else class="ok">✓ Barcha mijozlar sog'lom</p>
+      </UiCard>
+    </div>
+
+    <div class="row r15">
+      <UiCard title="Yaqin to'lovlar" subtitle="Keyingi 14 kun va kechikkanlar">
+        <template #actions><RouterLink to="/billing" class="more">Kalendar →</RouterLink></template>
+        <ul class="ups">
+          <li v-for="x in O.upcoming" :key="x.tenant_id + x.date" :class="x.state"><RouterLink :to="`/tenants/${x.tenant_id}?tab=billing`">
+            <span class="dd"><b>{{ d(x.date).slice(0, 5) }}</b><small>{{ x.state === 'overdue' ? -x.days + ' kun kechikdi' : (UPS[x.state] || x.days + ' kun') }}</small></span>
+            <b class="nm2">{{ x.tenant }}</b><span class="am">{{ money(x.amount, x.currency) }}</span></RouterLink></li>
+        </ul>
+        <UiEmpty v-if="!O.upcoming.length" title="Yaqin kunlarda to'lov yo'q" />
+      </UiCard>
+      <UiCard title="Hududlar" subtitle="Restoran va filiallar soni">
+        <ul class="regs">
+          <li v-for="r in O.regions" :key="r.region"><RouterLink :to="{ path: '/tenants', query: {} }"><span class="rn"><b>{{ r.region }}</b><small>{{ r.branches }} filial{{ r.districts.length ? ' · ' + r.districts.slice(0, 3).map((x: any) => x.name).join(', ') : '' }}</small></span>
+            <span class="bar"><i :style="{ width: `${(100 * r.tenants) / regMax}%` }"></i></span><b class="q">{{ r.tenants }}</b></RouterLink></li>
+        </ul>
+      </UiCard>
+      <UiCard title="Vazifalar" subtitle="Doska holati">
+        <dl class="mini">
+          <dt>Ochiq murojaatlar</dt><dd><RouterLink to="/tickets">{{ K.open_tickets }}</RouterLink></dd>
+          <dt>Muddati o'tgan</dt><dd :class="O.late_tickets ? 'dn' : 'up'">{{ O.late_tickets }}</dd>
+        </dl>
+        <RouterLink to="/tickets" class="go">Doskani ochish →</RouterLink>
       </UiCard>
     </div>
 
@@ -114,7 +141,15 @@ a.kpi:hover { border-color: #2563EB; }
 .kv { grid-column: 1 / -1; font-family: var(--font-display); font-size: 24px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kpi small { grid-column: 1 / -1; font-size: var(--fs-xs); color: var(--muted); }
 .row { display: grid; gap: 16px; } .row > :deep(.ui-card) { min-width: 0; }
-.r1 { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); } .r2 { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); } .r3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.r1 { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); } .r15 { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.2fr) minmax(0, .7fr); }
+.more, .go { color: #2563EB; font-weight: 700; font-size: var(--fs-s); text-decoration: none; } .go { display: inline-block; margin-top: 12px; }
+.ups { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ups a { display: grid; grid-template-columns: 90px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); color: var(--ink); text-decoration: none; border-left: 3px solid #2563EB; }
+.ups li.overdue a { background: #FEF2F2; border-left-color: #DC2626; } .ups li.today a { background: #FFF7ED; border-left-color: #F97316; } .ups li.trial a { border-left-color: #8B5CF6; }
+.dd { display: flex; flex-direction: column; } .dd small { font-size: 11px; color: var(--muted); } .nm2 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-s); } .am { font-weight: 800; white-space: nowrap; font-size: var(--fs-s); }
+.regs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.regs a { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto; gap: 10px; align-items: center; color: var(--ink); text-decoration: none; }
+.rn { display: flex; flex-direction: column; min-width: 0; } .rn b { font-size: var(--fs-s); } .rn small { color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .r2 { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); } .r3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .att { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .att a { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: center; color: var(--ink); text-decoration: none; padding: 8px; border-radius: 10px; background: var(--surface-2); }
 .att small { grid-column: 1 / -1; color: var(--muted); font-size: var(--fs-xs); }
@@ -130,6 +165,6 @@ a.kpi:hover { border-color: #2563EB; }
 .up { color: var(--ok); } .dn { color: var(--danger); }
 .act { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: var(--fs-s); } .act li { display: flex; flex-wrap: wrap; gap: 4px; } .act small { color: var(--muted); width: 100%; font-size: 11px; }
 @media (max-width: 1400px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 1100px) { .r1, .r2 { grid-template-columns: minmax(0, 1fr); } .r3 { grid-template-columns: 1fr 1fr; } .r3 > :first-child { grid-column: 1 / -1; } }
+@media (max-width: 1100px) { .r1, .r2, .r15 { grid-template-columns: minmax(0, 1fr); } .r3 { grid-template-columns: 1fr 1fr; } .r3 > :first-child { grid-column: 1 / -1; } }
 @media (max-width: 640px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } .kv { font-size: 20px; } .r3 { grid-template-columns: minmax(0, 1fr); } .r3 > :first-child { grid-column: auto; } }
 </style>

@@ -3,22 +3,21 @@
  * Mijoz kartasi: umumiy ko'rsatkichlar, har filial (savdo, chek, food cost, xodim), billing, murojaatlar,
  * kirish (faqat egasi ruxsati bilan), modullar, faoliyat. Daromad — faqat mijoz ulashishga rozi bo'lsa.
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { api } from '@restopos/api'
 import { UiAvatar, UiButton, UiCard, UiChip, UiEmpty, UiIcon, UiToggle, toast } from '@restopos/ui'
 import AreaChart from '../charts/AreaChart.vue'
 import { useHq } from '../store'
-import { ACTION, HEALTH, STATUS_TONE, ago, big, d, dt, sum } from '../fmt'
+import { ACTION, HEALTH, STATUS_TONE, ago, big, d, dt, money, sum } from '../fmt'
 
 const route = useRoute(), s = useHq()
 const T = ref<any>(null)
-const tab = ref<'overview' | 'branches' | 'billing' | 'tickets' | 'access' | 'modules' | 'activity'>('overview')
+const tab = ref<'overview' | 'branches' | 'contract' | 'billing' | 'tickets' | 'access' | 'modules' | 'custom' | 'activity'>((route.query.tab as any) || 'overview')
 const reason = ref('')
 const busy = ref(false)
-const plans = ref<any[]>([])
-async function load() { T.value = await api.get(`/hq/tenants/${route.params.id}`); syncAi() }
-onMounted(async () => { await load(); plans.value = (await api.get('/hq/tenants')).plans })
+async function load() { T.value = await api.get(`/hq/tenants/${route.params.id}`); syncAi(); syncContract(); syncProfile() }
+onMounted(async () => { await load(); R.value = await api.get('/hq/refs') })
 
 const pts = computed(() => (T.value?.series ?? []).map((p: any) => ({ label: p.date.slice(8, 10) + '.' + p.date.slice(5, 7), value: p.revenue })))
 const total30 = computed(() => T.value?.revenue_30d)
@@ -36,7 +35,6 @@ async function enter() {
   try { const r = await api.post(`/hq/tenants/${T.value.id}/impersonate`, { reason: reason.value }); window.open(r.url, '_blank'); await load() }
   catch (e: any) { toast(e.detail ?? 'Xato', 'danger') } finally { busy.value = false }
 }
-const setPlan = (code: string) => act(() => api.post(`/hq/tenants/${T.value.id}/plan`, { plan_code: code }), 'Tarif o\'zgardi')
 const trial = (days: number) => act(() => api.post(`/hq/tenants/${T.value.id}/trial`, { days }), `Sinov ${days} kunga uzaytirildi`)
 function toggleActive() {
   const on = !(T.value.status !== 'stopped')
@@ -52,7 +50,32 @@ const ai = ref({ enabled: true, daily_limit: 0, seats: 0 })
 const aiOpen = computed(() => !!T.value?.ai)
 function syncAi() { if (T.value?.ai) ai.value = { enabled: T.value.ai.enabled, daily_limit: T.value.ai.daily_limit, seats: T.value.ai.seats } }
 const saveAi = () => act(() => api.put(`/hq/tenants/${T.value.id}/ai`, { enabled: ai.value.enabled, daily_limit: Number(ai.value.daily_limit) || 0, seats: Number(ai.value.seats) || 0 }), 'AI Kotib tarifi saqlandi')
-const invStatus = (id: number, status: string) => act(() => api.post(`/hq/invoices/${id}/status`, { status }), 'Hisob yangilandi')
+const invStatus = (id: number, status: string, method = '') => act(() => api.post(`/hq/invoices/${id}/status`, { status, method }), 'Hisob yangilandi')
+const payMethod = ref<Record<number, string>>({})
+const METHODS = [['bank', 'Bank o\'tkazmasi'], ['naqd', 'Naqd'], ['karta', 'Karta'], ['payme', 'Payme'], ['click', 'Click']]
+// --- shartnoma
+const R = ref<any>(null)
+const C = reactive<any>({ tariff: 'base', price: 100, currency: 'USD', billing_day: 5, included_branches: 1, extra_branch_price: 0, paid_from: '', signed_at: '',
+  company: '', inn: '', contact_name: '', contact_phone: '', terms: '', manager_id: null, is_active: true })
+function syncContract() {
+  const c = T.value?.contract
+  Object.assign(C, c ? { ...c, paid_from: c.paid_from || '', signed_at: c.signed_at || '' }
+    : { tariff: T.value?.tariff || 'base', price: T.value?.price ?? 100, currency: T.value?.currency || 'USD', billing_day: 5, included_branches: 1, extra_branch_price: 0,
+        paid_from: (T.value?.paid_from || '').slice(0, 10), signed_at: new Date().toISOString().slice(0, 10), company: '', inn: '', contact_name: '', contact_phone: '', terms: '', manager_id: null, is_active: true })
+}
+const monthly = computed(() => (Number(C.price) || 0) + Math.max(0, (T.value?.branches || 1) - (Number(C.included_branches) || 1)) * (Number(C.extra_branch_price) || 0))
+const saveContract = () => act(() => api.put(`/hq/tenants/${T.value.id}/contract`, { ...C, price: Number(C.price), billing_day: Number(C.billing_day),
+  included_branches: Number(C.included_branches) || 1, extra_branch_price: Number(C.extra_branch_price) || 0, paid_from: C.paid_from || null, signed_at: C.signed_at || null }), 'Shartnoma saqlandi')
+// --- moslash: hudud, chegaralar, maxsus funksiyalar
+const P = reactive<any>({ region: '', district: '', address: '', max_branches: 0, max_users: 0 })
+function syncProfile() { if (T.value?.profile) Object.assign(P, T.value.profile) }
+const districts = computed(() => R.value?.regions.find((r: any) => r.name === P.region)?.districts ?? [])
+const saveProfile = () => act(() => api.put(`/hq/tenants/${T.value.id}/profile`, { ...P, max_branches: Number(P.max_branches) || 0, max_users: Number(P.max_users) || 0 }), 'Saqlandi')
+function toggleFlag(code: string, on: boolean) {
+  const codes = T.value.flags.filter((f: any) => !f.all && (f.code === code ? on : f.on)).map((f: any) => f.code)
+  act(() => api.put(`/hq/tenants/${T.value.id}/flags`, { codes }), on ? 'Funksiya yoqildi' : 'Funksiya o\'chirildi')
+}
+const NP_STATE: Record<string, string> = { overdue: 'Muddati o\'tgan', today: 'Bugun', soon: 'Yaqinda', trial: 'Sinovdan keyin birinchi to\'lov' }
 </script>
 
 <template>
@@ -62,7 +85,7 @@ const invStatus = (id: number, status: string) => act(() => api.post(`/hq/invoic
       <UiAvatar :name="T.name" :size="56" />
       <div class="ht">
         <h2>{{ T.name }} <UiChip :tone="STATUS_TONE[T.status]">{{ T.status_label }}</UiChip> <span class="hl" :class="T.health"><i></i>{{ HEALTH[T.health][0] }}</span></h2>
-        <p>{{ T.domain }} · {{ T.plan }} · egasi {{ T.owner_phone }} · {{ d(T.created_at) }} dan beri</p>
+        <p>{{ T.domain }} · <b>{{ T.tariff_label }}</b> {{ money(T.price, T.currency) }}/oy<template v-if="T.contract_no"> · {{ T.contract_no }}</template> · 📍 {{ [T.region, T.district].filter(Boolean).join(', ') || 'hudud yo\'q' }} · egasi {{ T.owner_phone }} · {{ d(T.created_at) }} dan beri</p>
       </div>
       <div class="ha">
         <a :href="T.site_url" target="_blank" rel="noopener" class="btn">Sayt ↗</a>
@@ -74,10 +97,12 @@ const invStatus = (id: number, status: string) => act(() => api.post(`/hq/invoic
     <nav class="tabs" role="tablist">
       <button :class="{ on: tab === 'overview' }" @click="tab = 'overview'">Umumiy</button>
       <button :class="{ on: tab === 'branches' }" @click="tab = 'branches'">Filiallar <i>{{ T.branches_list.length }}</i></button>
-      <button :class="{ on: tab === 'billing' }" @click="tab = 'billing'">Billing</button>
+      <button :class="{ on: tab === 'contract' }" @click="tab = 'contract'">Shartnoma <i v-if="!T.contract">yo'q</i></button>
+      <button :class="{ on: tab === 'billing' }" @click="tab = 'billing'">To'lovlar <i v-if="T.next_payment?.state === 'overdue'" class="red">!</i></button>
       <button :class="{ on: tab === 'tickets' }" @click="tab = 'tickets'">Murojaatlar <i v-if="T.open_tickets">{{ T.open_tickets }}</i></button>
       <button :class="{ on: tab === 'access' }" @click="tab = 'access'">Kirish</button>
       <button :class="{ on: tab === 'modules' }" @click="tab = 'modules'">Modullar</button>
+      <button :class="{ on: tab === 'custom' }" @click="tab = 'custom'">Moslash</button>
       <button :class="{ on: tab === 'activity' }" @click="tab = 'activity'">Faoliyat</button>
     </nav>
 
@@ -118,12 +143,49 @@ const invStatus = (id: number, status: string) => act(() => api.post(`/hq/invoic
       <UiEmpty v-if="!T.branches_list.length" title="Filial yo'q" />
     </UiCard>
 
-    <!-- BILLING -->
+    <!-- SHARTNOMA -->
+    <div v-else-if="tab === 'contract' && R" class="grid2">
+      <UiCard :title="T.contract ? `Shartnoma ${T.contract.number}` : 'Shartnoma tuzilmagan'" :subtitle="T.contract ? `Oxirgi o'zgarish: ${dt(T.contract.updated_at)}` : 'Saytdan o\'zi ro\'yxatdan o\'tgan — sayt narxi bo\'yicha hisoblanadi. Shartnoma tuzsangiz — shu shartlar ishlaydi.'">
+        <div class="tar"><button v-for="t in R.tariffs" :key="t.code" type="button" :class="{ on: C.tariff === t.code, ai: t.code === 'ai' }" :disabled="!s.can('sales', 'finance')" @click="C.tariff = t.code; if (C.currency === 'USD') C.price = t.price"><b>{{ t.name }}</b><small>sayt narxi ${{ t.price }}</small></button></div>
+        <div class="g3">
+          <label class="fl"><span>Oylik narx</span><input v-model.number="C.price" type="number" min="0" /></label>
+          <label class="fl"><span>Valyuta</span><select v-model="C.currency"><option v-for="c in R.currencies" :key="c.code" :value="c.code">{{ c.code }}</option></select></label>
+          <label class="fl"><span>To'lov kuni</span><input v-model.number="C.billing_day" type="number" min="1" max="28" /></label>
+          <label class="fl"><span>Narx ichidagi filiallar</span><input v-model.number="C.included_branches" type="number" min="1" /></label>
+          <label class="fl"><span>Qo'shimcha filial / oy</span><input v-model.number="C.extra_branch_price" type="number" min="0" /></label>
+          <label class="fl"><span>Pullik davr boshlanishi</span><input v-model="C.paid_from" type="date" /></label>
+          <label class="fl"><span>Imzolangan</span><input v-model="C.signed_at" type="date" /></label>
+          <label class="fl"><span>Mas'ul menejer</span><select v-model="C.manager_id"><option :value="null">—</option><option v-for="x in R.staff" :key="x.id" :value="x.id">{{ x.name }}</option></select></label>
+          <label class="fl ck"><input v-model="C.is_active" type="checkbox" /> Shartnoma faol</label>
+        </div>
+        <div class="g2 mt">
+          <label class="fl"><span>Yuridik nom</span><input v-model="C.company" /></label>
+          <label class="fl"><span>STIR</span><input v-model="C.inn" maxlength="9" inputmode="numeric" /></label>
+          <label class="fl"><span>Aloqa uchun shaxs</span><input v-model="C.contact_name" /></label>
+          <label class="fl"><span>Aloqa telefoni</span><input v-model="C.contact_phone" type="tel" /></label>
+        </div>
+        <label class="fl mt"><span>Maxsus kelishuvlar</span><textarea v-model="C.terms" rows="3"></textarea></label>
+        <div class="acts"><UiButton v-if="s.can('sales', 'finance')" variant="brand" :loading="busy" @click="saveContract()">{{ T.contract ? 'Saqlash' : 'Shartnoma tuzish' }}</UiButton></div>
+      </UiCard>
+      <UiCard title="Oylik to'lov">
+        <div class="pay"><small>Har oy</small><b>{{ money(monthly, C.currency) }}</b><span>{{ T.branches }} filial · har oyning {{ C.billing_day }}-sanasi</span></div>
+        <div v-if="T.next_payment" class="np" :class="T.next_payment.state">
+          <small>{{ NP_STATE[T.next_payment.state] }}</small>
+          <b>{{ d(T.next_payment.date) }} — {{ money(T.next_payment.amount, T.next_payment.currency) }}</b>
+          <span v-if="T.next_payment.state === 'overdue'">{{ -T.next_payment.days }} kun kechikdi</span>
+          <span v-else-if="T.next_payment.days > 0">{{ T.next_payment.days }} kun qoldi</span>
+        </div>
+        <p class="mut">Shartnoma o'zgarsa, to'lanmagan joriy hisob avtomatik qayta hisoblanadi. «Dastur + AI» tanlansa — AI Kotib moduli yoqiladi.</p>
+      </UiCard>
+    </div>
+
+    <!-- TO'LOVLAR -->
     <div v-else-if="tab === 'billing'" class="grid2">
-      <UiCard title="Tarif va holat">
-        <div class="pl"><button v-for="p in plans" :key="p.code" type="button" :class="{ on: T.plan_code === p.code }" :disabled="busy || !s.can('sales', 'finance')" @click="setPlan(p.code)"><b>{{ p.name }}</b><small>{{ sum(p.price_per_branch) }} so'm / filial</small></button></div>
-        <p class="mut">Oylik to'lov: {{ T.branches }} filial × tarif narxi.</p>
+      <UiCard title="Holat">
+        <div class="pay"><small>{{ T.tariff_label }}</small><b>{{ money(T.price, T.currency) }}<em>/oy</em></b><span>{{ T.contract_no ? 'Shartnoma ' + T.contract_no : 'Sayt narxi (shartnomasiz)' }} · har oyning {{ T.billing_day }}-sanasi</span></div>
+        <div v-if="T.next_payment" class="np" :class="T.next_payment.state"><small>{{ NP_STATE[T.next_payment.state] }}</small><b>{{ d(T.next_payment.date) }} — {{ money(T.next_payment.amount, T.next_payment.currency) }}</b></div>
         <div class="acts">
+          <UiButton size="s" variant="ghost" @click="tab = 'contract'">Shartnomani o'zgartirish</UiButton>
           <UiButton v-if="T.status === 'trial' || s.can('sales')" size="s" variant="ghost" :disabled="busy" @click="trial(7)">Sinovni +7 kun</UiButton>
           <UiButton v-if="s.can('sales')" size="s" variant="ghost" :disabled="busy" @click="trial(30)">Sinovni +30 kun</UiButton>
           <UiButton v-if="s.can('finance')" size="s" :variant="T.status === 'stopped' ? 'brand' : 'danger'" :disabled="busy" @click="toggleActive()">{{ T.status === 'stopped' ? 'Faollashtirish' : 'To\'xtatish' }}</UiButton>
@@ -131,12 +193,15 @@ const invStatus = (id: number, status: string) => act(() => api.post(`/hq/invoic
       </UiCard>
       <UiCard title="Hisob-fakturalar" :padded="false">
         <div v-for="i in T.invoices" :key="i.id" class="inv">
-          <span><b>{{ d(i.period).slice(3) }}</b><small>{{ i.plan }} · {{ i.branches }} filial</small></span>
-          <b>{{ sum(i.amount) }}</b>
+          <span><b>{{ d(i.period).slice(3) }}</b><small>{{ i.plan }} · muddat {{ d(i.due_date) }}{{ i.method ? ' · ' + i.method : '' }}</small></span>
+          <b>{{ money(i.amount, i.currency) }}</b>
           <UiChip :tone="STATUS_TONE[i.status]">{{ i.status_label }}</UiChip>
-          <UiButton v-if="i.status !== 'paid' && s.can('finance')" size="s" variant="ghost" @click="invStatus(i.id, 'paid')">To'landi</UiButton>
+          <span v-if="i.status !== 'paid' && i.status !== 'cancelled' && s.can('finance')" class="pm">
+            <select v-model="payMethod[i.id]" aria-label="To'lov usuli"><option :value="undefined">usul…</option><option v-for="m in METHODS" :key="m[0]" :value="m[0]">{{ m[1] }}</option></select>
+            <UiButton size="s" variant="ghost" @click="invStatus(i.id, 'paid', payMethod[i.id] || '')">To'landi</UiButton>
+          </span><span v-else></span>
         </div>
-        <UiEmpty v-if="!T.invoices.length" title="Hisob yo'q" text="Sinov muddatida hisob chiqmaydi." />
+        <UiEmpty v-if="!T.invoices.length" title="Hisob yo'q" text="Bepul davrda hisob chiqmaydi." />
       </UiCard>
     </div>
 
@@ -183,6 +248,35 @@ const invStatus = (id: number, status: string) => act(() => api.post(`/hq/invoic
     <UiCard title="Yoqilgan modullar" subtitle="Tarif ruxsat bermagan modul yoqilmaydi">
       <div class="mods"><div v-for="m in T.modules" :key="m.code" class="mod" :class="{ off: !m.allowed }"><UiToggle :model-value="m.enabled" :disabled="!m.allowed || busy || !s.can('support', 'sales')" :label="m.name" @update:model-value="(v: boolean) => toggleModule(m.code, v)" /></div></div>
     </UiCard>
+    </div>
+
+    <!-- MOSLASH -->
+    <div v-else-if="tab === 'custom' && R" class="mstack">
+      <div class="explain">
+        <b>Har restoran uchun alohida dastur ochilmaydi.</b> Hamma restoran bitta kodda ishlaydi — farqlar shu yerda sozlanadi:
+        <span>① tarif → ② modullar → ③ sozlamalar → ④ chegaralar → ⑤ maxsus funksiyalar.</span> Bitta tuzatish yoki yangilanish birdan hamma restoranga boradi.
+      </div>
+      <div class="grid2">
+        <UiCard title="Hudud va chegaralar">
+          <div class="g2">
+            <label class="fl"><span>Viloyat</span><select v-model="P.region" @change="P.district = ''"><option value="">—</option><option v-for="r in R.regions" :key="r.name" :value="r.name">{{ r.name }}</option></select></label>
+            <label class="fl"><span>Tuman / shahar</span><input v-model="P.district" list="tdList" /><datalist id="tdList"><option v-for="x in districts" :key="x" :value="x" /></datalist></label>
+          </div>
+          <label class="fl mt"><span>Manzil</span><input v-model="P.address" /></label>
+          <div class="g2 mt">
+            <label class="fl"><span>Filiallar soni (0 — tarif: {{ P.plan_branches }})</span><input v-model.number="P.max_branches" type="number" min="0" /></label>
+            <label class="fl"><span>Foydalanuvchilar (0 — cheklovsiz)</span><input v-model.number="P.max_users" type="number" min="0" /></label>
+          </div>
+          <div class="acts"><UiButton variant="brand" :loading="busy" :disabled="!s.can('sales', 'support')" @click="saveProfile()">Saqlash</UiButton></div>
+        </UiCard>
+        <UiCard title="Maxsus funksiyalar" subtitle="Yangi yoki faqat shu restoranga kerak imkoniyat — kodda bayroq bilan, faqat shu yerda yoqiladi">
+          <div v-for="f in T.flags" :key="f.code" class="flg" :class="{ dis: f.all }">
+            <UiToggle :model-value="f.on" :disabled="f.all || busy || !s.can('support', 'sales')" :label="f.name" @update:model-value="(v: boolean) => toggleFlag(f.code, v)" />
+            <small>{{ f.description }}<template v-if="f.all"> · hammaga yoqilgan</template> <code>{{ f.code }}</code></small>
+          </div>
+          <UiEmpty v-if="!T.flags.length" title="Bayroq yo'q" text="«Funksiyalar va jamoa» sahifasida yarating." />
+        </UiCard>
+      </div>
     </div>
 
     <!-- FAOLIYAT -->
@@ -238,6 +332,22 @@ const invStatus = (id: number, status: string) => act(() => api.post(`/hq/invoic
 }
 @media (max-width: 560px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ha { width: 100%; } .inv { grid-template-columns: 1fr auto; } }
 .mstack { display: flex; flex-direction: column; gap: 14px; }
+.tabs i.red { background: #DC2626; color: #fff; }
+.g2, .g3 { display: grid; gap: 10px; } .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .mt { margin-top: 10px; }
+.fl select, .fl textarea { min-height: 42px; border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; font: inherit; background: var(--surface); color: var(--ink); box-sizing: border-box; width: 100%; }
+.fl textarea { padding: 10px 12px; } .fl.ck { flex-direction: row; align-items: center; gap: 8px; align-self: end; min-height: 42px; font-weight: 700; font-size: var(--fs-s); }
+.tar { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.tar button { border: 1.5px solid var(--line); border-radius: 12px; background: var(--surface); padding: 12px; text-align: left; cursor: pointer; font: inherit; color: var(--ink); display: flex; flex-direction: column; }
+.tar button.on { border-color: #2563EB; background: #EFF4FF; } .tar button.ai.on { border-color: #8B5CF6; background: #F5F0FF; } .tar small { color: var(--muted); font-size: var(--fs-xs); }
+.pay { border-radius: 14px; background: linear-gradient(135deg, #EFF4FF, #F5F0FF); padding: 14px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 2px; }
+.pay small { color: var(--muted); font-size: var(--fs-xs); font-weight: 700; } .pay b { font-family: var(--font-display); font-size: 28px; color: #1D4ED8; } .pay b em { font-style: normal; font-size: 14px; color: var(--muted); } .pay span { font-size: var(--fs-xs); color: var(--muted); }
+.np { border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 2px; background: var(--surface-2); border-left: 4px solid #2563EB; }
+.np small { font-size: var(--fs-xs); font-weight: 700; color: var(--muted); } .np span { font-size: var(--fs-xs); color: var(--muted); }
+.np.overdue { background: #FEF2F2; border-left-color: #DC2626; } .np.today { background: #FFF7ED; border-left-color: #F97316; } .np.trial { border-left-color: #8B5CF6; }
+.pm { display: flex; gap: 4px; align-items: center; } .pm select { min-height: 32px; border: 1px solid var(--line); border-radius: 8px; padding: 0 6px; font: inherit; font-size: var(--fs-xs); background: var(--surface); color: var(--ink); }
+.explain { padding: 14px 16px; border-radius: 14px; background: #EFF4FF; border: 1px solid #C7D7FB; font-size: var(--fs-s); line-height: 1.55; } .explain span { display: block; font-weight: 700; color: #1D4ED8; margin: 4px 0; }
+.flg { padding: 10px 0; border-bottom: 1px solid var(--line-2); display: flex; flex-direction: column; gap: 4px; } .flg small { color: var(--muted); font-size: var(--fs-xs); } .flg.dis { opacity: .7; } .flg code { font-size: 11px; background: var(--surface-2); padding: 1px 6px; border-radius: 6px; }
+@media (max-width: 700px) { .g2, .g3, .tar { grid-template-columns: minmax(0, 1fr); } }
 .aic { display: grid; grid-template-columns: auto 1fr 1fr auto; gap: 12px; align-items: end; }
 .aiu { margin: 10px 0 0; font-size: var(--fs-s); color: var(--muted); }
 @media (max-width: 800px) { .aic { grid-template-columns: 1fr; } }

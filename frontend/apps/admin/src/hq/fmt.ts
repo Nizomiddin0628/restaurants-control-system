@@ -22,7 +22,20 @@ export const STATUS_TONE: Record<string, any> = { active: 'ok', trial: 'info', s
 export const ACTION: Record<string, string> = { login: 'tizimga kirdi', impersonate: 'restoran paneliga kirdi', access_request: 'kirish ruxsatini so\'radi',
   suspend: 'to\'xtatdi', activate: 'faollashtirdi', plan: 'tarifni o\'zgartirdi', trial: 'sinov muddatini uzaytirdi', modules: 'modullarni o\'zgartirdi',
   ticket_update: 'murojaatni yangiladi', ticket_reply: 'murojaatga javob berdi', invoice_paid: 'to\'lovni tasdiqladi', invoice_cancelled: 'hisobni bekor qildi',
-  flag: 'bayroqni o\'zgartirdi', release: 'reliz qo\'shdi', staff_add: 'jamoaga a\'zo qo\'shdi', stats_refresh: 'statistikani yangiladi' }
+  flag: 'bayroqni o\'zgartirdi', release: 'reliz qo\'shdi', staff_add: 'jamoaga a\'zo qo\'shdi', stats_refresh: 'statistikani yangiladi',
+  tenant_create: 'yangi restoran ochdi (shartnoma)', contract: 'shartnomani o\'zgartirdi', profile: 'hudud va chegaralarni o\'zgartirdi',
+  tenant_flags: 'maxsus funksiyalarni o\'zgartirdi', ticket_create: 'vazifa qo\'shdi', ticket_move: 'vazifani surdi', ai_cap: 'AI Kotib chegarasini o\'zgartirdi' }
+/** Pul: 140 USD → «$140», 1470000 UZS → «1 470 000 so'm» */
+export const money = (v: number | null | undefined, cur = 'USD') => v == null ? '—' : cur === 'USD' ? `$${sum(v)}` : `${sum(v)} so'm`
+/** Bir nechta valyuta yig'indisi: {USD: 450, UZS: 980000, usd_eq: 526} → «$450 + 980 000 so'm» */
+export function moneyMix(m: Record<string, number> | null | undefined) {
+  if (!m) return '—'
+  const parts = [m.USD ? `$${sum(m.USD)}` : '', m.UZS ? `${big(m.UZS)} so'm` : ''].filter(Boolean)
+  return parts.length ? parts.join(' + ') : '0'
+}
+export const usdEq = (m: Record<string, number> | null | undefined) => m && m.UZS ? `≈ $${sum(Math.round(m.usd_eq ?? 0))}` : ''
+export const KIND_ICON: Record<string, string> = { bug: '🐞', question: '❓', feature: '💡', task: '📌' }
+export const PRIO_COLOR: Record<string, string> = { critical: '#DC2626', high: '#F97316', normal: '#EAB308', low: '#94A3B8' }
 /** Grafik boshidagi bo'sh (0) oylarni olib tashlash — platforma ishga tushgan oydan boshlab ko'rsatiladi. */
 export function trimZeros(pts: { label: string; value: number }[], keep = 3): { label: string; value: number }[] {
   const i = pts.findIndex(p => p.value > 0)

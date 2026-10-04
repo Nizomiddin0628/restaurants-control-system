@@ -213,6 +213,9 @@ def overview(request):
                                for t, s, _, _ in rows if _money_ok(t)], key=lambda x: -x["revenue"])[:5],
         "activity": [{"at": a.at.isoformat(), "who": a.staff_name, "action": a.action, "tenant": a.tenant.name if a.tenant_id else None}
                      for a in HqAudit.objects.select_related("tenant")[:8]],
+        "upcoming": hq.upcoming(14)[:8],
+        "regions": hq_ops.regions_summary(request)["items"][:8],
+        "late_tickets": Ticket.objects.exclude(status=TicketStatus.CLOSED).filter(due_at__lt=timezone.now()).count(),
     }
 
 
@@ -231,11 +234,19 @@ def _tenant_row(t: Tenant, s: dict, level: str, reasons: list, tickets: list) ->
             "last_order": s["last_order"].isoformat() if s.get("last_order") else None, "shares_finance": money,
             "owner_phone": t.owner_phone, "created_at": t.created_at.isoformat() if t.created_at else None,
             "trial_ends_at": t.trial_ends_at.isoformat() if t.trial_ends_at else None,
-            "open_tickets": len(tickets), "access_until": (a.until.isoformat() if (a := hq.active_access(t)) else None)}
+            "open_tickets": len(tickets), "access_until": (a.until.isoformat() if (a := hq.active_access(t)) else None),
+            "region": t.region, "district": t.district, **_terms_short(t, s.get("branches", 0))}
+
+
+def _terms_short(t: Tenant, branches: int) -> dict:
+    tr = hq.terms(t, branches)
+    return {"tariff": tr["tariff"], "tariff_label": tr["tariff_label"], "price": tr["amount"], "currency": tr["currency"],
+            "billing_day": tr["billing_day"], "contract_no": tr["number"], "paid_from": tr["paid_from"].isoformat() if tr["paid_from"] else None}
 
 
 @router.get("/tenants", auth=hq_auth)
-def tenants(request, q: Optional[str] = None, status: Optional[str] = None, health: Optional[str] = None, plan: Optional[str] = None):
+def tenants(request, q: Optional[str] = None, status: Optional[str] = None, health: Optional[str] = None, plan: Optional[str] = None,
+            region: Optional[str] = None, tariff: Optional[str] = None):
     hq.ensure_stats()
     st = hq.stats_by_tenant(30)
     tickets = hq.open_ticket_counts()
@@ -249,15 +260,20 @@ def tenants(request, q: Optional[str] = None, status: Optional[str] = None, heal
         qs = qs.filter(Q(name__icontains=q) | Q(slug__icontains=q) | Q(owner_phone__icontains=q))
     if plan:
         qs = qs.filter(plan__code=plan)
+    if region:
+        qs = qs.filter(region="" if region == "-" else region)
+    qs = qs.select_related("contract")
     out = []
     for t in qs:
         s = st.get(t.pk, {})
         level, reasons = hq.health(t, s, tickets.get(t.pk, []), inv.get(t.pk, []))
         r = _tenant_row(t, s, level, reasons, tickets.get(t.pk, []))
-        if (status and r["status"] != status) or (health and r["health"] != health):
+        if (status and r["status"] != status) or (health and r["health"] != health) or (tariff and r["tariff"] != tariff):
             continue
         out.append(r)
-    return {"items": out, "plans": [{"code": p.code, "name": p.name, "price_per_branch": p.price_per_branch} for p in Plan.objects.filter(is_active=True)]}
+    regions = sorted({r for r in hq.tenants_qs().values_list("region", flat=True) if r})
+    return {"items": out, "regions": regions,
+            "plans": [{"code": p.code, "name": p.name, "price_per_branch": p.price_per_branch} for p in Plan.objects.filter(is_active=True)]}
 
 
 def _branches_live(t: Tenant) -> list[dict]:
@@ -318,7 +334,18 @@ def tenant_detail(request, tid: int):
         "activity": [{"at": a.at.isoformat(), "who": a.staff_name, "action": a.action, "detail": a.detail} for a in HqAudit.objects.filter(tenant=t)[:10]],
         "admin_url": f"{hq.tenant_base(t)}/admin/", "site_url": f"{hq.tenant_base(t)}/",
         "ai": _ai_out(t), "direct_entry": request.staff.role in DIRECT_ROLES,
+        "contract": hq_ops.contract_out(_contract_any(t)),
+        "profile": {"region": t.region, "district": t.district, "address": t.address, "max_branches": int((t.limits or {}).get("branches") or 0),
+                    "max_users": int((t.limits or {}).get("users") or 0), "plan_branches": t.plan.max_branches if t.plan else 0},
+        "flags": hq_ops.flags_for_tenant(t),
+        "next_payment": next((x for x in hq.upcoming(62) if x["tenant_id"] == t.pk), None),
     }
+
+
+def _contract_any(t: Tenant):
+    """Shartnoma (faol bo'lmasa ham — kartada ko'rinadi)."""
+    from public.models import Contract
+    return Contract.objects.filter(tenant=t).select_related("manager__user").first()
 
 
 def _ai_out(t: Tenant) -> dict:
@@ -465,7 +492,8 @@ def impersonate(request, tid: int, data: ReasonIn):
 # ------------------------------------------------------------------ billing
 def _invoice_out(i: Invoice) -> dict:
     return {"id": i.pk, "tenant_id": i.tenant_id, "tenant": i.tenant.name, "period": i.period.isoformat(), "plan": i.plan_name,
-            "branches": i.branches, "amount": i.amount, "status": i.status, "status_label": InvoiceStatus(i.status).label,
+            "branches": i.branches, "amount": i.amount, "currency": i.currency, "method": i.method, "note": i.note,
+            "status": i.status, "status_label": InvoiceStatus(i.status).label,
             "due_date": i.due_date.isoformat() if i.due_date else None, "paid_at": i.paid_at.isoformat() if i.paid_at else None}
 
 
@@ -479,18 +507,20 @@ def billing(request, period: Optional[str] = None, status: Optional[str] = None)
         qs = qs.filter(status=status)
     items = [_invoice_out(i) for i in qs[:500]]
     cur = timezone.localdate().replace(day=1)
-    month = Invoice.objects.filter(period=cur).exclude(status=InvoiceStatus.CANCELLED)
-    return {"items": items, "mrr": hq.mrr_series(12),
-            "summary": {"month_total": sum(i.amount for i in month), "paid": sum(i.amount for i in month if i.status == InvoiceStatus.PAID),
-                        "pending": sum(i.amount for i in month if i.status == InvoiceStatus.PENDING),
-                        "overdue": sum(i.amount for i in Invoice.objects.filter(status=InvoiceStatus.OVERDUE)),
-                        "overdue_count": Invoice.objects.filter(status=InvoiceStatus.OVERDUE).count()},
+    month = list(Invoice.objects.filter(period=cur).exclude(status=InvoiceStatus.CANCELLED))
+    overdue = list(Invoice.objects.filter(status=InvoiceStatus.OVERDUE))
+    return {"items": items, "mrr": hq.mrr_series(12), "usd_rate": hq.usd_rate(),
+            "summary": {"month_total": hq.money_totals((i.amount, i.currency) for i in month),
+                        "paid": hq.money_totals((i.amount, i.currency) for i in month if i.status == InvoiceStatus.PAID),
+                        "pending": hq.money_totals((i.amount, i.currency) for i in month if i.status == InvoiceStatus.PENDING),
+                        "overdue": hq.money_totals((i.amount, i.currency) for i in overdue), "overdue_count": len(overdue)},
             "statuses": [{"code": s.value, "label": s.label} for s in InvoiceStatus]}
 
 
 class InvoiceStatusIn(Schema):
     status: str
     note: str = ""
+    method: str = ""
 
 
 @router.post("/invoices/{int:iid}/status", auth=hq_auth)
@@ -501,7 +531,9 @@ def invoice_status(request, iid: int, data: InvoiceStatusIn):
     i = get_object_or_404(Invoice, pk=iid)
     i.status = data.status
     i.paid_at = timezone.now() if data.status == InvoiceStatus.PAID else None
-    i.note = data.note or i.note
+    i.note = data.note or i.note or ("to'landi" if data.status == InvoiceStatus.PAID else "")
+    if data.method:
+        i.method = data.method[:12]
     i.save()
     hq.audit(request.staff, f"invoice_{data.status}", i.tenant, invoice=i.pk, amount=i.amount)
     return _invoice_out(i)
@@ -509,10 +541,11 @@ def invoice_status(request, iid: int, data: InvoiceStatusIn):
 
 # ------------------------------------------------------------------ yordam (murojaatlar)
 def _ticket_out(x: Ticket, full: bool = False) -> dict:
-    d = {"id": x.pk, "number": x.number, "tenant_id": x.tenant_id, "tenant": x.tenant.name, "branch": x.branch_name, "author": x.author_name,
+    d = {"id": x.pk, "number": x.number, "tenant_id": x.tenant_id, "tenant": x.tenant.name if x.tenant_id else "Ichki vazifa", "branch": x.branch_name, "author": x.author_name,
          "phone": x.author_phone, "subject": x.subject, "priority": x.priority, "priority_label": TicketPriority(x.priority).label,
          "status": x.status, "status_label": TicketStatus(x.status).label, "assigned": x.assigned.user.full_name if x.assigned_id else None,
-         "created_at": x.created_at.isoformat(), "updated_at": x.updated_at.isoformat()}
+         "created_at": x.created_at.isoformat(), "updated_at": x.updated_at.isoformat(), "kind": x.kind,
+         "due_at": x.due_at.isoformat() if x.due_at else None}
     if full:
         d["body"] = x.body
         d["messages"] = [{"id": m.pk, "from_staff": m.from_staff, "author": m.author_name, "body": m.body, "at": m.created_at.isoformat()}
@@ -543,6 +576,10 @@ class TicketUpd(Schema):
     status: Optional[str] = None
     priority: Optional[str] = None
     assigned_id: Optional[int] = None
+    kind: Optional[str] = None
+    subject: Optional[str] = None
+    body: Optional[str] = None
+    due_at: Optional[str] = None          # ISO; "" — muddatni olib tashlash
 
 
 @router.put("/tickets/{int:kid}", auth=hq_auth)
@@ -559,8 +596,23 @@ def ticket_update(request, kid: int, data: TicketUpd):
         x.priority = data.priority
     if data.assigned_id is not None:
         x.assigned = PlatformStaff.objects.filter(pk=data.assigned_id).first()
+    if data.kind:
+        from public.models import TicketKind
+        if data.kind not in TicketKind.values:
+            raise HttpError(400, "Noto'g'ri tur.")
+        x.kind = data.kind
+    if data.subject is not None and data.subject.strip():
+        x.subject = data.subject.strip()[:200]
+    if data.body is not None:
+        x.body = data.body
+    if data.due_at is not None:
+        from django.utils.dateparse import parse_datetime
+        dd = parse_datetime(data.due_at) if data.due_at else None
+        if data.due_at and dd is None:
+            raise HttpError(400, "Muddat noto'g'ri.")
+        x.due_at = timezone.make_aware(dd) if dd and timezone.is_naive(dd) else dd
     x.save()
-    hq.audit(request.staff, "ticket_update", x.tenant, ticket=x.number, **data.dict(exclude_none=True))
+    hq.audit(request.staff, "ticket_update", x.tenant, ticket=x.number, **{k: v for k, v in data.dict(exclude_none=True).items() if k != "body"})
     return _ticket_out(Ticket.objects.select_related("tenant", "assigned__user").get(pk=kid), full=True)
 
 
@@ -676,6 +728,8 @@ def flag_save(request, data: FlagIn):
         raise HttpError(400, "Kod va nomni kiriting.")
     f, _ = FeatureFlag.objects.update_or_create(code=code, defaults={"name": data.name.strip(), "description": data.description,
                                                                      "enabled_all": data.enabled_all, "tenants": data.tenants})
+    from core.features import reset_cache
+    reset_cache()
     hq.audit(request.staff, "flag", code=code, enabled_all=data.enabled_all, tenants=data.tenants)
     return _flag_out(f)
 
@@ -874,3 +928,6 @@ def chats(request):
                     "first": next((m["text"] for m in c.messages or [] if m.get("role") == "me"), "")[:160],
                     "messages": c.messages or []})
     return {"items": out}
+
+
+from . import hq_ops  # noqa: E402  (shartnoma, yangi restoran, hududlar, to'lov kalendari, doska)

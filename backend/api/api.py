@@ -596,9 +596,9 @@ def list_branches(request):
 @api.post("/branches", response=BranchOut, auth=auth, tags=["branches"])
 def create_branch(request, data: BranchIn):
     require_perm(request, "core.branches.manage")
-    plan = request.tenant.plan
-    if plan and Branch.objects.filter(deleted_at__isnull=True).count() >= plan.max_branches:
-        raise HttpError(403, f"Tarif bo'yicha filiallar limiti: {plan.max_branches}")
+    cap = request.tenant.limit("branches")          # shartnoma → tarif chegarasi (0 — cheklovsiz)
+    if cap and Branch.objects.filter(deleted_at__isnull=True).count() >= cap:
+        raise HttpError(403, f"Shartnoma bo'yicha filiallar soni: {cap}. Ko'proq kerak bo'lsa — biz bilan bog'laning.")
     b = Branch.objects.create(**data.dict(), sort_order=Branch.objects.count())
     record(request, "create", b)
     return b

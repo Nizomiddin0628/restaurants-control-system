@@ -148,6 +148,13 @@ def create_ticket(request, data: TicketIn):
     x = Ticket.objects.create(tenant=_t(request), subject=data.subject.strip()[:200], body=data.body.strip(), priority=pr,
                               branch_name=data.branch_name[:120], author_name=request.auth.full_name or "", author_phone=request.auth.phone)
     record(request, "create", model="Murojaat", object_id=x.number, after={"subject": x.subject})
+    try:
+        from website.sales_ai import notify
+        icon = {"critical": "🔴", "high": "🟠"}.get(x.priority, "🟡")
+        notify(f"{icon} <b>Yangi murojaat #{x.number}</b> — {x.tenant.name}\n{x.subject}\n👤 {x.author_name or '—'} {x.author_phone}"
+               f"{(chr(10) + '🏪 ' + x.branch_name) if x.branch_name else ''}")
+    except Exception:
+        pass
     return _ticket(x, full=True)
 
 
