@@ -1,16 +1,16 @@
-/* O'qitish moduli: oltin (asosiy tugma) + yashil (progress) — maketdagi uslub. Light/dark. */
+/* O'qitish moduli: feruza (asosiy tugma) + yashil (progress) — umumiy ko'k tizimga mos (v50). Light/dark. */
 :root {
-  --tr-gold: #A8894F; --tr-gold-hover: #8F733F; --tr-gold-ink: #FFFFFF; --tr-gold-tint: #F6F0E4;
-  --tr-green: #1E9E5A; --tr-green-tint: #E6F5EC; --tr-track: #ECEAE3;
+  --tr-gold: #0D9488; --tr-gold-hover: #0F766E; --tr-gold-ink: #FFFFFF; --tr-gold-tint: #E0F5F2;
+  --tr-green: #059669; --tr-green-tint: #E3F5EE; --tr-track: #E3E9F2;
 }
 :root[data-theme="dark"] {
-  --tr-gold: #C9A66B; --tr-gold-hover: #D8B97F; --tr-gold-ink: #1C1512; --tr-gold-tint: #2E2719;
-  --tr-green: #4CC38A; --tr-green-tint: #16322C; --tr-track: #2E2E34;
+  --tr-gold: #2DD4BF; --tr-gold-hover: #5EEAD4; --tr-gold-ink: #042F2E; --tr-gold-tint: #0E2B2D;
+  --tr-green: #34D399; --tr-green-tint: #0F2E28; --tr-track: #1D2B47;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --tr-gold: #C9A66B; --tr-gold-hover: #D8B97F; --tr-gold-ink: #1C1512; --tr-gold-tint: #2E2719;
-    --tr-green: #4CC38A; --tr-green-tint: #16322C; --tr-track: #2E2E34;
+    --tr-gold: #2DD4BF; --tr-gold-hover: #5EEAD4; --tr-gold-ink: #042F2E; --tr-gold-tint: #0E2B2D;
+    --tr-green: #34D399; --tr-green-tint: #0F2E28; --tr-track: #1D2B47;
   }
 }
 .tr-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 20px; border-radius: 12px; border: 0;

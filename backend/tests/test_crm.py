@@ -216,8 +216,11 @@ def test_dashboard_overview_all_periods(api, crm):
         d = r.json()
         assert {k["key"] for k in d["kpis"]} >= {"revenue", "orders", "avg_check", "food_cost", "labor", "net"}
         assert d["series"]["points"] and isinstance(d["activity"], list)
+        assert {"prev_revenue", "prev_orders"} <= set(d["series"]["points"][0]) and d["series"]["prev_label"]   # v50: o'tgan davr chizig'i
+        assert [c["key"] for c in d["channels"]] == ["dine_in", "takeaway", "delivery"]                       # v50: savdo kanallari
         if p != "yesterday":
             assert d["status"]["total"] >= 1
     d = api.get("/api/v1/dashboard/overview?period=today").json()
     assert next(k for k in d["kpis"] if k["key"] == "revenue")["value"] >= 100000
     assert d["top"][0]["name"] == "CRM burger" and d["recent"][0]["status"] in ("done", "delivered")
+    assert sum(c["revenue"] for c in d["channels"]) == next(k for k in d["kpis"] if k["key"] == "revenue")["value"]

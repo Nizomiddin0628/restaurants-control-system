@@ -229,7 +229,7 @@ function printReceipt(o: any) {
 .menu { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .cats { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .cats button { min-height: var(--touch); padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font-weight: 700; cursor: pointer; }
-.cats button.on { background: var(--ink); color: var(--ink-inv); border-color: var(--ink); }
+.cats button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
 .srch { min-width: 160px; margin-left: auto; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
 .prod { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 10px; border-radius: var(--radius-l); border: 1px solid var(--line); background: var(--surface); cursor: pointer; text-align: left; min-height: 120px; }
@@ -269,6 +269,6 @@ function printReceipt(o: any) {
 .oh { display: flex; align-items: center; gap: 8px; } .ot { margin-left: auto; } .oa { display: flex; gap: 4px; }
 @media (max-width: 900px) { .work { grid-template-columns: 1fr; } .cart { position: static; max-height: none; } .grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); } }
 .mvk { display: flex; gap: 6px; } .mvk button { flex: 1; min-height: 44px; border: 1px solid var(--line); background: var(--surface-2); border-radius: 12px; font: inherit; font-weight: 800; cursor: pointer; color: var(--ink-2); }
-.mvk button.on { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.mvk button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
 .mvr { display: flex; gap: 6px; flex-wrap: wrap; } .mvr button { border: 1px dashed var(--line); background: transparent; border-radius: 999px; padding: 5px 11px; font: inherit; font-size: var(--fs-xs); font-weight: 700; cursor: pointer; color: var(--ink-2); }
 </style>

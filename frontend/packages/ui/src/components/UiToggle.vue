@@ -14,7 +14,7 @@ const emit = defineEmits<{ (e: 'update:modelValue', v: boolean): void }>()
 .ui-toggle.dis { opacity: .5; cursor: not-allowed; }
 input { position: absolute; opacity: 0; width: 0; height: 0; }
 .track { width: 42px; height: 24px; border-radius: 999px; background: var(--surface-3); border: 1px solid var(--line); position: relative; transition: background .15s; flex-shrink: 0; }
-.track.on { background: var(--accent); border-color: var(--accent); }
+.track.on { background: var(--grad); border-color: transparent; }
 .knob { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left .15s; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
 .track.on .knob { left: 20px; }
 input:focus-visible + .track { outline: 3px solid var(--accent-tint); }

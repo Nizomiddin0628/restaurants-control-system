@@ -351,7 +351,7 @@ h3 { margin: 4px 0 0; font-size: var(--fs-m); }
 .how { margin: 0; padding: 0 0 0 22px; display: flex; flex-direction: column; gap: 12px; font-size: var(--fs-m); line-height: 1.55; max-width: 760px; }
 .foot { color: var(--muted); font-size: var(--fs-s); } .foot a, .done a { color: var(--accent); font-weight: 700; }
 .sub { margin: 0 0 10px; color: var(--muted); font-size: var(--fs-s); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.bal { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 12px; border-radius: 16px; background: #E6F6EC; position: sticky; top: -16px; z-index: 2; }
+.bal { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 12px; border-radius: 16px; background: color-mix(in srgb, var(--ok) 12%, var(--surface)); position: sticky; top: -16px; z-index: 2; }
 .bal.neg { background: var(--danger-tint); }
 .bal div { display: flex; flex-direction: column; } .bal small { font-size: 11px; color: var(--ink-2); font-weight: 700; } .bal b { font-size: var(--fs-s); }
 .bal .big { grid-column: 1 / -1; border-top: 1px solid rgba(0,0,0,.08); padding-top: 6px; } .bal .big b { font-family: var(--font-display); font-size: 24px; }

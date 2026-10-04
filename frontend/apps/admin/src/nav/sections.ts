@@ -14,26 +14,26 @@ export type Section = { code: string; title: string; icon: string; emoji: string
 export type SectionView = Section & { items: (NavItem & { desc: string })[] }
 
 export const SECTIONS: Section[] = [
-  { code: 'sales', title: 'Savdo va xizmat', icon: 'receipt', emoji: '💳', color: '#EA580C', desc: 'Kassa, oshxona ekrani, zal va bron',
+  { code: 'sales', title: 'Savdo va xizmat', icon: 'receipt', emoji: '💳', color: '#F97316', desc: 'Kassa, oshxona ekrani, zal va bron',
     routes: ['/pos', '/kds', '/tables', '/reservations', '/delivery'] },
-  { code: 'menu', title: 'Menyu', icon: 'book', emoji: '🍽️', color: '#DB2777', desc: 'Taomlar, narxlar, stop-list, eng ko\'p sotilganlar',
+  { code: 'menu', title: 'Menyu', icon: 'book', emoji: '🍽️', color: '#EC4899', desc: 'Taomlar, narxlar, stop-list, eng ko\'p sotilganlar',
     routes: ['/catalog'] },
-  { code: 'clients', title: 'Mijozlar va marketing', icon: 'star', emoji: '❤️', color: '#E11D48', desc: 'Mijozlar va bonus, Telegram bot, sayt',
+  { code: 'clients', title: 'Mijozlar va marketing', icon: 'star', emoji: '❤️', color: '#F43F5E', desc: 'Mijozlar va bonus, Telegram bot, sayt',
     routes: ['/crm', '/telegram', '/site'] },
-  { code: 'stock', title: 'Ombor va xarid', icon: 'box', emoji: '📦', color: '#2563EB', desc: 'Qoldiq va tannarx, zakup, bozorlik, bayram prognozi',
+  { code: 'stock', title: 'Ombor va xarid', icon: 'box', emoji: '📦', color: '#3B82F6', desc: 'Qoldiq va tannarx, zakup, bozorlik, bayram prognozi',
     routes: ['/inventory', '/procurement', '/market', '/forecast'] },
-  { code: 'team', title: 'Xodimlar', icon: 'users', emoji: '👥', color: '#059669', desc: 'Xodimlar va kirish (login/parol), smena, davomat, ishga olish, KPI, tuzilma',
+  { code: 'team', title: 'Xodimlar', icon: 'users', emoji: '👥', color: '#10B981', desc: 'Xodimlar va kirish (login/parol), smena, davomat, ishga olish, KPI, tuzilma',
     routes: ['/hr', '/users', '/recruiting', '/kpi', '/org', '/positions'] },
-  { code: 'training', title: "O'qitish", icon: 'book', emoji: '🎓', color: '#CA8A04', desc: 'Kurslar, video darslar, testlar, standartlar',
+  { code: 'training', title: "O'qitish", icon: 'cap', emoji: '🎓', color: '#14B8A6', desc: 'Kurslar, video darslar, testlar, standartlar',
     routes: ['/training'] },
-  { code: 'work', title: 'Vazifa va loyihalar', icon: 'check', emoji: '✅', color: '#7C3AED', desc: 'Kundalik vazifalar, muammolar va katta loyihalar',
+  { code: 'work', title: 'Vazifa va loyihalar', icon: 'check', emoji: '✅', color: '#8B5CF6', desc: 'Kundalik vazifalar, muammolar va katta loyihalar',
     routes: ['/tasks', '/projects'] },
-  { code: 'finance', title: 'Moliya va hisobot', icon: 'chart', emoji: '📊', color: '#0891B2', desc: 'Savdo, foyda-zarar, food cost, menyu tahlili',
+  { code: 'finance', title: 'Moliya va hisobot', icon: 'chart', emoji: '📊', color: '#06B6D4', desc: 'Savdo, foyda-zarar, food cost, menyu tahlili',
     routes: ['/reports'] },
   { code: 'settings', title: 'Sozlamalar', icon: 'sliders', emoji: '⚙️', color: '#64748B', desc: 'Filiallar, modullar, restoran sozlamalari, yordam',
     routes: ['/branches', '/modules', '/settings', '/support', '/audit'] },
   // AI Kotib — asosiy menyuning eng oxirida (rahbar/menejer; bitta sahifa — to'g'ridan-to'g'ri ochiladi)
-  { code: 'ai', title: 'AI Kotib', icon: 'spark', emoji: '🤖', color: '#7C3AED', desc: "Hisobot, savol-javob, Telegram'da ovozli buyruq",
+  { code: 'ai', title: 'AI Kotib', icon: 'spark', emoji: '🤖', color: '#A855F7', desc: "Hisobot, savol-javob, Telegram'da ovozli buyruq",
     routes: ['/ai'] },
 ]
 

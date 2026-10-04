@@ -7,7 +7,9 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { big } from '../fmt'
 
-const props = withDefaults(defineProps<{ points: { label: string; value: number }[]; height?: number; money?: boolean; bars?: boolean; every?: number; color?: string; unit?: string }>(),
+const props = withDefaults(defineProps<{ points: { label: string; value: number }[]; height?: number; money?: boolean; bars?: boolean; every?: number; color?: string; unit?: string
+  /** o'tgan davr qiymatlari (punktir chiziq) va uning nomi */
+  compare?: number[]; compareLabel?: string }>(),
   { height: 220, money: true, color: '#2563EB', unit: '' })
 
 const box = ref<HTMLElement | null>(null)
@@ -28,7 +30,7 @@ const short = (v: number) => props.money ? big(v).replace(' mlrd', 'B').replace(
 const g = computed(() => {
   const H = props.height, n = props.points.length, w = W.value
   const PL = 44, PR = 8, PT = 12, PB = 26
-  const max0 = Math.max(1, ...props.points.map(p => p.value))
+  const max0 = Math.max(1, ...props.points.map(p => p.value), ...(props.compare ?? []))
   const p10 = Math.pow(10, Math.floor(Math.log10(max0 / 4 || 1)))
   const st0 = [1, 2, 2.5, 5, 10].map(k => k * p10).find(k => k * 4 >= max0) ?? p10 * 10
   // so'm va dona — butun son: «0, 1, 1, 1» kabi takror belgilar chiqmasin
@@ -40,20 +42,26 @@ const g = computed(() => {
   const y = (v: number) => PT + ih - (ih * Math.max(0, v)) / max
   const pts = props.points.map((p, i) => [x(i), y(p.value)] as [number, number])
   // silliq egri chiziq (monotonga yaqin, Catmull-Rom → Bezier)
-  let line = ''
-  pts.forEach((p, i) => {
-    if (!i) { line = `M${p[0]},${p[1]}`; return }
-    const p0 = pts[i - 2] ?? pts[i - 1], p1 = pts[i - 1], p3 = pts[i + 1] ?? p
-    const t = 0.18
-    const c1 = [p1[0] + (p[0] - p0[0]) * t, Math.min(PT + ih, p1[1] + (p[1] - p0[1]) * t)]
-    const c2 = [p[0] - (p3[0] - p1[0]) * t, Math.min(PT + ih, p[1] - (p3[1] - p1[1]) * t)]
-    line += ` C${c1[0].toFixed(1)},${c1[1].toFixed(1)} ${c2[0].toFixed(1)},${c2[1].toFixed(1)} ${p[0].toFixed(1)},${p[1].toFixed(1)}`
-  })
+  const smooth = (pp: [number, number][]) => {
+    let d = ''
+    pp.forEach((p, i) => {
+      if (!i) { d = `M${p[0]},${p[1]}`; return }
+      const p0 = pp[i - 2] ?? pp[i - 1], p1 = pp[i - 1], p3 = pp[i + 1] ?? p
+      const t = 0.18
+      const c1 = [p1[0] + (p[0] - p0[0]) * t, Math.min(PT + ih, p1[1] + (p[1] - p0[1]) * t)]
+      const c2 = [p[0] - (p3[0] - p1[0]) * t, Math.min(PT + ih, p[1] - (p3[1] - p1[1]) * t)]
+      d += ` C${c1[0].toFixed(1)},${c1[1].toFixed(1)} ${c2[0].toFixed(1)},${c2[1].toFixed(1)} ${p[0].toFixed(1)},${p[1].toFixed(1)}`
+    })
+    return d
+  }
+  const line = smooth(pts)
+  const cpts = props.compare?.length === n ? props.compare.map((v, i) => [x(i), y(v)] as [number, number]) : null
+  const cline = cpts ? smooth(cpts) : ''
   const area = n ? `${line} L${pts[n - 1][0]},${PT + ih} L${pts[0][0]},${PT + ih} Z` : ''
   const maxLabels = Math.max(2, Math.floor(iw / 64))
   const every = props.every ?? Math.max(1, Math.ceil(n / maxLabels))
   const barW = Math.max(3, Math.min(42, bw * 0.62))
-  return { H, w, PL, PT, ih, pts, line, area, bw, barW, every, base: PT + ih, ticks: [0, 1, 2, 3, 4].map(k => ({ v: st * k, y: y(st * k) })) }
+  return { H, w, PL, PT, ih, pts, cpts, line, cline, area, bw, barW, every, base: PT + ih, ticks: [0, 1, 2, 3, 4].map(k => ({ v: st * k, y: y(st * k) })) }
 })
 
 function onMove(e: PointerEvent) {
@@ -93,10 +101,12 @@ const total = computed(() => props.points.reduce((a, p) => a + p.value, 0))
         </g>
       </template>
       <template v-else>
-        <path :d="g.area" :fill="`url(#${uid}a)`" />
-        <path :d="g.line" fill="none" :style="{ stroke: color }" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+        <path v-if="g.cline" :key="`c${g.cline.length}`" :d="g.cline" fill="none" class="cmp" pathLength="1" />
+        <path :key="`a${g.line.length}`" :d="g.area" :fill="`url(#${uid}a)`" class="area" />
+        <path :key="`l${g.line.length}`" :d="g.line" fill="none" :style="{ stroke: color }" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="ln" pathLength="1" />
         <template v-if="hover !== null">
           <line :x1="g.pts[hover][0]" :x2="g.pts[hover][0]" :y1="g.PT" :y2="g.base" class="cross" />
+          <circle v-if="g.cpts" :cx="g.cpts[hover][0]" :cy="g.cpts[hover][1]" r="4" class="cdot" stroke-width="2" />
           <circle :cx="g.pts[hover][0]" :cy="g.pts[hover][1]" r="5.5" :style="{ fill: color, stroke: 'var(--surface)' }" stroke-width="2.5" />
         </template>
       </template>
@@ -104,6 +114,7 @@ const total = computed(() => props.points.reduce((a, p) => a + p.value, 0))
     </svg>
     <div v-if="hover !== null && g.pts[hover]" class="tip" :style="{ left: `${Math.min(Math.max((g.pts[hover][0] / g.w) * 100, 12), 88)}%`, top: `${(Math.min(g.pts[hover][1], g.base - 10) / g.H) * 100}%` }">
       <span>{{ points[hover].label }}</span><b>{{ money ? big(points[hover].value) + " so'm" : points[hover].value + (unit ? ' ' + unit : '') }}</b>
+      <small v-if="compare && compare.length === points.length">{{ compareLabel || 'Oldingi' }}: {{ money ? big(compare[hover]) + " so'm" : compare[hover] + (unit ? ' ' + unit : '') }}</small>
     </div>
   </div>
 </template>
@@ -116,7 +127,15 @@ svg { display: block; width: 100%; height: auto; overflow: visible; user-select:
 .hl { fill: var(--surface-3); opacity: .7; }
 .cross { stroke: var(--line); stroke-dasharray: 3 3; }
 .bar { transition: opacity .15s; }
+.ln { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 1.3s cubic-bezier(.33,1,.68,1) forwards; }
+.area { opacity: 0; animation: fadeA .9s .35s ease forwards; }
+.cmp { stroke: var(--muted); stroke-width: 1.6; stroke-dasharray: .008 .008; opacity: .7; stroke-linecap: round; }
+.cdot { fill: var(--surface); stroke: var(--muted); }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes fadeA { to { opacity: 1; } }
+.bar rect { transform-box: fill-box; transform-origin: bottom; animation: grow .7s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes grow { from { transform: scaleY(0); } }
 .tip { position: absolute; transform: translate(-50%, calc(-100% - 12px)); background: var(--ink); color: var(--surface); padding: 7px 11px; border-radius: 10px;
   font-size: 12px; display: flex; flex-direction: column; gap: 1px; pointer-events: none; white-space: nowrap; box-shadow: 0 8px 20px rgba(0, 0, 0, .18); }
-.tip span { opacity: .7; font-weight: 600; } .tip b { font-size: 14px; font-variant-numeric: tabular-nums; }
+.tip span { opacity: .7; font-weight: 600; } .tip b { font-size: 14px; font-variant-numeric: tabular-nums; } .tip small { opacity: .7; font-size: 11px; }
 </style>

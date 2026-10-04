@@ -195,7 +195,7 @@ async function delRole() {
 .hd .tx { flex: 1; min-width: 240px; } .hd h2 { margin: 0 0 4px; font-size: var(--fs-l, 20px); } .hd p { margin: 0; color: var(--ink-2); font-size: var(--fs-s); max-width: 720px; }
 .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
 .tabs button { border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 9px 14px; font: inherit; font-weight: 700; cursor: pointer; color: var(--ink-2); min-height: 42px; }
-.tabs button.on { background: var(--ink); color: var(--surface); border-color: var(--ink); } .tabs small { opacity: .7; margin-left: 4px; }
+.tabs button.on { background: var(--accent); color: #fff; border-color: var(--accent); } .tabs small { opacity: .7; margin-left: 4px; }
 .bar { display: flex; gap: 8px; flex-wrap: wrap; }
 .inp { flex: 1 1 180px; min-width: 0; min-height: 42px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; background: var(--surface); color: var(--ink); font: inherit; font-size: var(--fs-s); }
 .grp h3 { margin: 6px 0 8px; font-size: var(--fs-b); } .grp h3 small { color: var(--muted); font-weight: 700; }

@@ -82,7 +82,7 @@ h3 { margin: 0; font-size: var(--fs-b); font-weight: 800; letter-spacing: -.01em
 .list li.bad .r b { color: var(--danger); }
 .r { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; } .r b { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .bd { font-style: normal; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 99px; background: var(--surface-3); color: var(--ink-2); white-space: nowrap; }
-.bad .bd { background: var(--danger-tint); color: var(--danger); } .warn .bd { background: #FEF3C7; color: #92400E; } .ok .bd { background: #DCFCE7; color: #166534; }
+.bad .bd { background: var(--danger-tint); color: var(--danger); } .warn .bd { background: var(--warn-tint); color: var(--warn-ink); } .ok .bd { background: var(--ok-tint); color: var(--ok); }
 .rank li.empty { display: block; text-align: center; }
 .empty { justify-content: center !important; color: var(--muted); padding: 18px !important; background: transparent !important; }
 .tbl { overflow-x: auto; } table { width: 100%; border-collapse: collapse; font-size: var(--fs-s); }

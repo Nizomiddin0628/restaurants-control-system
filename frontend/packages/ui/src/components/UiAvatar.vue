@@ -3,7 +3,7 @@
 import { computed } from 'vue'
 const props = withDefaults(defineProps<{ name?: string | null; src?: string | null; size?: number; online?: boolean }>(), { size: 34 })
 const initials = computed(() => (props.name || '?').trim().split(/\s+/).map(x => x[0]).join('').slice(0, 2).toUpperCase())
-const PALETTE = ['#0F6E63', '#1F5FBF', '#8A5A12', '#6C5CA8', '#B8321B', '#1E7F4F', '#3E3D38']
+const PALETTE = ['#2563EB', '#0891B2', '#7C3AED', '#059669', '#DB2777', '#EA580C', '#0D9488', '#4F46E5']
 const bg = computed(() => { let h = 0; for (const c of props.name || '') h = (h * 31 + c.charCodeAt(0)) >>> 0; return PALETTE[h % PALETTE.length] })
 </script>
 <template>

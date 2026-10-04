@@ -2,6 +2,7 @@
 /** Chiziqli ikonkalar (maketlardagi to'plam). name: home|store|receipt|book|chart|box|users|play|megaphone|truck|bars|sliders|globe|plus|search|bell|menu|x|check|drag|upload|trash|edit|chevron|sun|moon|logout|image */
 const props = defineProps<{ name: string; size?: number }>()
 const paths: Record<string, string> = {
+  cap: 'M2 9l10-5 10 5-10 5zM6 11v5c3 2.5 9 2.5 12 0v-5M22 9v6',
   clock: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
   alert: 'M12 3l9 16H3zM12 9v5M12 17h.01',
   calendar: 'M4 6h16v15H4zM4 10h16M8 3v4M16 3v4',

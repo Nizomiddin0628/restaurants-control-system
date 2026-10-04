@@ -113,7 +113,7 @@ function onDrop(e: DragEvent) {
 .av { display: flex; } .av > * + * { margin-left: -6px; }
 .hc { font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 99px; background: var(--surface-2); color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .hc.bad { background: var(--warn-tint); color: var(--warn-ink); }
-.br { display: inline-flex; align-items: center; gap: 6px; padding: 8px 8px 8px 14px; border-radius: 99px; background: var(--ink); color: var(--surface); font-size: var(--fs-s); cursor: pointer; white-space: nowrap;
+.br { display: inline-flex; align-items: center; gap: 6px; padding: 8px 8px 8px 14px; border-radius: 99px; background: var(--accent); color: #fff; font-size: var(--fs-s); cursor: pointer; white-space: nowrap;
   box-shadow: 0 8px 18px -12px rgba(0, 0, 0, .6); transition: transform .15s; }
 .br:hover { transform: translateY(-1px); }
 .br small { opacity: .7; font-size: 11px; } .br .cv { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--surface) 20%, transparent); font-weight: 800; }

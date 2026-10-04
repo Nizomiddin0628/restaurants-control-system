@@ -55,7 +55,7 @@ def overview(request, period: str = "today", branch_id: Optional[int] = None) ->
         "tenant": {"name": t.name},
         "period": {"code": period, "label": PERIODS[period], "start": start.isoformat(), "end": end.isoformat(),
                    "periods": [{"code": k, "label": v} for k, v in PERIODS.items()]},
-        "branches_list": [], "kpis": [], "series": None, "status": None, "top": None, "branches": None,
+        "branches_list": [], "kpis": [], "series": None, "channels": None, "status": None, "top": None, "branches": None,
         "recent": None, "stock": None, "tasks": None, "activity": [], "today": {"holiday": None, "weather": None, "alerts": []},
     }
     from core.models import Branch
@@ -182,9 +182,30 @@ def _sales(out, period, start, end, pstart, pend, today, now, branch_id):
         rows = {r["d"]: r for r in cur.annotate(d=TruncDate("paid_at")).values("d").annotate(r=Sum("total"), n=Count("id"))}
         pts = [{"label": f"{d:%d.%m}", "revenue": int((rows.get(d) or {}).get("r") or 0), "orders": (rows.get(d) or {}).get("n") or 0}
                for d in (start + timedelta(days=i) for i in range((end - start).days + 1))]
+    # o'tgan davr — xuddi shu nuqtalar bo'yicha (grafikda punktir chiziq): soat ↔ soat, kun ↔ kun, oy ↔ oy
+    pq = paid(pstart, pend)
+    if period == "today":
+        pq = pq.filter(paid_at__lte=now - timedelta(days=1))
+    if period in ("today", "yesterday"):
+        prow = {r["h"]: r for r in pq.annotate(h=ExtractHour("paid_at")).values("h").annotate(r=Sum("total"), n=Count("id"))}
+        pv = [prow.get(int(p["label"][:2])) for p in pts]
+    elif period == "year":
+        prow = {(r["m"].year, r["m"].month): r for r in pq.annotate(m=TruncMonth("paid_at")).values("m").annotate(r=Sum("total"), n=Count("id"))}
+        pv = [prow.get((pstart.year, i + 1)) for i in range(len(pts))]
+    else:
+        prow = {r["d"]: r for r in pq.annotate(d=TruncDate("paid_at")).values("d").annotate(r=Sum("total"), n=Count("id"))}
+        pv = [prow.get(pstart + timedelta(days=i)) for i in range(len(pts))]
+    for p, r in zip(pts, pv, strict=True):
+        p["prev_revenue"] = int((r or {}).get("r") or 0)
+        p["prev_orders"] = (r or {}).get("n") or 0
     best = max(pts, key=lambda p: p["revenue"]) if pts else None
     out["series"] = {"points": pts, "unit": "soat" if period in ("today", "yesterday") else "kun" if period != "year" else "oy",
-                     "best": best["label"] if best and best["revenue"] else None}
+                     "best": best["label"] if best and best["revenue"] else None, "prev_label": label_prev}
+
+    # savdo kanallari: zal / olib ketish / yetkazish (summa va ulush)
+    ch = {r["type"]: r for r in cur.values("type").annotate(r=Sum("total"), n=Count("id"))}
+    out["channels"] = [{"key": k, "label": TYPE_UZ[k], "revenue": int((ch.get(k) or {}).get("r") or 0), "orders": (ch.get(k) or {}).get("n") or 0,
+                        "share": round(100 * int((ch.get(k) or {}).get("r") or 0) / rev, 1) if rev else 0} for k in ("dine_in", "takeaway", "delivery")]
 
     # buyurtmalar holati (davr ichida yaratilganlar)
     made = Order.objects.filter(created_at__date__gte=start, created_at__date__lte=end)

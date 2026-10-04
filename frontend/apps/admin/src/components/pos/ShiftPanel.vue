@@ -206,7 +206,7 @@ const title = computed(() => (done.value ? 'Kassa topshirildi' : props.shift ? '
 .li.big { font-size: var(--fs-b); border-top: 2px solid var(--line); } .li.big b { color: var(--accent); }
 .warn { margin: 0; padding: 8px 12px; border-radius: 10px; background: var(--warn-tint); color: var(--warn-ink); font-weight: 700; font-size: var(--fs-s); }
 .mode { display: flex; gap: 6px; } .mode button { flex: 1; border: 1px solid var(--line); background: var(--surface-2); border-radius: 10px; padding: 8px; font: inherit; font-weight: 700; cursor: pointer; color: var(--ink-2); }
-.mode button.on { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.mode button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
 .den { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; }
 .dr { display: grid; grid-template-columns: 76px 36px 58px 36px minmax(0, 1fr); gap: 4px; align-items: center; }
 .dr .nt { font-weight: 800; font-size: var(--fs-s); } .dr.has .nt { color: var(--accent); }

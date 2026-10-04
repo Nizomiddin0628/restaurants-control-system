@@ -53,7 +53,7 @@ const up = computed(() => `${props.a.uplift_percent >= 0 ? '+' : ''}${props.a.up
 .st { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 4px; }
 .st div { display: flex; flex-direction: column; } .st span { font-size: var(--fs-xs); color: var(--muted); } .st b { font-size: var(--fs-s); font-variant-numeric: tabular-nums; } .st b.bad { color: var(--danger); }
 .ts { margin: 2px 0 0; font-size: var(--fs-xs); color: var(--ink-2); }
-.btn { display: inline-flex; align-items: center; gap: 4px; min-height: var(--touch); padding: 0 14px; border-radius: 10px; border: 0; background: var(--ink); color: var(--surface);
+.btn { display: inline-flex; align-items: center; gap: 4px; min-height: var(--touch); padding: 0 14px; border-radius: 10px; border: 0; background: var(--accent); color: #fff;
   font: inherit; font-weight: 800; font-size: var(--fs-s); text-decoration: none; cursor: pointer; white-space: nowrap; }
 .compact { padding: 12px 14px; }
 .ex { grid-column: 1 / -1; min-width: 0; padding-top: 12px; border-top: 1px dashed color-mix(in srgb, var(--warn) 45%, var(--line)); }

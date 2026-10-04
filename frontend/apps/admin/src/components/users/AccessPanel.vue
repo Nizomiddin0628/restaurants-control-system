@@ -310,7 +310,7 @@ const title = computed(() => (p.value ? (p.value.full_name || p.value.phone) : '
 .warn { margin: 0; padding: 8px 12px; border-radius: 10px; background: var(--warn-tint); color: var(--warn-ink); font-size: var(--fs-s); font-weight: 700; }
 .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
 .tabs button { flex: 1; min-width: 180px; border: 1px solid var(--line); background: var(--surface-2); border-radius: 12px; padding: 10px 12px; font: inherit; font-weight: 800; cursor: pointer; color: var(--ink-2); }
-.tabs button.on { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.tabs button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
 .pane { display: flex; flex-direction: column; gap: 12px; }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .blk { border-top: 1px solid var(--line-2); padding-top: 12px; } .blk h4 { margin: 0 0 8px; font-size: var(--fs-s); } .blk h4 small { color: var(--muted); font-weight: 600; }

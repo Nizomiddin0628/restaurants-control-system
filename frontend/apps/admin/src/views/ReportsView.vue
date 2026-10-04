@@ -207,7 +207,7 @@ async function savePay() { try { await api.put('/payments/settings', pay.value);
 .presets button:hover { background: var(--surface); }
 .kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
 .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-l); padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.kpi.inv { background: var(--ink); color: var(--ink-inv); border-color: transparent; } .kpi.inv span, .kpi.inv i { color: var(--surface-3); }
+.kpi.inv { background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 50%, var(--accent-2))); color: #fff; border-color: transparent; box-shadow: 0 12px 26px -14px var(--accent); } .kpi.inv span, .kpi.inv i, .kpi.inv i.ok, .kpi.inv i.danger, .kpi.inv i.muted { color: rgba(255, 255, 255, .88); }
 .kpi span { font-size: var(--fs-xs); color: var(--muted); font-weight: 700; } .kpi b { font-family: var(--font-display); font-size: var(--fs-xl); font-weight: 800; line-height: 1.1; }
 .kpi i { font-style: normal; font-size: var(--fs-xs); font-weight: 700; } .kpi.good b { color: var(--ok); } .kpi.bad b { color: var(--danger); }
 .ok, .kpi i.ok { color: var(--ok); } .danger, .kpi i.danger { color: var(--danger); } .warn { color: var(--warn); } .muted, .mut { color: var(--muted); }

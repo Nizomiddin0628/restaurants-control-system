@@ -131,7 +131,7 @@ const propKeys = (x: SiteSection) => ({ hero: ['title', 'subtitle', 'cta'], menu
 .site { display: flex; flex-direction: column; gap: 14px; }
 .tabs { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
 .tab { min-height: var(--touch); padding: 0 14px; border-radius: var(--radius); border: 0; background: transparent; font-weight: 700; color: var(--muted); cursor: pointer; }
-.tab.on { background: var(--ink); color: var(--ink-inv); }
+.tab.on { background: var(--accent); color: #fff; }
 .sp { flex: 1; }
 .lnk { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: var(--fs-s); text-decoration: none; padding: 0 10px; min-height: var(--touch); }
 .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }

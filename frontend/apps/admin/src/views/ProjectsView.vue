@@ -212,7 +212,7 @@ button.kpi { cursor: pointer; } button.kpi:hover { border-color: var(--accent); 
 .kpi div { display: flex; flex-direction: column; min-width: 0; } .kpi small { font-size: var(--fs-xs); color: var(--muted); font-weight: 700; }
 .kpi b { font-family: var(--font-display); font-size: 22px; white-space: nowrap; } .kpi em { font-style: normal; font-size: 11px; color: var(--muted); }
 .ki { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; font-size: 20px; flex-shrink: 0; }
-.ki.g { background: #E6F6EC; } .ki.b { background: #E7EEFD; } .ki.o { background: #FFF1E3; } .ki.p { background: #F1EAFE; } .ki.r { background: #FDECEC; }
+.ki.g { background: color-mix(in srgb, var(--ok) 14%, transparent); } .ki.b { background: color-mix(in srgb, var(--accent) 14%, transparent); } .ki.o { background: color-mix(in srgb, var(--warn) 14%, transparent); } .ki.p { background: color-mix(in srgb, #8B5CF6 16%, transparent); } .ki.r { background: color-mix(in srgb, var(--danger) 13%, transparent); }
 .bad { color: var(--danger) !important; } .warn { color: var(--warn-ink, #B45309) !important; }
 .grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 14px; align-items: start; }
 .main { display: flex; flex-direction: column; gap: 12px; min-width: 0; } .side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
