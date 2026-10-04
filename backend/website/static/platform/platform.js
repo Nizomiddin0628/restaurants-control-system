@@ -47,7 +47,7 @@
   mnav?.addEventListener('click', (e) => { if (e.target.closest('a')) { mnav.hidden = true; mb.setAttribute('aria-expanded', 'false') } })
 
   // ---------- bo'lim sarlavhalari: bir marta, yumshoq paydo bo'lish
-  if (!reduce) $$('.sec-head, .feat, .plan, .kpi, .dash-grid .ch, .pos, .screens li, .steps li, .stage, .checks li, .score, .help, .atom-box').forEach((el, i) => {
+  if (!reduce) $$('.sec-head, .feat, .plan, .kpi, .dash-grid .ch, .pos, .screens li, .steps li, .stage, .checks li, .score, .help, .atom-box, .tm').forEach((el, i) => {
     el.style.opacity = '0'; el.style.transform = 'translateY(16px)'; el.style.filter = 'blur(4px)'
     el.style.transition = 'opacity .9s cubic-bezier(.2,.8,.2,1), transform .9s cubic-bezier(.2,.8,.2,1), filter .9s'
     el.style.transitionDelay = (el.matches('.feat, .plan, .kpi, .ch, .screens li, .steps li, .checks li') ? ([...el.parentElement.children].indexOf(el) % 3) * 90 : 0) + 'ms'
@@ -434,16 +434,124 @@
     else { sp.classList.add('armed'); once(sp, () => { sp.classList.add('play'); setTimeout(tap, 6400) }, .35) }
   }
 
+  // ---------- JAMOA: yetti bo'lim — har biri o'z jonli ekrani bilan
+  const tm = $('#tm')
+  if (tm) {
+    const tabs = $$('#tmDock button'), arts = $$('#tmCopy .tc'), panes = $$('#tmWin .pane'), dock = $('#tmDock'), pill = $('.tm-pill', tm), path = $('#tmPath')
+    const DUR = [8200, 8400, 7600, 7200, 8200, 8600, 7600], wait = gateFor(tm)
+    let cur = -1, timers = [], hover = false, elapsed = 0, started = false
+    const later = (fn, ms) => timers.push(setTimeout(fn, reduce ? 0 : ms))
+    const st = (p, n) => p.classList.add('st' + n)
+    const dec = (el, to, dur, d = 0) => {   // o'nlik kasr bilan sanash (88,9)
+      if (reduce) { el.textContent = to.toFixed(d).replace('.', ','); return }
+      const t0 = performance.now(); const f = (now) => { const k = clamp((now - t0) / dur, 0, 1); el.textContent = lerp(0, to, easeOut(k)).toFixed(d).replace('.', ','); if (k < 1) requestAnimationFrame(f) }; requestAnimationFrame(f)
+    }
+    // karta ustundan ustunga silliq ko'chadi (FLIP)
+    const flip = (el, dest, before = null) => {
+      const a = el.getBoundingClientRect(); dest.insertBefore(el, before); if (reduce) return
+      const b = el.getBoundingClientRect()
+      if (!a.width) { el.animate([{ opacity: 0, transform: 'translateY(-18px) scale(.94)' }, { opacity: 1, transform: 'none' }], { duration: 560, easing: 'cubic-bezier(.2,.8,.2,1)' }); return }
+      el.animate([{ transform: `translate(${a.left - b.left}px, ${a.top - b.top}px) rotate(-2deg)`, offset: 0 }, { transform: `translate(${(a.left - b.left) * .5}px, ${(a.top - b.top) * .5 - 8}px) rotate(-3deg) scale(1.04)`, offset: .45 }, { transform: 'none' }],
+        { duration: 720, easing: 'cubic-bezier(.3,.7,.2,1)' })
+    }
+    const ACK = 169.65
+    const people = (p) => $$('.people li', p)
+    const mark = (x, ok) => { x.classList.toggle('ok', ok); const e = $('em', x); e.textContent = ok ? '✓ ' + e.dataset.ok : e.dataset.no }
+    const ackSet = (p, k) => { const n = people(p).length; $('.rv', p).style.strokeDashoffset = ACK * (1 - k / n); tween($('#ackN'), Math.round(k / n * 100), { dur: 500 }) }
+    const FX = [
+      (p) => { later(() => { st(p, 1); tween($('[data-tn]', p), 92, { from: 0, dur: 2400 }) }, 250); later(() => st(p, 2), 2900); later(() => st(p, 3), 4500); later(() => st(p, 4), 5400) },
+      (p) => {
+        const li = people(p), ver = $('.ver', p)
+        later(() => st(p, 1), 200)
+        li.forEach((x, j) => later(() => { mark(x, true); ackSet(p, j + 1) }, 1100 + j * 520))
+        later(() => { st(p, 2); $('em', ver).textContent = '4'; ver.classList.remove('bump'); void ver.offsetWidth; ver.classList.add('bump'); $('.toast', p).classList.add('in'); li.forEach(x => mark(x, false)); ackSet(p, 0) }, 4600)
+        ;[0, 3].forEach((j, k) => later(() => { mark(li[j], true); ackSet(p, k + 1) }, 6000 + k * 650))
+      },
+      (p) => { later(() => st(p, 1), 200); later(() => st(p, 2), 1900); later(() => st(p, 3), 4100) },
+      (p) => { later(() => { st(p, 1); dec($('#kpiN'), 88.9, 1800, 1) }, 300); later(() => st(p, 2), 2300); later(() => st(p, 3), 3300) },
+      (p) => {
+        const cols = $$('.col', p), card = $('#hireCard')
+        for (let k = 1; k < cols.length; k++) later(() => {
+          flip(card, cols[k])
+          if (k === 2) $('.t1', p).classList.add('in')
+          if (k === cols.length - 1) { card.classList.add('done'); $('.t2', p).classList.add('in') }
+        }, 500 + k * 1050)
+      },
+      (p) => {
+        const cols = $$('.col', p), card = $('#taskCard'), wip = $('#wipN'), first = (c) => $('.cd', c)
+        later(() => st(p, 1), 200)
+        later(() => flip(card, cols[0], first(cols[0])), 1200)
+        later(() => { flip(card, cols[1], first(cols[1])); wip.textContent = '2' }, 2500)
+        later(() => card.classList.add('proof-on'), 3600)
+        later(() => { flip(card, cols[2]); wip.textContent = '1' }, 4600)
+        later(() => card.classList.add('ok-on'), 5700)
+        later(() => flip(card, cols[3], first(cols[3])), 6600)
+      },
+      (p) => { later(() => st(p, 1), 200); later(() => { st(p, 2); tween($('#budN'), 268, { from: 0, dur: 1300 }) }, 2200); later(() => st(p, 3), 3400) },
+    ]
+    const RESET = [
+      (p) => { $('[data-tn]', p).textContent = '0'; delete $('[data-tn]', p).dataset.v },
+      (p) => { people(p).forEach(x => mark(x, false)); $('.rv', p).style.strokeDashoffset = ''; $('#ackN').textContent = '0'; delete $('#ackN').dataset.v; $('.ver em', p).textContent = '3' },
+      null,
+      () => { $('#kpiN').textContent = '0' },
+      (p) => { $$('.col', p)[0].appendChild($('#hireCard')) },
+      (p) => { p.appendChild($('#taskCard')); $('#wipN').textContent = '1' },
+      () => { $('#budN').textContent = '0'; delete $('#budN').dataset.v },
+    ]
+    const reset = (i) => {
+      const p = panes[i]; p.classList.remove('st1', 'st2', 'st3', 'st4')
+      $$('.in, .bump, .done, .proof-on, .ok-on', p).forEach(x => x.classList.remove('in', 'bump', 'done', 'proof-on', 'ok-on'))
+      RESET[i]?.(p)
+    }
+    const movePill = () => { const b = tabs[cur]; if (!b) return; pill.style.width = b.offsetWidth + 'px'; pill.style.transform = `translateX(${b.offsetLeft}px)` }
+    const show = (i) => {
+      timers.forEach(clearTimeout); timers = []
+      const old = cur
+      if (old >= 0 && old !== i) setTimeout(() => { if (cur !== old) reset(old) }, 600)
+      reset(i); cur = i; elapsed = 0
+      tabs.forEach((b, j) => { const on = j === i; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; $('.prog', b).style.transform = 'scaleX(0)' })
+      arts.forEach((a, j) => a.classList.toggle('on', j === i))
+      panes.forEach((p, j) => p.classList.toggle('on', j === i))
+      tm.style.setProperty('--tc', `var(--${tabs[i].dataset.c})`)
+      path.textContent = $('span', tabs[i]).textContent
+      movePill()
+      if (dock.scrollWidth > dock.clientWidth + 2) dock.scrollTo({ left: tabs[i].offsetLeft - (dock.clientWidth - tabs[i].offsetWidth) / 2, behavior: reduce ? 'auto' : 'smooth' })
+      void panes[i].offsetWidth
+      FX[i](panes[i])
+    }
+    tabs.forEach((b, j) => b.addEventListener('click', () => show(j)))
+    dock.addEventListener('keydown', (e) => {
+      const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0; if (!d) return
+      e.preventDefault(); const n = (cur + d + tabs.length) % tabs.length; show(n); tabs[n].focus()
+    })
+    $('#tmWin').addEventListener('pointerenter', () => { hover = true }); $('#tmWin').addEventListener('pointerleave', () => { hover = false })
+    addEventListener('resize', movePill, { passive: true })
+    $$('[data-tm]').forEach(b => b.addEventListener('click', () => { tm.closest('section').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' }); show(+b.dataset.tm) }))
+    cur = 0; movePill()
+    if (document.fonts?.ready) document.fonts.ready.then(movePill)
+    const start = () => { if (started) return; started = true; show(cur) }
+    once(tm, start, .25)
+    if (!reduce) (async () => {
+      for (;;) {
+        await wait(100)
+        if (!started || hover) continue
+        elapsed += 100
+        const pr = $('.prog', tabs[cur]); if (pr) pr.style.transform = `scaleX(${Math.min(1, elapsed / DUR[cur])})`
+        if (elapsed >= DUR[cur]) show((cur + 1) % tabs.length)
+      }
+    })()
+  }
+
   // ---------- solishtirish
   const checks = $$('#checks input'), score = $('.score')
   if (checks.length && score) {
     const you = $('#scYou'), bar = $('#scBarYou'), msg = $('#scMsg'), name = score.dataset.platform || 'Biz'
     const fill = (k, d) => T(k, d).replace('{p}', name)
     const text = (n) => n === 0 ? T('sc_zero', 'Belgilashni boshlang — farq shu yerda ko\'rinadi.')
-      : n < 5 ? fill('sc_low', `Ko'p ish hali qo'lda yoki alohida dasturlarda. {p}da bularning hammasi bitta tizimda.`)
-        : n < 9 ? fill('sc_mid', `Yaxshi! Qolgan {n} tasi uchun alohida dastur yoki qo'l mehnati kerak bo'lyapti — {p}da hammasi bor.`).replace('{n}', 10 - n)
+      : n < 6 ? fill('sc_low', `Ko'p ish hali qo'lda yoki alohida dasturlarda. {p}da bularning hammasi bitta tizimda.`)
+        : n < checks.length - 1 ? fill('sc_mid', `Yaxshi! Qolgan {n} tasi uchun alohida dastur yoki qo'l mehnati kerak bo'lyapti — {p}da hammasi bor.`).replace('{n}', checks.length - n)
           : fill('sc_high', `Zo'r dastur! Endi narxni solishtiring: {p}da server, domen va yangilanishlar narx ichida.`)
-    const upd = () => { const n = checks.filter(c => c.checked).length; tween(you, n, { dur: 500 }); bar.style.width = n * 10 + '%'; msg.textContent = text(n) }
+    const upd = () => { const n = checks.filter(c => c.checked).length; tween(you, n, { dur: 500 }); bar.style.width = (n / checks.length * 100) + '%'; msg.textContent = text(n) }
     checks.forEach(c => c.addEventListener('change', upd))
   }
 

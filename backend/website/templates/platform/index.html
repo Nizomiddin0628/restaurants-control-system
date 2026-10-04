@@ -25,6 +25,7 @@
     <nav class="nav" aria-label="{{ t.nav_label }}">
       <a href="#qanday">{{ t.nav_how }}</a>
       <a href="#imkoniyatlar">{{ t.nav_feat }}</a>
+      <a href="#jamoa">{{ t.nav_team }}</a>
       <a href="#ai">{{ t.nav_tg }}</a>
       <a href="#narxlar">{{ t.nav_price }}</a>
       <a href="#savollar">{{ t.nav_faq }}</a>
@@ -43,7 +44,7 @@
     </div>
   </div>
   <nav class="mnav" id="mnav" hidden aria-label="{{ t.mnav_label }}">
-    <a href="#qanday">{{ t.nav_how }}</a><a href="#imkoniyatlar">{{ t.nav_feat }}</a><a href="#ai">{{ t.nav_tg }}</a><a href="#narxlar">{{ t.nav_price }}</a><a href="#savollar">{{ t.nav_faq }}</a>
+    <a href="#qanday">{{ t.nav_how }}</a><a href="#imkoniyatlar">{{ t.nav_feat }}</a><a href="#jamoa">{{ t.nav_team }}</a><a href="#ai">{{ t.nav_tg }}</a><a href="#narxlar">{{ t.nav_price }}</a><a href="#savollar">{{ t.nav_faq }}</a>
     <button class="btn ghost big" type="button" data-login>{{ t.login_long }}</button>
     <a class="btn primary big" href="{{ lang_prefix }}/signup/">{{ t.start_days }}</a>
   </nav>
@@ -164,6 +165,181 @@
   </div>
 </section>
 
+<!-- ============ Jamoa: o'qitish, standart, KPI, ishga olish, vazifa va loyihalar ============ -->
+<section class="team" id="jamoa">
+  <div class="wrap">
+    <div class="sec-head c"><span class="eyebrow">{{ t.tm_eye }}</span><h2 class="h2">{{ t.tm_h }}</h2><p class="sub">{{ t.tm_sub }}</p></div>
+    <div class="tm" id="tm">
+      <div class="tm-dock" id="tmDock" role="tablist" aria-label="{{ t.tm_label }}">
+        <span class="tm-pill" aria-hidden="true"></span>
+        <button type="button" role="tab" data-c="acc" aria-selected="true"><i class="ic learn"></i><span>{{ t.tm1 }}</span><i class="prog"></i></button>
+        <button type="button" role="tab" data-c="teal" aria-selected="false"><i class="ic std"></i><span>{{ t.tm2 }}</span><i class="prog"></i></button>
+        <button type="button" role="tab" data-c="cyan" aria-selected="false"><i class="ic org"></i><span>{{ t.tm3 }}</span><i class="prog"></i></button>
+        <button type="button" role="tab" data-c="herb" aria-selected="false"><i class="ic gaugei"></i><span>{{ t.tm4 }}</span><i class="prog"></i></button>
+        <button type="button" role="tab" data-c="tg" aria-selected="false"><i class="ic hire"></i><span>{{ t.tm5 }}</span><i class="prog"></i></button>
+        <button type="button" role="tab" data-c="ember" aria-selected="false"><i class="ic board"></i><span>{{ t.tm6 }}</span><i class="prog"></i></button>
+        <button type="button" role="tab" data-c="acc-t" aria-selected="false"><i class="ic proj"></i><span>{{ t.tm7 }}</span><i class="prog"></i></button>
+      </div>
+      <div class="tm-body">
+        <div class="tm-copy" id="tmCopy" aria-live="polite">
+          {% for n in "1234567" %}<article class="tc{% if forloop.first %} on{% endif %}">
+            <span class="tc-n">0{{ n }} <i>/ 07</i></span>
+            {% if n == "1" %}<h3>{{ t.tm1_h }}</h3><p>{{ t.tm1_p }}</p><ul><li>{{ t.tm1_b1 }}</li><li>{{ t.tm1_b2 }}</li><li>{{ t.tm1_b3 }}</li></ul>
+            {% elif n == "2" %}<h3>{{ t.tm2_h }}</h3><p>{{ t.tm2_p }}</p><ul><li>{{ t.tm2_b1 }}</li><li>{{ t.tm2_b2 }}</li><li>{{ t.tm2_b3 }}</li></ul>
+            {% elif n == "3" %}<h3>{{ t.tm3_h }}</h3><p>{{ t.tm3_p }}</p><ul><li>{{ t.tm3_b1 }}</li><li>{{ t.tm3_b2 }}</li><li>{{ t.tm3_b3 }}</li></ul>
+            {% elif n == "4" %}<h3>{{ t.tm4_h }}</h3><p>{{ t.tm4_p }}</p><ul><li>{{ t.tm4_b1 }}</li><li>{{ t.tm4_b2 }}</li><li>{{ t.tm4_b3 }}</li></ul>
+            {% elif n == "5" %}<h3>{{ t.tm5_h }}</h3><p>{{ t.tm5_p }}</p><ul><li>{{ t.tm5_b1 }}</li><li>{{ t.tm5_b2 }}</li><li>{{ t.tm5_b3 }}</li></ul>
+            {% elif n == "6" %}<h3>{{ t.tm6_h }}</h3><p>{{ t.tm6_p }}</p><ul><li>{{ t.tm6_b1 }}</li><li>{{ t.tm6_b2 }}</li><li>{{ t.tm6_b3 }}</li></ul>
+            {% else %}<h3>{{ t.tm7_h }}</h3><p>{{ t.tm7_p }}</p><ul><li>{{ t.tm7_b1 }}</li><li>{{ t.tm7_b2 }}</li><li>{{ t.tm7_b3 }}</li></ul>{% endif %}
+          </article>{% endfor %}
+        </div>
+        <div class="tm-win" id="tmWin">
+          <div class="win-bar" aria-hidden="true"><i></i><i></i><i></i><span>{{ t.w_path }} / <b id="tmPath">{{ t.tm1 }}</b></span></div>
+          <div class="win-in" aria-hidden="true">
+
+            <!-- 1. O'qitish: video → test → sertifikat -->
+            <div class="pane p-learn on">
+              <div class="flow"><span class="f1">{{ t.l_video }}</span><i></i><span class="f2">{{ t.l_test }}</span><i></i><span class="f3">{{ t.l_cert }}</span></div>
+              <div class="lg">
+                <div class="card vid">
+                  <div class="vscr"><span class="play"></span><small>{{ t.l_vt }}</small><span class="vw"><i></i><i></i><i></i><i></i><i></i></span></div>
+                  <div class="vbar"><i class="seen"></i><b class="knob"></b></div>
+                  <div class="vrow"><span><b data-tn="92">0</b>% {{ t.l_seen }}</span><span class="lk">🔒 {{ t.l_lock }}</span></div>
+                </div>
+                <div class="card quiz">
+                  <div class="qh"><b>{{ t.l_test }} · 1/3</b><span class="tring"><svg viewBox="0 0 36 36"><circle r="15" cx="18" cy="18"/><circle class="tr" r="15" cx="18" cy="18"/></svg><em>0:45</em></span></div>
+                  <p>{{ t.l_q }}</p>
+                  <ul><li>{{ t.l_a1 }}</li><li class="right">{{ t.l_a2 }}</li><li>{{ t.l_a3 }}</li></ul>
+                  <span class="qok">✓ {{ t.l_ok }}</span>
+                </div>
+                <div class="card cert">
+                  <i class="seal">★</i>
+                  <small>{{ t.l_cert }}</small>
+                  <b>{{ t.l_course }}</b>
+                  <span>{{ t.l_who }}</span>
+                  <code>№ 26-004-00128</code>
+                  <i class="shine"></i>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. Standart va qadriyatlar: tanishdim → v4 → qayta -->
+            <div class="pane p-std">
+              <div class="sg">
+                <div class="card doc">
+                  <div class="dh"><b>{{ t.s_doc }}</b><span class="ver">v<em>3</em></span></div>
+                  <span class="chip">{{ t.s_cat }}</span>
+                  <ol><li>{{ t.s_l1 }}</li><li>{{ t.s_l2 }}</li><li>{{ t.s_l3 }}</li></ol>
+                  <div class="toast tgt">{{ t.s_upd }}</div>
+                </div>
+                <div class="card acks">
+                  <div class="ring"><svg viewBox="0 0 64 64"><circle r="27" cx="32" cy="32"/><circle class="rv" r="27" cx="32" cy="32"/></svg><div><b><span id="ackN">0</span>%</b><small>{{ t.s_done }}</small></div></div>
+                  <ul class="people">
+                    <li><span class="av">{{ t.n_az|first }}</span><b>{{ t.n_az }}</b><em data-ok="{{ t.s_ack }}" data-no="{{ t.s_wait }}">{{ t.s_wait }}</em></li>
+                    <li><span class="av">{{ t.n_bk|first }}</span><b>{{ t.n_bk }}</b><em data-ok="{{ t.s_ack }}" data-no="{{ t.s_wait }}">{{ t.s_wait }}</em></li>
+                    <li><span class="av">{{ t.n_dl|first }}</span><b>{{ t.n_dl }}</b><em data-ok="{{ t.s_ack }}" data-no="{{ t.s_wait }}">{{ t.s_wait }}</em></li>
+                    <li><span class="av">{{ t.n_sr|first }}</span><b>{{ t.n_sr }}</b><em data-ok="{{ t.s_ack }}" data-no="{{ t.s_wait }}">{{ t.s_wait }}</em></li>
+                    <li><span class="av">{{ t.n_md|first }}</span><b>{{ t.n_md }}</b><em data-ok="{{ t.s_ack }}" data-no="{{ t.s_wait }}">{{ t.s_wait }}</em></li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. Tuzilma va lavozim -->
+            <div class="pane p-org">
+              <div class="og">
+                <div class="tree">
+                  <div class="nd top"><span class="av">{{ t.o_dir|first }}</span>{{ t.o_dir }}</div>
+                  <div class="nd mid"><span class="av">{{ t.o_man|first }}</span>{{ t.o_man }}</div>
+                  <div class="kids">
+                    <div class="nd"><span class="av">{{ t.o_chef|first }}</span>{{ t.o_chef }}</div>
+                    <div class="nd pick"><span class="av">{{ t.o_wait|first }}</span>{{ t.o_wait }}</div>
+                    <div class="nd"><span class="av">{{ t.o_cash|first }}</span>{{ t.o_cash }}</div>
+                  </div>
+                </div>
+                <div class="card posc">
+                  <small>{{ t.o_pos }}</small><b>{{ t.o_wait }}</b>
+                  <div class="links"><span>{{ t.o_c1 }}</span><span>{{ t.o_c2 }}</span><span>{{ t.o_c3 }}</span><span>{{ t.o_c4 }}</span></div>
+                  <div class="newb"><span class="av">{{ t.n_azk|first }}</span><div><b>{{ t.n_azk }}</b><small>{{ t.o_new }}</small></div></div>
+                  <div class="meter"><span>{{ t.o_att }}</span><i><b style="--v:.96"></b></i><em>96%</em></div>
+                  <div class="meter"><span>{{ t.o_mood }}</span><i><b style="--v:.84"></b></i><em>🙂</em></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 4. KPI -->
+            <div class="pane p-kpi">
+              <div class="kg">
+                <div class="card gauge">
+                  <small>{{ t.k_who }} · {{ t.k_month }}</small>
+                  <div class="gw"><svg viewBox="0 0 120 70"><path class="g0" d="M10 64a50 50 0 0 1 100 0"/><path class="g1" d="M10 64a50 50 0 0 1 100 0"/></svg><b id="kpiN">0</b></div>
+                  <div class="grade"><span>{{ t.k_grade }}</span><b>A</b></div>
+                  <div class="bonus">{{ t.k_bonus|safe }}</div>
+                </div>
+                <div class="card parts">
+                  <small class="kh">{{ t.k_head }}</small>
+                  <div class="kr"><span>{{ t.k1 }}</span><em>15%</em><i><b style="--v:.96"></b></i><strong>96</strong></div>
+                  <div class="kr"><span>{{ t.k2 }}</span><em>15%</em><i><b style="--v:.90"></b></i><strong>90</strong></div>
+                  <div class="kr"><span>{{ t.k3 }}</span><em>15%</em><i><b style="--v:1"></b></i><strong>100</strong></div>
+                  <div class="kr"><span>{{ t.k4 }}</span><em>15%</em><i><b style="--v:.84"></b></i><strong>84</strong></div>
+                  <div class="kr"><span>{{ t.k5 }}</span><em>20%</em><i><b style="--v:.82"></b></i><strong>82</strong></div>
+                  <div class="kr"><span>{{ t.k6 }}</span><em>20%</em><i><b style="--v:.85"></b></i><strong>85</strong></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 5. Ishga olish doskasi -->
+            <div class="pane p-hire">
+              <div class="bd six" id="hireKb">
+                <div class="col"><h5>{{ t.h1 }}</h5><div class="cd"><span class="av">{{ t.n_nd|first }}</span><b>{{ t.n_nd }}</b></div><div class="cd"><span class="av">{{ t.n_jm|first }}</span><b>{{ t.n_jm }}</b></div>
+                  <div class="cd mv" id="hireCard"><span class="av">{{ t.h_name|first }}</span><div><b>{{ t.h_name }}</b><small>{{ t.h_role }}</small></div></div></div>
+                <div class="col"><h5>{{ t.h2 }}</h5><div class="cd"><span class="av">{{ t.n_ll|first }}</span><b>{{ t.n_ll }}</b></div></div>
+                <div class="col"><h5>{{ t.h3 }}</h5><div class="cd"><span class="av">{{ t.n_um|first }}</span><b>{{ t.n_um }}</b></div></div>
+                <div class="col"><h5>{{ t.h4 }}</h5></div>
+                <div class="col"><h5>{{ t.h5 }}</h5><div class="cd"><span class="av">{{ t.n_sh|first }}</span><b>{{ t.n_sh }}</b></div></div>
+                <div class="col ok"><h5>{{ t.h6 }}</h5></div>
+              </div>
+              <div class="tgs"><small>{{ t.h_tg }}</small><div class="toast t1">{{ t.h_t1 }}</div><div class="toast t2">{{ t.h_t2 }}</div></div>
+            </div>
+
+            <!-- 6. Vazifalar doskasi -->
+            <div class="pane p-board">
+              <div class="andon"><span class="pulse"></span><div><b>{{ t.b_andon }}</b><small>{{ t.b_from }}</small></div></div>
+              <div class="bd four" id="taskKb">
+                <div class="col"><h5>{{ t.bc1 }}</h5><div class="cd"><b>{{ t.b_x2 }}</b></div></div>
+                <div class="col"><h5>{{ t.bc2 }} <i class="wip">WIP <span id="wipN">1</span>/3</i></h5><div class="cd"><b>{{ t.b_x3 }}</b><small>{{ t.b_rep }}</small></div></div>
+                <div class="col"><h5>{{ t.bc3 }}</h5></div>
+                <div class="col ok"><h5>{{ t.bc4 }}</h5><div class="cd"><b>{{ t.b_x1 }}</b><small>{{ t.b_rep }}</small></div></div>
+              </div>
+              <div class="cd mv task" id="taskCard"><b>{{ t.b_card }}</b><small class="sla">⏱ {{ t.b_sla }}</small><span class="proof">{{ t.b_proof }}</span><span class="stamp">{{ t.b_ok }}</span></div>
+            </div>
+
+            <!-- 7. Loyiha va marketing -->
+            <div class="pane p-proj">
+              <div class="ph"><b>🏪 {{ t.p_title }}</b><span class="chip">{{ t.p_tpl }}</span></div>
+              <div class="gantt">
+                <div class="gm"><span></span><span>{{ t.p_m1 }}</span><span>{{ t.p_m2 }}</span><span>{{ t.p_m3 }}</span></div>
+                <div class="gr"><span>{{ t.p1 }}</span><i style="--s:0;--w:.18;--p:1"></i></div>
+                <div class="gr"><span>{{ t.p2 }}</span><i style="--s:.14;--w:.34;--p:1"></i></div>
+                <div class="gr"><span>{{ t.p3 }}</span><i style="--s:.36;--w:.22;--p:.7"></i></div>
+                <div class="gr"><span>{{ t.p4 }}</span><i style="--s:.5;--w:.32;--p:.35"></i></div>
+                <div class="gr mk"><span>{{ t.p5 }}</span><i style="--s:.68;--w:.3;--p:0"></i></div>
+                <div class="gr ms"><span>{{ t.p6 }}</span><i style="--s:.97;--w:0;--p:0"></i></div>
+                <div class="today" style="--x:.55"><em>{{ t.p_today }}</em></div>
+              </div>
+              <div class="pf">
+                <div class="bud"><span>{{ t.p_budget }} · <b id="budN">0</b> / 420 {{ t.mln_s }}</span><i><b></b></i></div>
+                <span class="hlth">● {{ t.p_ok }} · <b>58%</b> {{ t.p_done }}</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ============ Hozirgi dasturingiz bilan solishtiring ============ -->
 <section class="compare" id="solishtirish">
   <div class="wrap cmp-in">
@@ -180,6 +356,8 @@
         <li><label><input type="checkbox"><span>{{ t.c7 }}</span></label></li>
         <li><label><input type="checkbox"><span>{{ t.c8 }}</span></label></li>
         <li><label><input type="checkbox"><span>{{ t.c9 }}</span></label></li>
+        <li><label><input type="checkbox"><span>{{ t.c11 }}</span></label></li>
+        <li><label><input type="checkbox"><span>{{ t.c12 }}</span></label></li>
         <li><label><input type="checkbox"><span>{{ t.c10 }}</span></label></li>
       </ul>
     </div>
@@ -193,12 +371,14 @@
           <div class="as"><i class="ic staff"></i><b>{{ t.a4|safe }}</b></div>
           <div class="as"><i class="ic ai"></i><b>{{ t.a5|safe }}</b></div>
           <div class="as"><i class="ic tg"></i><b>{{ t.a6|safe }}</b></div>
+          <div class="as"><i class="ic gaugei"></i><b>{{ t.a7|safe }}</b></div>
+          <div class="as"><i class="ic board"></i><b>{{ t.a8|safe }}</b></div>
         </div>
         <div class="achv-bar"><i></i></div>
       </div>
-      <div class="sc-row"><span>{{ t.sc_you }}</span><b><span id="scYou">0</span>/10</b></div>
+      <div class="sc-row"><span>{{ t.sc_you }}</span><b><span id="scYou">0</span>/12</b></div>
       <div class="sc-bar"><i id="scBarYou"></i></div>
-      <div class="sc-row us"><span>{{ platform }}</span><b>10/10</b></div>
+      <div class="sc-row us"><span>{{ platform }}</span><b>12/12</b></div>
       <div class="sc-bar us"><i></i></div>
       <p class="sc-msg" id="scMsg">{{ t.sc_msg0 }}</p>
       <div class="move">
@@ -218,11 +398,14 @@
       <article class="feat"><i class="ic kassa"></i><h3>{{ t.f1 }}</h3><p>{{ t.f1p }}</p></article>
       <article class="feat"><i class="ic kds"></i><h3>{{ t.f2 }}</h3><p>{{ t.f2p }}</p></article>
       <article class="feat"><i class="ic stock"></i><h3>{{ t.f3 }}</h3><p>{{ t.f3p }}</p></article>
-      <article class="feat"><i class="ic staff"></i><h3>{{ t.f4 }}</h3><p>{{ t.f4p }}</p></article>
+      <article class="feat"><i class="ic staff"></i><h3>{{ t.f4 }}</h3><p>{{ t.f4p }}</p><button class="more" type="button" data-tm="3">{{ t.feat_more }}</button></article>
+      <article class="feat"><i class="ic learn"></i><h3>{{ t.f10 }}</h3><p>{{ t.f10p }}</p><button class="more" type="button" data-tm="0">{{ t.feat_more }}</button></article>
+      <article class="feat"><i class="ic hire"></i><h3>{{ t.f11 }}</h3><p>{{ t.f11p }}</p><button class="more" type="button" data-tm="4">{{ t.feat_more }}</button></article>
+      <article class="feat"><i class="ic board"></i><h3>{{ t.f7 }}</h3><p>{{ t.f7p }}</p><button class="more" type="button" data-tm="5">{{ t.feat_more }}</button></article>
+      <article class="feat"><i class="ic proj"></i><h3>{{ t.f12 }}</h3><p>{{ t.f12p }}</p><button class="more" type="button" data-tm="6">{{ t.feat_more }}</button></article>
+      <article class="feat"><i class="ic gift"></i><h3>{{ t.f13 }}</h3><p>{{ t.f13p }}</p></article>
       <article class="feat"><i class="ic tg"></i><h3>{{ t.f5 }}</h3><p>{{ t.f5p }}</p></article>
       <article class="feat"><i class="ic rep"></i><h3>{{ t.f6 }}</h3><p>{{ t.f6p }}</p></article>
-      <article class="feat"><i class="ic task"></i><h3>{{ t.f7 }}</h3><p>{{ t.f7p }}</p></article>
-      <article class="feat"><i class="ic lock"></i><h3>{{ t.f8 }}</h3><p>{{ t.f8p }}</p></article>
       <article class="feat"><i class="ic ai"></i><h3>{{ t.ai_kotib }}</h3><p>{{ t.f9p }}</p></article>
     </div>
   </div>

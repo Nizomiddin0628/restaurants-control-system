@@ -36,6 +36,11 @@ def test_offer_edit_in_hq_and_landing(client, hq):  # noqa: F811
     html = r.content.decode()
     assert "100" in html and "150" in html and "30 kun bepul" in html
     assert "Restoraningiz bilan" in html and 'id="solishtirish"' in html and "chirish — bepul" in html   # v44: o'z uslubimiz
+    # v49: jamoa vitrinasi — o'qitish, qadriyatlar, tuzilma, KPI, ishga olish, vazifa va loyiha doskalari
+    assert 'id="jamoa"' in html and html.count('class="pane') == 7 and "Qadriyatlar" in html and "Ishga olish" in html and "Loyiha va marketing" in html
+    assert "{{" not in html and "t.n_" not in html
+    ru = client.get("/ru/", **PUB).content.decode()
+    assert "Ценности" in ru and "Найм" in ru and "Азиза" in ru and "Qadriyatlar" not in ru
     assert hq.get("/api/v1/hq/offer").json()["base_price"] == 100
     r = hq.put("/api/v1/hq/offer", {"currency": "$", "base_price": 120, "ai_price": 180, "trial_days": 14, "free_setup": False,
                                      "includes": ["Server", " ", "Domen"], "telegram": "@restopos_uz", "price_note": "oyiga"})
