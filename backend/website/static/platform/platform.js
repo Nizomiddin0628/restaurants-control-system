@@ -9,6 +9,7 @@
   const lerp = (a, b, k) => a + (b - a) * k, clamp = (v, a, b) => Math.min(b, Math.max(a, v))
   const fmt = (n) => Math.round(n).toLocaleString('ru-RU').replace(/[\s,]/g, ' ')
   const sleep = (ms) => new Promise(r => setTimeout(r, ms))
+  const css = (name) => getComputedStyle(root).getPropertyValue(name).trim()
   // silliq raqam: eski qiymatdan yangisiga easeOut bilan
   const tween = (el, to, { dur = 900, prefix = '', suffix = '', from } = {}) => {
     if (!el) return
@@ -176,30 +177,232 @@
     })()
   }
 
-  // ---------- BUYURTMANING YO'LI: chipta bekatlar bo'ylab
-  const track = $('#track')
-  if (track) {
-    const sts = $$('.stations li', track), chip = $('#ticketChip'), fill = $('#railFill'), rail = $('.rail', track), tmr = $('.tmr', track)
-    const wait = gateFor(track)
-    const mmss = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`
-    const runTimer = (to, dur) => { if (!tmr) return; const t0 = performance.now(); const f = (now) => { const k = clamp((now - t0) / dur, 0, 1); tmr.textContent = mmss(to * easeOut(k)); if (k < 1) requestAnimationFrame(f) }; requestAnimationFrame(f) }
-    const go = (i) => {
-      sts.forEach((li, k) => { li.classList.toggle('on', k === i); li.classList.toggle('done', k < i) })
-      if (getComputedStyle(rail).display === 'none') return
-      const tr = track.getBoundingClientRect(), r = sts[i].getBoundingClientRect(), x = r.left + r.width / 2 - tr.left, y = rail.offsetTop + 1
-      fill.style.width = x + 'px'
-      chip.style.opacity = '1'; chip.style.transform = `translate(${(x - chip.offsetWidth / 2).toFixed(1)}px, ${(y - chip.offsetHeight / 2).toFixed(1)}px)`
+  // ---------- BITTA SOTUV: tomirlar bo'ylab oqim
+  const flow = $('#flow')
+  if (flow) {
+    const svg = $('#veins'), hub = $('#hub'), cards = $$('.mcard', flow), rBody = $('#rBody'), stamp = $('#stamp'), cashier = $('#rCashier')
+    const NS = 'http://www.w3.org/2000/svg'
+    const sales = [
+      { who: 'Dilnoza', items: [['Osh, choyxona', 2, 64000], ['Achchiq-chuchuk', 1, 12000], ['Non', 2, 8000]], disc: 0, stock: ['−0,4 kg', 'Guruch: 18,6 kg qoldi'], kds: ['#1044', '3 ta taom tayyorlanmoqda'], staff: 19, crm: ['Aziz K.', 840] },
+      { who: 'Jasur', items: [['Shashlik (qo\'y)', 6, 108000], ['Lag\'mon', 2, 56000], ['Kompot', 2, 16000]], disc: 9000, stock: ['−1,2 kg', 'Go\'sht: 23,4 kg qoldi'], kds: ['#1045', '10 ta sikh grilda'], staff: 27, crm: ['Malika R.', 1710] },
+      { who: 'Nodira', items: [['Manti', 10, 70000], ['Sho\'rva', 2, 44000], ['Choy', 1, 6000]], disc: 0, stock: ['−1,5 kg', 'Un: 41 kg qoldi'], kds: ['#1046', '2 ta taom tayyorlanmoqda'], staff: 22, crm: ['Bobur T.', 1200] },
+    ]
+    let si = 0, paths = [], running = false, cycle = null
+    const layout = () => {
+      if (getComputedStyle(svg).display === 'none') return
+      const fr = flow.getBoundingClientRect(), hr = hub.getBoundingClientRect()
+      const x0 = hr.left + hr.width / 2 - fr.left, y0 = hr.top + hr.height / 2 - fr.top
+      svg.setAttribute('viewBox', `0 0 ${fr.width} ${fr.height}`); svg.innerHTML = ''
+      const defs = document.createElementNS(NS, 'defs'); svg.appendChild(defs)
+      // chekdan markazga
+      const rc = $('#receipt').getBoundingClientRect()
+      const feed = document.createElementNS(NS, 'path')
+      feed.setAttribute('d', `M${rc.right - fr.left - 4} ${y0} L${x0} ${y0}`); feed.setAttribute('class', 'base'); svg.appendChild(feed)
+      paths = cards.map((c, i) => {
+        const r = c.getBoundingClientRect(), x1 = r.left - fr.left + 2, y1 = r.top + r.height / 2 - fr.top
+        const k = Math.max(50, (x1 - x0) * .45)
+        const d = `M${x0} ${y0} C${x0 + k} ${y0}, ${x1 - k} ${y1}, ${x1} ${y1}`
+        const color = getComputedStyle(c).getPropertyValue('--c').trim() || css('--brand')
+        const g = document.createElementNS(NS, 'linearGradient'); g.id = 'vg' + i; g.setAttribute('gradientUnits', 'userSpaceOnUse')
+        g.setAttribute('x1', x0); g.setAttribute('y1', y0); g.setAttribute('x2', x1); g.setAttribute('y2', y1)
+        g.innerHTML = `<stop offset="0" stop-color="${css('--green')}"/><stop offset="1" stop-color="${color}"/>`; defs.appendChild(g)
+        const base = document.createElementNS(NS, 'path'); base.setAttribute('d', d); base.setAttribute('class', 'base'); svg.appendChild(base)
+        const glow = document.createElementNS(NS, 'path'); glow.setAttribute('d', d); glow.setAttribute('fill', 'none'); glow.setAttribute('stroke', `url(#vg${i})`)
+        glow.setAttribute('stroke-width', '7'); glow.setAttribute('stroke-linecap', 'round'); glow.style.opacity = '0'; glow.style.filter = 'blur(5px)'; svg.appendChild(glow)
+        const line = document.createElementNS(NS, 'path'); line.setAttribute('d', d); line.setAttribute('fill', 'none'); line.setAttribute('stroke', `url(#vg${i})`)
+        line.setAttribute('stroke-width', '2.6'); line.setAttribute('stroke-linecap', 'round'); line.style.opacity = '0'; svg.appendChild(line)
+        const head = document.createElementNS(NS, 'circle'); head.setAttribute('r', '4.5'); head.setAttribute('fill', color); head.style.opacity = '0'
+        head.style.filter = `drop-shadow(0 0 6px ${color})`; svg.appendChild(head)
+        const L = line.getTotalLength()
+        return { line, glow, head, L, color, lit: false }
+      })
     }
-    const reset = () => { sts.forEach(li => li.classList.remove('on', 'done')); fill.style.width = '0'; chip.style.opacity = '0'; if (tmr) tmr.textContent = '00:00' }
-    addEventListener('resize', () => { const i = sts.findIndex(li => li.classList.contains('on')); if (i >= 0) { chip.style.transition = 'none'; fill.style.transition = 'none'; go(i); requestAnimationFrame(() => { chip.style.transition = fill.style.transition = '' }) } })
-    ;(async () => {
-      if (reduce) { sts.forEach(li => li.classList.add('done')); if (tmr) tmr.textContent = '06:40'; return }
-      for (;;) {
-        await wait(400)
-        for (let i = 0; i < sts.length; i++) { go(i); if (i === 1) runTimer(+tmr?.dataset.t || 400, 1900); await wait(i === 1 ? 2300 : 1800) }
-        await wait(2400); reset(); await wait(1300)
+    // kometa: boshi + so'nib boruvchi dum
+    const pulse = (p, dur = 1050) => new Promise(res => {
+      const tail = Math.min(140, p.L * .45)
+      p.line.style.strokeDasharray = `${tail} ${p.L + tail}`; p.glow.style.strokeDasharray = `${tail * .7} ${p.L + tail}`
+      p.line.style.opacity = p.glow.style.opacity = p.head.style.opacity = '1'
+      const t0 = performance.now()
+      const step = (now) => {
+        const k = clamp((now - t0) / dur, 0, 1), e = easeInOut(k), at = e * p.L
+        p.line.style.strokeDashoffset = String(tail - at); p.glow.style.strokeDashoffset = String(tail * .7 - at)
+        const pt = p.line.getPointAtLength(at); p.head.setAttribute('cx', pt.x); p.head.setAttribute('cy', pt.y)
+        if (k < 1) requestAnimationFrame(step)
+        else {   // yetib keldi — iz qoladi, bosh so'nadi
+          p.line.style.transition = 'stroke-dasharray .8s ease, opacity 1.2s ease'; p.line.style.strokeDasharray = `${p.L} 0`; p.line.style.strokeDashoffset = '0'; p.line.style.opacity = '.55'
+          p.glow.style.transition = 'opacity .8s ease'; p.glow.style.opacity = '0'; p.head.style.transition = 'opacity .5s'; p.head.style.opacity = '0'
+          setTimeout(() => { p.line.style.transition = p.glow.style.transition = p.head.style.transition = '' }, 1300)
+          res()
+        }
       }
-    })()
+      requestAnimationFrame(step)
+    })
+    const val = (k) => $(`[data-k="${k}"]`, flow)
+    const setCard = (i, s, total) => {
+      const c = cards[i]; c.classList.add('on')
+      if (i === 0) { val('stock').textContent = s.stock[0]; val('stockN').textContent = s.stock[1] }
+      if (i === 1) { tween(val('cash'), total, { prefix: '+', suffix: ' so\'m', from: 0, dur: 1100 }); val('cashN').textContent = total > 100000 ? 'Karta orqali' : 'Naqd pul' }
+      if (i === 2) { val('kds').textContent = s.kds[0]; val('kdsN').textContent = s.kds[1] }
+      if (i === 3) tween(val('rep'), Math.round(total * .36), { prefix: '+', suffix: ' so\'m', from: 0, dur: 1100 })
+      if (i === 4) { tween(val('staff'), s.staff, { suffix: ' chek', from: s.staff - 1, dur: 700 }); val('staffN').textContent = `${s.who} · bugungi savdo` }
+      if (i === 5) { tween(val('crm'), Math.round(total / 100), { prefix: '+', suffix: ' bonus', from: 0, dur: 1000 }); val('crmN').textContent = `${s.crm[0]} kartasiga yozildi` }
+    }
+    const renderReceipt = (s) => {
+      const total = s.items.reduce((a, [, , p]) => a + p, 0) - s.disc
+      cashier.textContent = s.who
+      rBody.innerHTML = s.items.map(([n, q, p], i) => `<span style="animation-delay:${i * 120}ms">${n}${q > 1 ? ' ×' + q : ''}<em>${fmt(p)}</em></span>`).join('')
+        + (s.disc ? `<span class="disc" style="animation-delay:${s.items.length * 120}ms">Chegirma<em>−${fmt(s.disc)}</em></span>` : '')
+        + `<hr><span class="tot" style="animation-delay:${(s.items.length + 1) * 120}ms">Jami<em>${fmt(total)}</em></span>`
+      return total
+    }
+    const play = async () => {
+      if (running) return
+      running = true
+      while (running) {
+        const s = sales[si++ % sales.length]
+        stamp.classList.remove('on'); cards.forEach(c => c.classList.remove('on'))
+        paths.forEach(p => { p.line.style.opacity = '0'; p.glow.style.opacity = '0' })
+        const total = renderReceipt(s)
+        await sleep(900); if (!running) break
+        stamp.classList.add('on'); hub.classList.remove('fire'); void hub.offsetWidth; hub.classList.add('fire')
+        await sleep(350)
+        if (paths.length && !reduce) {
+          await Promise.all(paths.map((p, i) => sleep(i * 170).then(() => running && pulse(p)).then(() => running && setCard(i, s, total))))
+        } else { cards.forEach((_, i) => setTimeout(() => setCard(i, s, total), i * 200)); await sleep(1400) }
+        await sleep(3200)
+      }
+    }
+    const relayout = () => { layout() }
+    let rt = 0
+    addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(relayout, 150) })
+    themeListeners.push(relayout)
+    document.fonts?.ready.then(relayout)
+    relayout()
+    visible(flow, (v) => { if (v) { relayout(); if (!running) { cycle = play() } } else running = false }, .25)
+    void cycle
+  }
+
+  // ---------- TARMOQ: bo'limlar tugunlari, zarrachalar va jonli oqim
+  const cv = $('#netCanvas')
+  if (cv) {
+    const ctx = cv.getContext('2d'), list = $$('#netList li'), live = $('#live')
+    const MODS = [
+      ['Kassa', '--green', ['Chek #1047 — 92 000 so\'m', 'Smena ochildi', 'Kassa topshirildi, farq yo\'q']],
+      ['Oshxona', '--orange', ['Buyurtma #1047 tushdi', '#1045 tayyor — 6:40 da', 'Stol 4: Osh ×2']],
+      ['Ombor', '--teal', ['Guruch −0,4 kg', 'Qoldiq yangilandi', 'Yog\' tugayapti — ogohlantirish']],
+      ['Zakup', '--amber', ['Bozorlik: 1 840 000 so\'m', 'Ta\'minotchiga buyurtma', 'Qarz to\'landi']],
+      ['Xodimlar', '--amber', ['Nodira keldi — 08:57', 'Jasur: 27 chek', 'Smena jadvali saqlandi']],
+      ['Telegram', '--sky', ['Vazifa yuborildi', '«Keldim» qabul qilindi', 'Kassa qabul tasdiqlandi']],
+      ['Sayt', '--sky', ['QR menyudan buyurtma', 'Stop-list yangilandi', 'Menyu e\'lon qilindi']],
+      ['Bron', '--pink', ['Stol 7 — 19:00 bron', 'Bron tasdiqlandi', 'Zalda 3 ta bo\'sh stol']],
+      ['Mijozlar', '--pink', ['+840 bonus yozildi', 'Yangi mijoz', 'Xabar tarqatildi']],
+      ['Hisobotlar', '--brand', ['Bugungi foyda qayta hisoblandi', 'Z-hisobot saqlandi', 'Food cost: 29%']],
+      ['Filiallar', '--brand', ['Chilonzor ma\'lumoti yangilandi', 'Sergeli: smena yopildi', 'Narxlar sinxronlandi']],
+      ['AI Kotib', '--brand-2', ['Ertalabki hisobot yuborildi', '«Kecha qancha savdo?» — javob berildi', 'Diagramma chizildi']],
+    ]
+    let W = 0, H = 0, dpr = 1, nodes = [], edges = [], parts = [], active = 0, colors = {}, ink = '#000', muted = '#888', run = false, raf = 0, last = 0, auto = true
+    const readColors = () => { MODS.forEach(m => { colors[m[1]] = css(m[1]) }); ink = css('--ink'); muted = css('--muted') }
+    const build = () => {
+      const r = cv.getBoundingClientRect(); dpr = Math.min(2, devicePixelRatio || 1); W = r.width; H = r.height
+      cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      const cx = W / 2, cy = H / 2, rx = W * .39, ry = H * .39
+      nodes = [{ x: cx, y: cy, bx: cx, by: cy, r: 24, c: '--brand', center: true, ph: 0 }]
+      MODS.forEach((m, i) => { const a = -Math.PI / 2 + i * (Math.PI * 2 / MODS.length); const x = cx + Math.cos(a) * rx, y = cy + Math.sin(a) * ry
+        nodes.push({ x, y, bx: x, by: y, r: 9, c: m[1], label: m[0], i, ph: Math.random() * 6.28 }) })
+      const seed = (k) => { const x = Math.sin(k * 99.13) * 43758.55; return x - Math.floor(x) }
+      for (let k = 0; k < 26; k++) { const a = seed(k) * 6.28, d = .18 + seed(k + 50) * .62; const x = cx + Math.cos(a) * rx * d, y = cy + Math.sin(a) * ry * d
+        nodes.push({ x, y, bx: x, by: y, r: 2.4, c: MODS[k % MODS.length][1], ph: seed(k + 9) * 6.28 }) }
+      edges = []
+      const mods = nodes.filter(n => n.label)
+      mods.forEach((n, i) => { edges.push([0, nodes.indexOf(n)]); edges.push([nodes.indexOf(n), nodes.indexOf(mods[(i + 1) % mods.length])]); edges.push([nodes.indexOf(n), nodes.indexOf(mods[(i + 4) % mods.length])]) })
+      nodes.forEach((n, i) => { if (n.label || n.center) return
+        const near = nodes.map((m, j) => [j, Math.hypot(m.bx - n.bx, m.by - n.by)]).filter(([j]) => j !== i).sort((a, b) => a[1] - b[1]).slice(0, 3)
+        near.forEach(([j]) => edges.push([i, j])) })
+      parts = []
+      readColors()
+    }
+    const spawn = (from = null) => {
+      const pool = from == null ? edges : edges.filter(e => e[0] === from || e[1] === from)
+      const e = pool[Math.floor(Math.random() * pool.length)]; if (!e) return
+      const rev = from != null ? e[1] === from : Math.random() < .5
+      parts.push({ a: rev ? e[1] : e[0], b: rev ? e[0] : e[1], t: 0, v: .35 + Math.random() * .45, trail: [], hot: from != null })
+    }
+    const draw = (now) => {
+      const dt = Math.min(50, now - (last || now)) / 1000; last = now
+      ctx.clearRect(0, 0, W, H)
+      const T = now / 1000
+      nodes.forEach(n => { n.x = n.bx + Math.sin(T * .6 + n.ph) * (n.label ? 3 : 5); n.y = n.by + Math.cos(T * .5 + n.ph) * (n.label ? 3 : 5) })
+      const act = nodes.find(n => n.i === active)
+      // qirralar
+      edges.forEach(([a, b]) => {
+        const A = nodes[a], B = nodes[b], hot = act && (A === act || B === act)
+        ctx.strokeStyle = hot ? colors[act.c] : (colors[A.c] || muted); ctx.globalAlpha = hot ? .55 : .13; ctx.lineWidth = hot ? 1.4 : 1
+        ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke()
+      })
+      // zarrachalar (dum bilan)
+      parts.forEach(p => {
+        p.t += dt * p.v
+        const A = nodes[p.a], B = nodes[p.b], e = easeInOut(clamp(p.t, 0, 1)), x = lerp(A.x, B.x, e), y = lerp(A.y, B.y, e)
+        p.trail.push([x, y]); if (p.trail.length > 14) p.trail.shift()
+        const col = colors[(p.hot && act ? act : A).c] || ink
+        for (let k = 1; k < p.trail.length; k++) {
+          ctx.globalAlpha = (k / p.trail.length) * (p.hot ? .9 : .55); ctx.strokeStyle = col; ctx.lineWidth = (k / p.trail.length) * (p.hot ? 3 : 2)
+          ctx.beginPath(); ctx.moveTo(p.trail[k - 1][0], p.trail[k - 1][1]); ctx.lineTo(p.trail[k][0], p.trail[k][1]); ctx.stroke()
+        }
+        ctx.globalAlpha = 1; ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = p.hot ? 12 : 6
+        ctx.beginPath(); ctx.arc(x, y, p.hot ? 2.8 : 2, 0, 6.28); ctx.fill(); ctx.shadowBlur = 0
+      })
+      parts = parts.filter(p => p.t < 1)
+      if (parts.length < 22 && Math.random() < .25) spawn()
+      // tugunlar
+      nodes.forEach(n => {
+        const col = colors[n.c] || ink
+        if (n.center) {
+          const g = ctx.createRadialGradient(n.x - 6, n.y - 8, 2, n.x, n.y, n.r + 2)
+          g.addColorStop(0, css('--cyan')); g.addColorStop(.55, css('--acc')); g.addColorStop(1, css('--violet'))
+          ctx.globalAlpha = .18 + Math.sin(T * 1.6) * .06; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(n.x, n.y, n.r + 16 + Math.sin(T * 1.6) * 3, 0, 6.28); ctx.fill()
+          ctx.globalAlpha = 1; ctx.fillStyle = g; ctx.shadowColor = css('--acc'); ctx.shadowBlur = 26; ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, 6.28); ctx.fill(); ctx.shadowBlur = 0
+          ctx.fillStyle = '#fff'; ctx.font = '700 16px Unbounded, Onest, system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('R', n.x, n.y + 1)
+          return
+        }
+        if (!n.label) { ctx.globalAlpha = .5; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, 6.28); ctx.fill(); return }
+        const on = n === act, br = on ? 1 + Math.sin(T * 3) * .5 : 0
+        if (on) { ctx.globalAlpha = .16; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(n.x, n.y, 22 + br * 4, 0, 6.28); ctx.fill(); ctx.globalAlpha = .3; ctx.beginPath(); ctx.arc(n.x, n.y, 14 + br * 2, 0, 6.28); ctx.fill() }
+        ctx.globalAlpha = 1; ctx.fillStyle = css('--surface'); ctx.strokeStyle = col; ctx.lineWidth = on ? 3 : 2
+        ctx.beginPath(); ctx.arc(n.x, n.y, on ? 11 : 9, 0, 6.28); ctx.fill(); ctx.stroke()
+        ctx.fillStyle = col; ctx.beginPath(); ctx.arc(n.x, n.y, on ? 4.5 : 3.5, 0, 6.28); ctx.fill()
+        ctx.font = `${on ? 800 : 600} ${W < 500 ? 10 : 12}px Onest, system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'top'
+        ctx.fillStyle = on ? col : muted; ctx.globalAlpha = on ? 1 : .9; ctx.fillText(n.label, n.x, n.y + 16); ctx.globalAlpha = 1
+      })
+      if (run) raf = requestAnimationFrame(draw)
+    }
+    // jonli oqim satri — balandligi silliq ochiladi
+    const pushLive = (i) => {
+      const m = MODS[i], li = document.createElement('li'), d = new Date()
+      li.style.setProperty('--c', css(m[1]))
+      li.innerHTML = `<time>${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}</time><b></b><span></span>`
+      li.querySelector('b').textContent = m[0]; li.querySelector('span').textContent = m[2][Math.floor(Math.random() * m[2].length)]
+      live.prepend(li)
+      if (!reduce) { const h = li.scrollHeight; li.animate([{ height: '0px', opacity: 0, paddingTop: '0px', paddingBottom: '0px' }, { height: h + 'px', opacity: 1, paddingTop: '10px', paddingBottom: '10px' }], { duration: 520, easing: 'cubic-bezier(.2,.8,.2,1)' }) }
+      while (live.children.length > 8) live.lastElementChild.remove()
+    }
+    const setActive = (i, user = false) => {
+      active = i; list.forEach(li => li.classList.toggle('on', +li.dataset.n === i))
+      if (user) { auto = false; clearTimeout(setActive.t); setActive.t = setTimeout(() => { auto = true }, 9000) }
+      const idx = nodes.findIndex(n => n.i === i); for (let k = 0; k < 4; k++) setTimeout(() => spawn(idx), k * 120)
+      pushLive(i)
+    }
+    list.forEach(li => li.addEventListener('click', () => setActive(+li.dataset.n, true)))
+    let cyc = 0
+    const tick = () => { if (auto && run) setActive((active + 1) % MODS.length) }
+    themeListeners.push(readColors)
+    let rt2 = 0
+    addEventListener('resize', () => { clearTimeout(rt2); rt2 = setTimeout(build, 150) })
+    build(); for (let k = 0; k < 4; k++) pushLive(k * 3 % MODS.length); setActive(0)
+    visible(cv, (v) => {
+      if (v && !reduce) { if (!run) { run = true; last = 0; raf = requestAnimationFrame(draw) } if (!cyc) cyc = setInterval(tick, 2600) }
+      else { run = false; cancelAnimationFrame(raf); clearInterval(cyc); cyc = 0; if (reduce) { run = false; requestAnimationFrame(draw) } }
+    }, .1)
   }
 
   // ---------- xodimlar boti — bir marta ketma-ket

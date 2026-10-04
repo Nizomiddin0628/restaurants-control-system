@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{{ platform }} — restoranni bitta paneldan boshqarish</title>
 <meta name="description" content="Kassa, oshxona ekrani, ombor, xodimlar, Telegram bot va AI Kotib — bitta tizimda. Birinchi {{ offer.trial_days }} kun bepul.">
-<meta name="theme-color" content="#0A0B12">
+<meta name="theme-color" content="#060A14">
 <script>(function(){var t='dark';try{var s=localStorage.getItem('rp.theme');if(s==='dark'||s==='light')t=s}catch(e){}document.documentElement.dataset.theme=t})()</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=Unbounded:wght@600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
 <link rel="stylesheet" href="{% static 'platform/platform.css' %}">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%23FFB020'/><path d='M9 22V10h7a4 4 0 0 1 0 8h-7m7 0 5 4' stroke='%2314120C' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%233D8BFF'/><path d='M9 22V10h7a4 4 0 0 1 0 8h-7m7 0 5 4' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
 </head>
 <body>
 <a class="skip" href="#main">Asosiy qismga o'tish</a>
@@ -22,9 +22,9 @@
       <span>{{ platform }}</span>
     </a>
     <nav class="nav" aria-label="Sahifa bo'limlari">
-      <a href="#imkoniyatlar">Qanday ishlaydi</a>
+      <a href="#qanday">Qanday ishlaydi</a>
+      <a href="#imkoniyatlar">Imkoniyatlar</a>
       <a href="#ai">Telegram bot</a>
-      <a href="#solishtirish">Solishtiring</a>
       <a href="#narxlar">Narxlar</a>
       <a href="#savollar">Savollar</a>
     </nav>
@@ -41,7 +41,7 @@
     </div>
   </div>
   <nav class="mnav" id="mnav" hidden aria-label="Mobil menyu">
-    <a href="#imkoniyatlar">Qanday ishlaydi</a><a href="#ai">Telegram bot</a><a href="#solishtirish">Solishtiring</a><a href="#narxlar">Narxlar</a><a href="#savollar">Savollar</a>
+    <a href="#qanday">Qanday ishlaydi</a><a href="#imkoniyatlar">Imkoniyatlar</a><a href="#ai">Telegram bot</a><a href="#solishtirish">Solishtiring</a><a href="#narxlar">Narxlar</a><a href="#savollar">Savollar</a>
     <button class="btn ghost big" type="button" data-login>Restoranim paneliga kirish</button>
     <a class="btn primary big" href="/signup/">{{ offer.trial_days }} kun bepul boshlash</a>
   </nav>
@@ -85,37 +85,62 @@
   </div>
 </section>
 
-<!-- ============ Restoran uchun qurilgan ============ -->
-<section class="built">
-  <div class="wrap built-in">
-    <h2 class="h2">Universal savdo dasturi emas. Restoran uchun qurilgan.</h2>
-    <div class="built-grid">
-      <div><i class="ic stock"></i><b>Tex-karta bo'yicha ombor</b><p>Osh sotildi — guruch, go'sht va yog' retsept bo'yicha o'zi ayiriladi.</p></div>
-      <div><i class="ic kds"></i><b>Oshxona ekrani</b><p>Buyurtma oshpazga darhol, kutish vaqti ranglarda, «Tayyor» bir bosishda.</p></div>
-      <div><i class="ic kassa"></i><b>Kassa topshirish</b><p>Kupyuralar sanaladi, farq sababi yoziladi, qabul qiluvchi Telegram'da tasdiqlaydi.</p></div>
-      <div><i class="ic tg"></i><b>Telegram — xodimlar uchun</b><p>Keldim/Ketdim, vazifalar ro'yxati, kassa qabuli — hammasi botda.</p></div>
+<!-- ============ Bitta sotuv — hamma bo'lim yangilanadi (tomirlar) ============ -->
+<section class="flow-sec" id="qanday">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2 class="h2">Qanday ishlaydi: bitta sotuv — <span class="grad">6 ta bo'lim</span> bir vaqtda</h2>
+      <p class="sub">Kassir chekni yopdi — ombordan mahsulot ayirildi, oshxonaga buyurtma tushdi, kassa va hisobot yangilandi, xodim savdosi va mijoz bonusi yozildi. Hech kim qayta kiritmaydi.</p>
     </div>
+    <div class="flow" id="flow">
+      <svg class="veins" id="veins" aria-hidden="true"></svg>
+      <div class="receipt" id="receipt">
+        <span class="stamp" id="stamp">Sotildi</span>
+        <div class="r-h"><i class="ic kassa"></i><div><small>Kassa · Chilonzor</small><b>Kassir: <span id="rCashier">Dilnoza</span></b></div></div>
+        <div class="r-body" id="rBody"></div>
+      </div>
+      <div class="hub" id="hub"><i></i></div>
+      <div class="mods-grid" id="mods">
+        <article class="mcard" data-c="teal"><header><i class="ic stock"></i><b>Ombor</b><span class="ok"></span></header><p class="val" data-k="stock">—</p><small data-k="stockN">Guruch qoldig'i</small><i class="bar"></i></article>
+        <article class="mcard" data-c="green"><header><i class="ic kassa"></i><b>Kassa</b><span class="ok"></span></header><p class="val" data-k="cash">—</p><small data-k="cashN">Naqd va karta</small><i class="bar"></i></article>
+        <article class="mcard" data-c="orange"><header><i class="ic kds"></i><b>Oshxona</b><span class="ok"></span></header><p class="val" data-k="kds">—</p><small data-k="kdsN">Tayyorlanmoqda</small><i class="bar"></i></article>
+        <article class="mcard" data-c="blue"><header><i class="ic rep"></i><b>Hisobotlar</b><span class="ok"></span></header><p class="val" data-k="rep">—</p><small>Bugungi yalpi foyda</small><i class="bar"></i></article>
+        <article class="mcard" data-c="amber"><header><i class="ic staff"></i><b>Xodimlar</b><span class="ok"></span></header><p class="val" data-k="staff">—</p><small data-k="staffN">Bugungi savdo</small><i class="bar"></i></article>
+        <article class="mcard" data-c="violet"><header><i class="ic gift"></i><b>Mijoz va bonus</b><span class="ok"></span></header><p class="val" data-k="crm">—</p><small data-k="crmN">Bonus yozildi</small><i class="bar"></i></article>
+      </div>
+    </div>
+    <p class="flow-note"><i></i><b>6 ta bo'lim</b> bir vaqtda, avtomatik yangilandi</p>
   </div>
 </section>
 
-<!-- ============ Buyurtmaning yo'li (haqiqiy ketma-ketlik) ============ -->
-<section class="journey" id="imkoniyatlar">
+<!-- ============ Hammasi bir-biriga ulangan (tarmoq + jonli oqim) ============ -->
+<section class="net-sec" id="imkoniyatlar">
   <div class="wrap">
     <div class="sec-head">
-      <h2 class="h2">Bitta buyurtmaning yo'li</h2>
-      <p class="sub">Mijoz Telegram'dan buyurtma berdi. Undan keyin nima bo'ladi — hech kim hech narsani qayta kiritmaydi.</p>
+      <h2 class="h2">Yangi avlod tizimi — hammasi bir-biriga ulangan</h2>
+      <p class="sub">Yigirmadan ortiq bo'lim bir-biriga to'xtovsiz ma'lumot uzatib turadi. Biri o'zgarsa — boshqalari o'sha zahoti biladi.</p>
     </div>
-    <div class="track" id="track">
-      <div class="rail" aria-hidden="true"><i id="railFill"></i></div>
-      <span class="ticket-chip" id="ticketChip" aria-hidden="true">#1047 · Osh ×2</span>
-      <ol class="stations">
-        <li><i class="ic tg"></i><b>Buyurtma</b><p>Telegram botdan: Osh ×2, choy</p><em>12:31</em></li>
-        <li><i class="ic kds"></i><b>Oshxona</b><p>Ekranda paydo bo'ldi, oshpaz tayyorlayapti</p><em class="tmr" data-t="400">00:00</em></li>
-        <li><i class="ic task"></i><b>Zal</b><p>Stol 7 ga berildi</p><em>12:38</em></li>
-        <li><i class="ic kassa"></i><b>Kassa</b><p>Chek yopildi: 84 000 so'm</p><em>12:52</em></li>
-        <li><i class="ic stock"></i><b>Ombor</b><p>Guruch −0,4 kg, go'sht −0,3 kg</p><em>avtomatik</em></li>
-        <li><i class="ic ai"></i><b>AI Kotib</b><p>Ertalabki hisobotda: «kecha 96 chek, +12%»</p><em>08:30</em></li>
-      </ol>
+    <div class="net">
+      <ul class="net-list" id="netList">
+        <li data-n="0"><b>Kassa</b><span>Buyurtma, smena, kassa topshirish</span></li>
+        <li data-n="1"><b>Oshxona ekrani</b><span>Buyurtma darhol oshpazga</span></li>
+        <li data-n="2"><b>Ombor</b><span>Qoldiq, tannarx, ogohlantirish</span></li>
+        <li data-n="3"><b>Zakup</b><span>Ta'minotchi, bozorlik, qarz</span></li>
+        <li data-n="4"><b>Xodimlar</b><span>Smena, davomat, KPI</span></li>
+        <li data-n="5"><b>Telegram bot</b><span>Keldim/Ketdim, vazifalar, xabarlar</span></li>
+        <li data-n="6"><b>Sayt va QR menyu</b><span>Restoran sayti, TV menyu</span></li>
+        <li data-n="7"><b>Bron va zal</b><span>Stollar xaritasi, bron</span></li>
+        <li data-n="8"><b>Mijozlar va bonus</b><span>CRM, xabar tarqatish</span></li>
+        <li data-n="9"><b>Hisobotlar</b><span>Savdo, xarajat, foyda</span></li>
+        <li data-n="10"><b>Filiallar</b><span>Bitta panelda hammasi</span></li>
+        <li data-n="11"><b>AI Kotib</b><span>Ovoz bilan so'rang</span></li>
+      </ul>
+      <div class="net-canvas"><canvas id="netCanvas" aria-label="Bo'limlar tarmog'i" role="img"></canvas></div>
+      <div class="feed-box">
+        <p class="feed-h"><i></i>Jonli oqim</p>
+        <p class="feed-sub">Bo'limlar orasida ma'lumot almashinuvi — har satr real vaqtda.</p>
+        <ol class="live" id="live" aria-live="off"></ol>
+      </div>
     </div>
   </div>
 </section>
