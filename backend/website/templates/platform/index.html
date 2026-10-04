@@ -1,10 +1,11 @@
 {% load static %}<!doctype html>
-<html lang="uz">
+<html lang="{{ lang }}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>{{ platform }} — restoranni bitta paneldan boshqarish</title>
-<meta name="description" content="Kassa, oshxona ekrani, ombor, xodimlar, Telegram bot va AI Kotib — bitta tizimda. Birinchi {{ offer.trial_days }} kun bepul.">
+<title>{{ t.title }}</title>
+<meta name="description" content="{{ t.meta }}">
+<link rel="alternate" hreflang="uz" href="https://{{ domain }}/"><link rel="alternate" hreflang="ru" href="https://{{ domain }}/ru/">
 <meta name="theme-color" content="#060A14">
 <script>(function(){var t='dark';try{var s=localStorage.getItem('rp.theme');if(s==='dark'||s==='light')t=s}catch(e){}document.documentElement.dataset.theme=t})()</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,37 +14,38 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%233D8BFF'/><path d='M9 22V10h7a4 4 0 0 1 0 8h-7m7 0 5 4' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
 </head>
 <body>
-<a class="skip" href="#main">Asosiy qismga o'tish</a>
+<a class="skip" href="#main">{{ t.skip }}</a>
 
 <header class="top" id="top">
   <div class="wrap top-in">
-    <a class="brand" href="/" aria-label="{{ platform }} — bosh sahifa">
+    <a class="brand" href="{{ lang_prefix }}/" aria-label="{{ platform }} — {{ t.home }}">
       <span class="mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M9 22V10h7a4 4 0 0 1 0 8H9m7 0 5 4" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
       <span>{{ platform }}</span>
     </a>
-    <nav class="nav" aria-label="Sahifa bo'limlari">
-      <a href="#qanday">Qanday ishlaydi</a>
-      <a href="#imkoniyatlar">Imkoniyatlar</a>
-      <a href="#ai">Telegram bot</a>
-      <a href="#narxlar">Narxlar</a>
-      <a href="#savollar">Savollar</a>
+    <nav class="nav" aria-label="{{ t.nav_label }}">
+      <a href="#qanday">{{ t.nav_how }}</a>
+      <a href="#imkoniyatlar">{{ t.nav_feat }}</a>
+      <a href="#ai">{{ t.nav_tg }}</a>
+      <a href="#narxlar">{{ t.nav_price }}</a>
+      <a href="#savollar">{{ t.nav_faq }}</a>
     </nav>
     <div class="top-act">
-      <button class="icon-btn" type="button" id="theme" aria-label="Tungi / kunduzgi rejim" title="Tungi / kunduzgi rejim">
+      <a class="icon-btn lang" href="{% if lang == 'ru' %}/{% else %}/ru/{% endif %}" title="{{ t.lang_title }}" aria-label="{{ t.lang_title }}" hreflang="{{ other_lang }}">{{ other_lang|upper }}</a>
+      <button class="icon-btn" type="button" id="theme" aria-label="{{ t.theme }}" title="{{ t.theme }}">
         <svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></svg>
         <svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.6A8.4 8.4 0 0 1 9.4 4a8.4 8.4 0 1 0 10.6 10.6Z"/></svg>
       </button>
-      <button class="btn ghost hide-s" type="button" data-login>Kirish</button>
-      <a class="btn primary" href="/signup/">Bepul boshlash</a>
-      <button class="icon-btn menu-btn" type="button" id="menuBtn" aria-label="Menyu" aria-expanded="false" aria-controls="mnav">
+      <button class="btn ghost hide-s" type="button" data-login>{{ t.login }}</button>
+      <a class="btn primary" href="{{ lang_prefix }}/signup/">{{ t.start }}</a>
+      <button class="icon-btn menu-btn" type="button" id="menuBtn" aria-label="{{ t.menu }}" aria-expanded="false" aria-controls="mnav">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
     </div>
   </div>
-  <nav class="mnav" id="mnav" hidden aria-label="Mobil menyu">
-    <a href="#qanday">Qanday ishlaydi</a><a href="#imkoniyatlar">Imkoniyatlar</a><a href="#ai">Telegram bot</a><a href="#solishtirish">Solishtiring</a><a href="#narxlar">Narxlar</a><a href="#savollar">Savollar</a>
-    <button class="btn ghost big" type="button" data-login>Restoranim paneliga kirish</button>
-    <a class="btn primary big" href="/signup/">{{ offer.trial_days }} kun bepul boshlash</a>
+  <nav class="mnav" id="mnav" hidden aria-label="{{ t.mnav_label }}">
+    <a href="#qanday">{{ t.nav_how }}</a><a href="#imkoniyatlar">{{ t.nav_feat }}</a><a href="#ai">{{ t.nav_tg }}</a><a href="#narxlar">{{ t.nav_price }}</a><a href="#savollar">{{ t.nav_faq }}</a>
+    <button class="btn ghost big" type="button" data-login>{{ t.login_long }}</button>
+    <a class="btn primary big" href="{{ lang_prefix }}/signup/">{{ t.start_days }}</a>
   </nav>
 </header>
 
@@ -53,32 +55,32 @@
   <div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
   <div class="wrap hero-in">
     <div class="hero-copy">
-      <p class="promo"><span class="pill">{{ offer.trial_days }} kun bepul</span>Karta so'ralmaydi{% if offer.free_setup %}, ulab berish ham bepul{% endif %}</p>
-      <h1>Restoraningiz bilan <span class="hl">gaplashing.</span></h1>
-      <p class="lead">Telegram'da ovozli xabar yuboring — AI Kotib kassa, oshxona, ombor va xodimlardagi haqiqiy raqamlar bilan javob beradi. Restoranning butun ishi bitta tizimda, siz esa shunchaki so'raysiz.</p>
+      <p class="promo"><span class="pill">{{ t.pill }}</span>{{ t.promo }}{% if offer.free_setup %}{{ t.promo_setup }}{% endif %}</p>
+      <h1>{{ t.h1a }} <span class="hl">{{ t.h1b }}</span></h1>
+      <p class="lead">{{ t.lead }}</p>
       <div class="cta-row">
-        <a class="btn primary big" href="/signup/">{{ offer.trial_days }} kun bepul boshlash <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a>
-        <button class="btn ghost big" type="button" data-open-ai><span class="orb xs" aria-hidden="true"><span class="orb-core"></span></span>AI'dan hozir so'rang</button>
+        <a class="btn primary big" href="{{ lang_prefix }}/signup/">{{ t.start_days }} <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a>
+        <button class="btn ghost big" type="button" data-open-ai><span class="orb xs" aria-hidden="true"><span class="orb-core"></span></span>{{ t.ask_ai }}</button>
       </div>
-      <ul class="facts" aria-label="Qisqacha">
-        <li><b data-count="20" data-suffix="+">20+</b><span>bo'lim bitta tizimda</span></li>
-        <li><b>🎙</b><span>ovozli savol — aniq raqamli javob</span></li>
-        <li><b data-count="{{ offer.trial_days }}">{{ offer.trial_days }}</b><span>kun bepul, karta so'ralmaydi</span></li>
+      <ul class="facts" aria-label="{{ t.facts }}">
+        <li><b data-count="20" data-suffix="+">20+</b><span>{{ t.fact1 }}</span></li>
+        <li><b>🎙</b><span>{{ t.fact2 }}</span></li>
+        <li><b data-count="{{ offer.trial_days }}">{{ offer.trial_days }}</b><span>{{ t.fact3 }}</span></li>
       </ul>
     </div>
 
-    <div class="talk" id="talk" aria-label="AI Kotib bilan suhbat namunasi">
+    <div class="talk" id="talk" aria-label="{{ t.talk }}">
       <svg class="talk-lines" id="talkLines" aria-hidden="true"></svg>
       <ul class="srcs" id="srcs" aria-hidden="true">
-        <li data-s="kassa"><i class="ic kassa"></i>Kassa</li>
-        <li data-s="kds"><i class="ic kds"></i>Oshxona</li>
-        <li data-s="stock"><i class="ic stock"></i>Ombor</li>
-        <li data-s="staff"><i class="ic staff"></i>Xodimlar</li>
-        <li data-s="task"><i class="ic task"></i>Vazifalar</li>
-        <li data-s="rep"><i class="ic rep"></i>Filiallar</li>
+        <li data-s="kassa"><i class="ic kassa"></i>{{ t.kassa }}</li>
+        <li data-s="kds"><i class="ic kds"></i>{{ t.kds }}</li>
+        <li data-s="stock"><i class="ic stock"></i>{{ t.stock }}</li>
+        <li data-s="staff"><i class="ic staff"></i>{{ t.staff }}</li>
+        <li data-s="task"><i class="ic task"></i>{{ t.tasks }}</li>
+        <li data-s="rep"><i class="ic rep"></i>{{ t.branches }}</li>
       </ul>
       <div class="phone hero-phone" id="heroPhone">
-        <div class="ph-top"><span class="av">🤖</span><div><b>AI Kotib</b><small id="phSt">restoran boti</small></div></div>
+        <div class="ph-top"><span class="av">🤖</span><div><b>{{ t.ai_kotib }}</b><small id="phSt">{{ t.ph_st }}</small></div></div>
         <div class="ph-body" id="phBody"></div>
       </div>
     </div>
@@ -89,32 +91,32 @@
 <section class="chain-sec" id="qanday">
   <div class="wrap">
     <div class="sec-head c">
-      <h2 class="h2">Kassir «To'lash»ni bosdi — <span class="grad">oltita bo'lim</span> o'zi yangilandi</h2>
-      <p class="sub">Bitta chek yopiladi. Ombor, oshxona, kassa, hisobot, xodim va mijoz kartasi o'sha zahoti yangilanadi — hech kim hech narsani qayta kiritmaydi.</p>
+      <h2 class="h2">{{ t.ch_h1 }} <span class="grad">{{ t.ch_h2 }}</span> {{ t.ch_h3 }}</h2>
+      <p class="sub">{{ t.ch_sub }}</p>
     </div>
     <div class="chain" id="chain">
       <div class="pos" id="pos">
-        <div class="pos-h"><span>Kassa · Chilonzor</span><b id="posWho">Dilnoza</b></div>
+        <div class="pos-h"><span>{{ t.pos_h }}</span><b id="posWho">Dilnoza</b></div>
         <ul class="pos-items" id="posItems"></ul>
-        <div class="pos-tot"><span>Jami</span><b id="posTot">0</b></div>
-        <button class="pos-pay" id="posPay" type="button" tabindex="-1" aria-hidden="true"><span>To'lash</span><i class="tap"></i></button>
-        <div class="pos-ok" id="posOk">✓ To'landi</div>
+        <div class="pos-tot"><span>{{ t.total }}</span><b id="posTot">0</b></div>
+        <button class="pos-pay" id="posPay" type="button" tabindex="-1" aria-hidden="true"><span>{{ t.pay }}</span><i class="tap"></i></button>
+        <div class="pos-ok" id="posOk">{{ t.paid }}</div>
       </div>
       <div class="drop" id="drop" aria-hidden="true"></div>
       <div class="rail2" aria-hidden="true"><b id="chainFill"></b><i id="chainDot"></i></div>
-      <ol class="screens" id="screens" aria-label="Yangilangan bo'limlar">
-        <li data-c="teal"><header><i class="ic stock"></i>Ombor</header>
-          <div class="sc"><div class="stk"><span>Guruch</span><em data-k="stockV">18,6 kg</em></div><div class="bar"><i data-k="stockB" style="--w:.62"></i></div><small data-k="stockN">tex-karta bo'yicha</small></div></li>
-        <li data-c="orange"><header><i class="ic kds"></i>Oshxona</header>
-          <div class="sc"><div class="tkt"><b data-k="tktN">#1044</b><span data-k="tktI">Osh ×2</span><em data-k="tktT">0:00</em></div><small>oshpaz ekranida</small></div></li>
-        <li data-c="green"><header><i class="ic kassa"></i>Kassa</header>
-          <div class="sc"><small>Bugungi tushum</small><b class="num" data-k="cash">8 420 000</b><div class="spark" data-k="spark"><i style="--h:.4"></i><i style="--h:.55"></i><i style="--h:.45"></i><i style="--h:.7"></i><i style="--h:.6"></i><i style="--h:.8"></i><i style="--h:.75"></i></div></div></li>
-        <li data-c="blue"><header><i class="ic rep"></i>Hisobot</header>
-          <div class="sc"><small>Yalpi foyda</small><b class="num" data-k="profit">2 930 000</b><div class="pbar"><i data-k="pfill" style="--w:.34"></i><span>marja 34%</span></div></div></li>
-        <li data-c="cyan"><header><i class="ic staff"></i>Xodim</header>
-          <div class="sc"><div class="who"><span class="avt" data-k="avt">D</span><div><b data-k="whoN">Dilnoza</b><small>bugun</small></div><em class="num" data-k="whoC">18</em></div><small>chek yopdi</small></div></li>
-        <li data-c="violet"><header><i class="ic gift"></i>Mijoz</header>
-          <div class="sc"><small data-k="crmN">Aziz K.</small><b class="num" data-k="bonus">+0</b><small>bonus kartasiga</small><span class="stampm">yozildi</span></div></li>
+      <ol class="screens" id="screens" aria-label="{{ t.screens }}">
+        <li data-c="teal"><header><i class="ic stock"></i>{{ t.stock }}</header>
+          <div class="sc"><div class="stk"><span>{{ t.rice }}</span><em data-k="stockV">18,6 kg</em></div><div class="bar"><i data-k="stockB" style="--w:.62"></i></div><small data-k="stockN">{{ t.by_recipe }}</small></div></li>
+        <li data-c="orange"><header><i class="ic kds"></i>{{ t.kds }}</header>
+          <div class="sc"><div class="tkt"><b data-k="tktN">#1044</b><span data-k="tktI">{{ t.osh }} ×2</span><em data-k="tktT">0:00</em></div><small>{{ t.on_kds }}</small></div></li>
+        <li data-c="green"><header><i class="ic kassa"></i>{{ t.kassa }}</header>
+          <div class="sc"><small>{{ t.today_rev }}</small><b class="num" data-k="cash">8 420 000</b><div class="spark" data-k="spark"><i style="--h:.4"></i><i style="--h:.55"></i><i style="--h:.45"></i><i style="--h:.7"></i><i style="--h:.6"></i><i style="--h:.8"></i><i style="--h:.75"></i></div></div></li>
+        <li data-c="blue"><header><i class="ic rep"></i>{{ t.report }}</header>
+          <div class="sc"><small>{{ t.gross }}</small><b class="num" data-k="profit">2 930 000</b><div class="pbar"><i data-k="pfill" style="--w:.34"></i><span>{{ t.margin }}</span></div></div></li>
+        <li data-c="cyan"><header><i class="ic staff"></i>{{ t.employee }}</header>
+          <div class="sc"><div class="who"><span class="avt" data-k="avt">D</span><div><b data-k="whoN">Dilnoza</b><small>{{ t.today }}</small></div><em class="num" data-k="whoC">18</em></div><small>{{ t.closed_checks }}</small></div></li>
+        <li data-c="violet"><header><i class="ic gift"></i>{{ t.client }}</header>
+          <div class="sc"><small data-k="crmN">Aziz K.</small><b class="num" data-k="bonus">+0</b><small>{{ t.to_bonus }}</small><span class="stampm">{{ t.written }}</span></div></li>
       </ol>
     </div>
   </div>
@@ -124,12 +126,12 @@
 <section class="atom-sec" id="tizim">
   <div class="wrap">
     <div class="sec-head c">
-      <h2 class="h2">Yagona tizim — hamma bo'lim <span class="grad">bitta yadro</span> atrofida</h2>
-      <p class="sub">Yigirmadan ortiq bo'lim bir-biriga to'xtovsiz ma'lumot uzatib turadi. Biri o'zgarsa — boshqalari o'sha zahoti biladi. Bo'limga bosing.</p>
+      <h2 class="h2">{{ t.at_h1 }} <span class="grad">{{ t.at_h2 }}</span> {{ t.at_h3 }}</h2>
+      <p class="sub">{{ t.at_sub }}</p>
     </div>
     <div class="atom-box">
-      <canvas id="atom" aria-label="Bo'limlar yadro atrofida aylanadi" role="img"></canvas>
-      <div class="atom-card" id="atomCard" aria-live="polite"><i class="ic kassa"></i><div><b>Kassa</b><span>Chek #1047 — 92 000 so'm</span></div></div>
+      <canvas id="atom" aria-label="{{ t.at_label }}" role="img"></canvas>
+      <div class="atom-card" id="atomCard" aria-live="polite"><i class="ic kassa"></i><div><b>{{ t.kassa }}</b><span>—</span></div></div>
     </div>
     <div class="ticker" aria-hidden="true"><div class="tk" id="tk"></div></div>
   </div>
@@ -138,25 +140,25 @@
 <!-- ============ Xodimlar uchun Telegram bot ============ -->
 <section class="staffbot" id="ai">
   <div class="wrap sb-in">
-    <div class="phone staff-phone" id="staffPhone" aria-label="Xodimlar boti namunasi">
-      <div class="ph-top"><span class="av sb">R</span><div><b>Lazzat — xodimlar</b><small>bot</small></div></div>
+    <div class="phone staff-phone" id="staffPhone" aria-label="{{ t.sb_label }}">
+      <div class="ph-top"><span class="av sb">R</span><div><b>{{ t.sb_name }}</b><small>{{ t.bot }}</small></div></div>
       <div class="ph-body">
-        <div class="msg me s1">🕘 Keldim</div>
-        <div class="msg ai s2">✅ Xush kelibsiz, Nodira! Smena boshlandi — <b>08:57</b>.</div>
-        <div class="msg me s3">📋 Vazifalarim</div>
-        <div class="msg ai s4">📋 <b>Bugun 2 ta vazifa:</b><br>1. Muzlatgichni tozalash — 11:00 gacha<br>2. Choyxona stollarini tekshirish — 15:00</div>
-        <div class="msg ai s5">💵 <b>Kassa sizga topshirildi:</b> 2 450 000 so'm, farq yo'q. Pulni sanab oldingizmi?<span class="kbtn" id="sbBtn">✅ Qabul qildim</span></div>
-        <div class="kb s6"><span>🤖 AI Kotib</span><span>📋 Vazifalarim</span><span>🕘 Keldim</span><span>🏁 Ketdim</span></div>
+        <div class="msg me s1">{{ t.sb_in }}</div>
+        <div class="msg ai s2">{{ t.sb_hi|safe }}</div>
+        <div class="msg me s3">{{ t.sb_tasks }}</div>
+        <div class="msg ai s4">{{ t.sb_tasks_msg|safe }}</div>
+        <div class="msg ai s5">{{ t.sb_cash|safe }}<span class="kbtn" id="sbBtn">{{ t.sb_accept }}</span></div>
+        <div class="kb s6"><span>{{ t.kb_ai }}</span><span>{{ t.sb_tasks }}</span><span>{{ t.sb_in }}</span><span>{{ t.sb_out }}</span></div>
       </div>
     </div>
     <div class="sb-copy">
-      <h2 class="h2">Xodimlar ham Telegram'da ishlaydi</h2>
-      <p>Alohida ilova o'rnatish, o'rgatish shart emas. Restoranning o'z boti — har bir xodim faqat o'ziga keraklisini ko'radi.</p>
+      <h2 class="h2">{{ t.sb_h }}</h2>
+      <p>{{ t.sb_p }}</p>
       <ul class="ticks">
-        <li><b>Davomat</b> — «Keldim / Ketdim», kechikishlar o'zi hisoblanadi</li>
-        <li><b>Vazifalar</b> — muddat, eslatma; bajarilganini rasm bilan isbotlash</li>
-        <li><b>Kassa</b> — topshirilganda xabar keladi, «Qabul qildim» bitta bosishda</li>
-        <li><b>Rahbar uchun</b> — ovozli savol, ertalabki hisobot, tasdiqlash tugmalari</li>
+        <li>{{ t.sb_t1|safe }}</li>
+        <li>{{ t.sb_t2|safe }}</li>
+        <li>{{ t.sb_t3|safe }}</li>
+        <li>{{ t.sb_t4|safe }}</li>
       </ul>
     </div>
   </div>
@@ -166,43 +168,43 @@
 <section class="compare" id="solishtirish">
   <div class="wrap cmp-in">
     <div class="cmp-copy">
-      <h2 class="h2">Hozirgi dasturingiz bilan solishtiring</h2>
-      <p class="sub">Hozir ishlatayotgan dasturingizda bor narsalarni belgilang.</p>
+      <h2 class="h2">{{ t.cmp_h }}</h2>
+      <p class="sub">{{ t.cmp_sub }}</p>
       <ul class="checks" id="checks">
-        <li><label><input type="checkbox"><span>Har sotilgan taom tex-karta bo'yicha ombordan o'zi ayiriladi</span></label></li>
-        <li><label><input type="checkbox"><span>Oshxona ekrani — buyurtma darhol oshpazga</span></label></li>
-        <li><label><input type="checkbox"><span>Zal, stollar xaritasi va bron</span></label></li>
-        <li><label><input type="checkbox"><span>Kassani sanab topshirish, farq nazorati, Telegram'da qabul</span></label></li>
-        <li><label><input type="checkbox"><span>Xodimlar davomati Telegram orqali</span></label></li>
-        <li><label><input type="checkbox"><span>Har kuni ertalab rahbarga Telegram'da hisobot</span></label></li>
-        <li><label><input type="checkbox"><span>Ovoz bilan so'rasangiz, raqam bilan javob beradigan AI</span></label></li>
-        <li><label><input type="checkbox"><span>Bayram va ob-havoni hisobga olgan xarid prognozi</span></label></li>
-        <li><label><input type="checkbox"><span>Restoranning o'z Telegram boti va sayti</span></label></li>
-        <li><label><input type="checkbox"><span>Server, domen va yangilanishlar narx ichida</span></label></li>
+        <li><label><input type="checkbox"><span>{{ t.c1 }}</span></label></li>
+        <li><label><input type="checkbox"><span>{{ t.c2 }}</span></label></li>
+        <li><label><input type="checkbox"><span>{{ t.c3 }}</span></label></li>
+        <li><label><input type="checkbox"><span>{{ t.c4 }}</span></label></li>
+        <li><label><input type="checkbox"><span>{{ t.c5 }}</span></label></li>
+        <li><label><input type="checkbox"><span>{{ t.c6 }}</span></label></li>
+        <li><label><input type="checkbox"><span>{{ t.c7 }}</span></label></li>
+        <li><label><input type="checkbox"><span>{{ t.c8 }}</span></label></li>
+        <li><label><input type="checkbox"><span>{{ t.c9 }}</span></label></li>
+        <li><label><input type="checkbox"><span>{{ t.c10 }}</span></label></li>
       </ul>
     </div>
     <aside class="score" aria-live="polite" data-platform="{{ platform }}">
       <div class="achv" id="achv">
-        <small>Biz bilan bunga erishasiz</small>
+        <small>{{ t.achv }}</small>
         <div class="achv-v">
-          <div class="as"><i class="ic stock"></i><b>Mahsulot tugashidan <em>2 kun oldin</em> bilasiz</b></div>
-          <div class="as"><i class="ic kassa"></i><b>Kassada farq bo'lsa — <em>darhol</em> Telegram'da</b></div>
-          <div class="as"><i class="ic rep"></i><b>Har kuni ertalab hisobot <em>telefoningizda</em></b></div>
-          <div class="as"><i class="ic staff"></i><b>Kim kechikdi — <em>bir qarashda</em></b></div>
-          <div class="as"><i class="ic ai"></i><b>Ovoz bilan so'rang — <em>raqam bilan</em> javob</b></div>
-          <div class="as"><i class="ic tg"></i><b>Xodimlar Telegram'da — <em>alohida ilova yo'q</em></b></div>
+          <div class="as"><i class="ic stock"></i><b>{{ t.a1|safe }}</b></div>
+          <div class="as"><i class="ic kassa"></i><b>{{ t.a2|safe }}</b></div>
+          <div class="as"><i class="ic rep"></i><b>{{ t.a3|safe }}</b></div>
+          <div class="as"><i class="ic staff"></i><b>{{ t.a4|safe }}</b></div>
+          <div class="as"><i class="ic ai"></i><b>{{ t.a5|safe }}</b></div>
+          <div class="as"><i class="ic tg"></i><b>{{ t.a6|safe }}</b></div>
         </div>
         <div class="achv-bar"><i></i></div>
       </div>
-      <div class="sc-row"><span>Sizning dasturingiz</span><b><span id="scYou">0</span>/10</b></div>
+      <div class="sc-row"><span>{{ t.sc_you }}</span><b><span id="scYou">0</span>/10</b></div>
       <div class="sc-bar"><i id="scBarYou"></i></div>
       <div class="sc-row us"><span>{{ platform }}</span><b>10/10</b></div>
       <div class="sc-bar us"><i></i></div>
-      <p class="sc-msg" id="scMsg">Belgilashni boshlang — farq shu yerda ko'rinadi.</p>
+      <p class="sc-msg" id="scMsg">{{ t.sc_msg0 }}</p>
       <div class="move">
-        <b>Boshqa dasturdan o'tyapsizmi?</b>
-        <p>Menyu, mahsulotlar va xodimlar ro'yxatini biz ko'chirib beramiz{% if offer.free_setup %} — hozir bepul{% endif %}. Ish to'xtamaydi.</p>
-        <button class="btn primary big wide" type="button" data-scroll="#ariza">O'tishni rejalashtirish</button>
+        <b>{{ t.move_h }}</b>
+        <p>{{ t.move_p }}{% if offer.free_setup %}{{ t.move_free }}{% endif %}{{ t.move_p2 }}</p>
+        <button class="btn primary big wide" type="button" data-scroll="#ariza">{{ t.move_btn }}</button>
       </div>
     </aside>
   </div>
@@ -211,17 +213,17 @@
 <!-- ============ Imkoniyatlar ============ -->
 <section class="feat-sec" id="imkoniyatlar">
   <div class="wrap">
-    <div class="sec-head c"><h2 class="h2">Restoran uchun kerak bo'lgan hamma narsa</h2><p class="sub">Yigirmadan ortiq bo'lim — alohida dastur sotib olish, bir-biriga ulash shart emas.</p></div>
+    <div class="sec-head c"><h2 class="h2">{{ t.feat_h }}</h2><p class="sub">{{ t.feat_sub }}</p></div>
     <div class="feat-grid">
-      <article class="feat"><i class="ic kassa"></i><h3>Kassa va smena</h3><p>Stol, olib ketish va yetkazish. Smena, Z-hisobot, kirim/chiqim.</p></article>
-      <article class="feat"><i class="ic kds"></i><h3>Oshxona ekrani</h3><p>Buyurtma darhol oshxonaga. Kutish vaqti ranglar bilan, TV rejimi.</p></article>
-      <article class="feat"><i class="ic stock"></i><h3>Ombor va tannarx</h3><p>Qoldiq, food cost, tugayotgan mahsulot ogohlantirishi, zakup va qarzlar.</p></article>
-      <article class="feat"><i class="ic staff"></i><h3>Xodimlar</h3><p>Smena jadvali, davomat, KPI, vakansiya va ishga olish.</p></article>
-      <article class="feat"><i class="ic tg"></i><h3>Bot, sayt, TV menyu</h3><p>Restoranning o'z boti, Mini App, sayt va QR menyu.</p></article>
-      <article class="feat"><i class="ic rep"></i><h3>Hisobot va filiallar</h3><p>Savdo, xarajat, foyda. Hamma filial bitta panelda.</p></article>
-      <article class="feat"><i class="ic task"></i><h3>Vazifa va o'qitish</h3><p>Muddat, rasm bilan isbot, o'z videolaringiz va testlar.</p></article>
-      <article class="feat"><i class="ic lock"></i><h3>Kirish huquqlari</h3><p>Har kim faqat o'z bo'limi va filialini ko'radi, hamma o'zgarish tarixda.</p></article>
-      <article class="feat"><i class="ic ai"></i><h3>AI Kotib</h3><p>Ovozli savol, diagramma, ertalabki hisobot, tasdiq bilan buyruqlar.</p></article>
+      <article class="feat"><i class="ic kassa"></i><h3>{{ t.f1 }}</h3><p>{{ t.f1p }}</p></article>
+      <article class="feat"><i class="ic kds"></i><h3>{{ t.f2 }}</h3><p>{{ t.f2p }}</p></article>
+      <article class="feat"><i class="ic stock"></i><h3>{{ t.f3 }}</h3><p>{{ t.f3p }}</p></article>
+      <article class="feat"><i class="ic staff"></i><h3>{{ t.f4 }}</h3><p>{{ t.f4p }}</p></article>
+      <article class="feat"><i class="ic tg"></i><h3>{{ t.f5 }}</h3><p>{{ t.f5p }}</p></article>
+      <article class="feat"><i class="ic rep"></i><h3>{{ t.f6 }}</h3><p>{{ t.f6p }}</p></article>
+      <article class="feat"><i class="ic task"></i><h3>{{ t.f7 }}</h3><p>{{ t.f7p }}</p></article>
+      <article class="feat"><i class="ic lock"></i><h3>{{ t.f8 }}</h3><p>{{ t.f8p }}</p></article>
+      <article class="feat"><i class="ic ai"></i><h3>{{ t.ai_kotib }}</h3><p>{{ t.f9p }}</p></article>
     </div>
   </div>
 </section>
@@ -230,87 +232,87 @@
 <section class="day" id="bir-kun">
   <div class="wrap">
     <div class="sec-head c">
-      <h2 class="h2">Restoraningizning bir kuni {{ platform }} bilan</h2>
-      <p class="sub">Siz ishxonaga kelmasdan ham hammasi ko'z oldingizda. Har soat — o'z sahnasi, bosib ko'ring.</p>
+      <h2 class="h2">{{ t.day_h }}</h2>
+      <p class="sub">{{ t.day_sub }}</p>
     </div>
     <div class="dayb" id="dayb">
       <ol class="steps" id="daySteps">
-        <li><time>08:30</time><b>Ertalabki hisobot</b><span>Telegram'ga keladi: kechagi savdo, kim kechikdi, nima tugayapti.</span><i class="prog"></i></li>
-        <li><time>10:00</time><b>Bozorlik</b><span>Prognoz bayram va ob-havoni hisobga olib nima va qancha olishni aytadi.</span><i class="prog"></i></li>
-        <li><time>12:30</time><b>Tushlik cho'qqisi</b><span>Kassa, Telegram va saytdan buyurtmalar bitta oshxona ekraniga tushadi.</span><i class="prog"></i></li>
-        <li><time>15:00</time><b>Nazorat</b><span>Vazifa rasm bilan tasdiqlanadi, kechikkanlar o'zi ko'rinadi.</span><i class="prog"></i></li>
-        <li><time>18:00</time><b>Smena almashinuvi</b><span>Kassir kassani sanab topshiradi, keyingisi Telegram'da qabul qiladi.</span><i class="prog"></i></li>
-        <li><time>23:30</time><b>Kun yakuni</b><span>Z-hisobot, foyda, eng ko'p sotilgan taomlar — ertalab yana Telegram'da.</span><i class="prog"></i></li>
+        <li><time>08:30</time><b>{{ t.d1 }}</b><span>{{ t.d1s }}</span><i class="prog"></i></li>
+        <li><time>10:00</time><b>{{ t.d2 }}</b><span>{{ t.d2s }}</span><i class="prog"></i></li>
+        <li><time>12:30</time><b>{{ t.d3 }}</b><span>{{ t.d3s }}</span><i class="prog"></i></li>
+        <li><time>15:00</time><b>{{ t.d4 }}</b><span>{{ t.d4s }}</span><i class="prog"></i></li>
+        <li><time>18:00</time><b>{{ t.d5 }}</b><span>{{ t.d5s }}</span><i class="prog"></i></li>
+        <li><time>23:30</time><b>{{ t.d6 }}</b><span>{{ t.d6s }}</span><i class="prog"></i></li>
       </ol>
       <div class="stage" id="dayStage">
         <div class="scene">
-          <div class="sc-h"><i class="ic ai"></i>AI Kotib · ertalabki hisobot<time>08:30</time></div>
+          <div class="sc-h"><i class="ic ai"></i>{{ t.s0_h }}<time>08:30</time></div>
           <div class="tgc">
-            <p class="a" style="--d:.1s">📊 <b>Kecha: 12,4 mln so'm</b> — 96 chek, o'rtacha 129 000. O'tgan dushanbadan <b>+12%</b>.</p>
-            <p class="a" style="--d:.5s">⏰ <b>Kechikdi:</b> Jasur — 14 daqiqa.</p>
-            <p class="a" style="--d:.9s">📦 <b>Tugayapti:</b> guruch — 2 kunga, yog' — 3 kunga.</p>
-            <p class="a" style="--d:1.3s">📅 <b>Bugun:</b> 3 ta bron (19:00 — 7-stol, 8 kishi), ta'minotchidan go'sht keladi.</p>
-            <div class="mb a" style="--d:1.7s"><i style="--h:.45"></i><i style="--h:.6"></i><i style="--h:.4"></i><i style="--h:.75"></i><i style="--h:.62"></i><i style="--h:1" class="hl"></i><i style="--h:.85"></i><small>7 kunlik savdo</small></div>
+            <p class="a" style="--d:.1s">{{ t.s0_1|safe }}</p>
+            <p class="a" style="--d:.5s">{{ t.s0_2|safe }}</p>
+            <p class="a" style="--d:.9s">{{ t.s0_3|safe }}</p>
+            <p class="a" style="--d:1.3s">{{ t.s0_4|safe }}</p>
+            <div class="mb a" style="--d:1.7s"><i style="--h:.45"></i><i style="--h:.6"></i><i style="--h:.4"></i><i style="--h:.75"></i><i style="--h:.62"></i><i style="--h:1" class="hl"></i><i style="--h:.85"></i><small>{{ t.s0_b }}</small></div>
           </div>
         </div>
         <div class="scene">
-          <div class="sc-h"><i class="ic stock"></i>Bozorlik ro'yxati<time>10:00</time></div>
-          <div class="fc a" style="--d:.1s"><span>☀️ 29°</span><span>Payshanba</span><span class="hot">Bayram arafasi · prognoz +18%</span></div>
+          <div class="sc-h"><i class="ic stock"></i>{{ t.s1_h }}<time>10:00</time></div>
+          <div class="fc a" style="--d:.1s"><span>☀️ 29°</span><span>{{ t.s1_d }}</span><span class="hot">{{ t.s1_hot }}</span></div>
           <ul class="shop" id="shop">
-            <li class="a" style="--d:.3s"><span>Guruch</span><em>25 kg</em><b>425 000</b></li>
-            <li class="a" style="--d:.45s"><span>Go'sht (mol)</span><em>18 kg</em><b>1 530 000</b></li>
-            <li class="a" style="--d:.6s"><span>Sabzi</span><em>12 kg</em><b>72 000</b></li>
-            <li class="a" style="--d:.75s"><span>Yog'</span><em>10 l</em><b>240 000</b></li>
-            <li class="a" style="--d:.9s"><span>Pomidor</span><em>8 kg</em><b>96 000</b></li>
+            <li class="a" style="--d:.3s"><span>{{ t.i_rice }}</span><em>25 {{ t.kg }}</em><b>425 000</b></li>
+            <li class="a" style="--d:.45s"><span>{{ t.i_meat }}</span><em>18 {{ t.kg }}</em><b>1 530 000</b></li>
+            <li class="a" style="--d:.6s"><span>{{ t.i_carrot }}</span><em>12 {{ t.kg }}</em><b>72 000</b></li>
+            <li class="a" style="--d:.75s"><span>{{ t.i_oil }}</span><em>10 {{ t.l }}</em><b>240 000</b></li>
+            <li class="a" style="--d:.9s"><span>{{ t.i_tomato }}</span><em>8 {{ t.kg }}</em><b>96 000</b></li>
           </ul>
-          <div class="shop-t a" style="--d:1.1s"><span>Jami xarajat</span><b data-n="2363000">0</b><small>o'sha zahoti xarajatga yoziladi</small></div>
+          <div class="shop-t a" style="--d:1.1s"><span>{{ t.s1_total }}</span><b data-n="2363000">0</b><small>{{ t.s1_note }}</small></div>
         </div>
         <div class="scene">
-          <div class="sc-h"><i class="ic kds"></i>Oshxona ekrani va zal<time>12:30</time></div>
+          <div class="sc-h"><i class="ic kds"></i>{{ t.s2_h }}<time>12:30</time></div>
           <div class="lunch">
             <div class="tmap a" style="--d:.1s" id="tmap"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
             <div class="tstack">
-              <div class="tk2 a" style="--d:.4s"><b>#1051 · Stol 4</b><span>Osh ×2, choy</span><em>Kassa</em><small>0:00</small></div>
-              <div class="tk2 a" style="--d:1.1s"><b>#1052 · Olib ketish</b><span>Lag'mon ×1, somsa ×3</span><em>Telegram</em><small>0:00</small></div>
-              <div class="tk2 a" style="--d:1.8s"><b>#1053 · Stol 9</b><span>Shashlik ×4, salat</span><em>QR menyu</em><small>0:00</small></div>
+              <div class="tk2 a" style="--d:.4s"><b>{{ t.t1 }}</b><span>{{ t.t1i }}</span><em>{{ t.kassa }}</em><small>0:00</small></div>
+              <div class="tk2 a" style="--d:1.1s"><b>{{ t.t2 }}</b><span>{{ t.t2i }}</span><em>Telegram</em><small>0:00</small></div>
+              <div class="tk2 a" style="--d:1.8s"><b>{{ t.t3 }}</b><span>{{ t.t3i }}</span><em>{{ t.qr }}</em><small>0:00</small></div>
             </div>
           </div>
-          <p class="hint a" style="--d:2.2s">Uchala manbadan buyurtmalar bitta ekranda. Stollar xaritasida band joylar o'zi belgilanadi.</p>
+          <p class="hint a" style="--d:2.2s">{{ t.s2_hint }}</p>
         </div>
         <div class="scene">
-          <div class="sc-h"><i class="ic task"></i>Vazifa nazorati<time>15:00</time></div>
+          <div class="sc-h"><i class="ic task"></i>{{ t.s3_h }}<time>15:00</time></div>
           <div class="taskc a" style="--d:.1s">
-            <b>Muzlatgichni tozalash</b><span>Nodira · 15:00 gacha · rasm bilan isbot</span>
-            <ol class="tst" id="tst"><li>Berildi</li><li>Bajarilmoqda</li><li>📷 Rasm</li><li>✅ Tasdiqlandi</li></ol>
-            <div class="photo" id="tphoto"><i></i><i></i><span>📷 2 ta rasm yuborildi</span></div>
+            <b>{{ t.s3_t }}</b><span>{{ t.s3_s }}</span>
+            <ol class="tst" id="tst"><li>{{ t.st1 }}</li><li>{{ t.st2 }}</li><li>{{ t.st3 }}</li><li>{{ t.st4 }}</li></ol>
+            <div class="photo" id="tphoto"><i></i><i></i><span>{{ t.s3_photo }}</span></div>
           </div>
-          <div class="alert a" style="--d:.6s">⏰ Jasur 14 daqiqa kechikdi — eslatma Telegram'ga yuborildi</div>
+          <div class="alert a" style="--d:.6s">{{ t.s3_alert }}</div>
         </div>
         <div class="scene">
-          <div class="sc-h"><i class="ic kassa"></i>Kassa topshirish<time>18:00</time></div>
+          <div class="sc-h"><i class="ic kassa"></i>{{ t.s4_h }}<time>18:00</time></div>
           <ul class="cash">
             <li class="a" style="--d:.1s"><span>100 000</span><em>×</em><b data-n="12">0</b><i data-n="1200000">0</i></li>
             <li class="a" style="--d:.25s"><span>50 000</span><em>×</em><b data-n="17">0</b><i data-n="850000">0</i></li>
             <li class="a" style="--d:.4s"><span>20 000</span><em>×</em><b data-n="14">0</b><i data-n="280000">0</i></li>
             <li class="a" style="--d:.55s"><span>10 000</span><em>×</em><b data-n="12">0</b><i data-n="120000">0</i></li>
           </ul>
-          <div class="cash-t a" style="--d:.8s"><span>Sanaldi</span><b data-n="2450000">0</b><span>Tizimda</span><b>2 450 000</b><span class="ok">Farq: 0 ✓</span></div>
-          <div class="tgmsg a" style="--d:1.6s">✈️ Nodira: <b>✅ Qabul qildim</b> · 18:04</div>
+          <div class="cash-t a" style="--d:.8s"><span>{{ t.s4_c }}</span><b data-n="2450000">0</b><span>{{ t.s4_s }}</span><b>2 450 000</b><span class="ok">{{ t.s4_ok }}</span></div>
+          <div class="tgmsg a" style="--d:1.6s">{{ t.s4_msg|safe }}</div>
         </div>
         <div class="scene">
-          <div class="sc-h"><i class="ic rep"></i>Z-hisobot<time>23:30</time></div>
+          <div class="sc-h"><i class="ic rep"></i>{{ t.s5_h }}<time>23:30</time></div>
           <div class="zk">
-            <div class="a" style="--d:.1s"><small>Tushum</small><b data-n="14200000" data-f="mln">0</b></div>
-            <div class="a" style="--d:.2s"><small>Cheklar</small><b data-n="108">0</b></div>
-            <div class="a" style="--d:.3s"><small>O'rtacha chek</small><b data-n="131000">0</b></div>
-            <div class="a" style="--d:.4s"><small>Yalpi foyda</small><b data-n="4800000" data-f="mln">0</b></div>
+            <div class="a" style="--d:.1s"><small>{{ t.rev }}</small><b data-n="14200000" data-f="mln">0</b></div>
+            <div class="a" style="--d:.2s"><small>{{ t.checks }}</small><b data-n="108">0</b></div>
+            <div class="a" style="--d:.3s"><small>{{ t.avg }}</small><b data-n="131000">0</b></div>
+            <div class="a" style="--d:.4s"><small>{{ t.gross }}</small><b data-n="4800000" data-f="mln">0</b></div>
           </div>
           <div class="hb a" style="--d:.7s">
-            <span><b>Osh</b><i style="--v:1"></i><em>41</em></span>
-            <span><b>Lag'mon</b><i style="--v:.76"></i><em>31</em></span>
-            <span><b>Shashlik</b><i style="--v:.58"></i><em>24</em></span>
+            <span><b>{{ t.osh }}</b><i style="--v:1"></i><em>41</em></span>
+            <span><b>{{ t.lagmon }}</b><i style="--v:.76"></i><em>31</em></span>
+            <span><b>{{ t.shashlik }}</b><i style="--v:.58"></i><em>24</em></span>
           </div>
-          <p class="hint a" style="--d:1s">Ertaga 08:30 da hammasi yana Telegram'ingizda.</p>
+          <p class="hint a" style="--d:1s">{{ t.s5_hint }}</p>
         </div>
       </div>
     </div>
@@ -321,33 +323,33 @@
 <section class="charts" id="charts">
   <div class="wrap">
     <div class="sec-head c">
-      <h2 class="h2">Raqamlar o'zi gapiradi</h2>
-      <p class="sub">Demo restoranning paneli. Sizniki ham shunday ko'rinadi — telefon, planshet yoki kompyuterda. Davrni almashtirib ko'ring.</p>
+      <h2 class="h2">{{ t.ch_h }}</h2>
+      <p class="sub">{{ t.dash_sub }}</p>
     </div>
     <div class="dash" id="dash">
-      <div class="dash-top"><span class="dots"><i></i><i></i><i></i></span><span class="url">lazzat.{{ domain }}/admin</span><span class="live"><i></i>jonli</span>
-        <div class="tabs" id="dashTabs"><button type="button" data-p="7">7 kun</button><button type="button" class="on" data-p="30">30 kun</button><button type="button" data-p="90">90 kun</button></div></div>
+      <div class="dash-top"><span class="dots"><i></i><i></i><i></i></span><span class="url">lazzat.{{ domain }}/admin</span><span class="live"><i></i>{{ t.live }}</span>
+        <div class="tabs" id="dashTabs"><button type="button" data-p="7">{{ t.tab7 }}</button><button type="button" class="on" data-p="30">{{ t.tab30 }}</button><button type="button" data-p="90">{{ t.tab90 }}</button></div></div>
       <div class="kpis">
-        <div class="kpi"><small>Tushum</small><b data-kpi="rev">0</b><em data-kpi="revD"></em><svg class="sp" viewBox="0 0 90 34" aria-hidden="true"><path class="ar" id="spA"></path><path id="spL"></path></svg></div>
-        <div class="kpi"><small>Cheklar</small><b data-kpi="cnt">0</b><em data-kpi="cntD"></em></div>
-        <div class="kpi"><small>O'rtacha chek</small><b data-kpi="avg">0</b><em data-kpi="avgD"></em></div>
-        <div class="kpi"><small>Food cost</small><b>29%</b><em>me'yorda (28–35%)</em><svg class="gauge2" viewBox="0 0 74 44" aria-hidden="true"><path class="bg" d="M7 40 A30 30 0 0 1 67 40"/><path class="v" id="gV" d="M7 40 A30 30 0 0 1 67 40" pathLength="100"/></svg></div>
+        <div class="kpi"><small>{{ t.rev }}</small><b data-kpi="rev">0</b><em data-kpi="revD"></em><svg class="sp" viewBox="0 0 90 34" aria-hidden="true"><path class="ar" id="spA"></path><path id="spL"></path></svg></div>
+        <div class="kpi"><small>{{ t.checks }}</small><b data-kpi="cnt">0</b><em data-kpi="cntD"></em></div>
+        <div class="kpi"><small>{{ t.avg }}</small><b data-kpi="avg">0</b><em data-kpi="avgD"></em></div>
+        <div class="kpi"><small>Food cost</small><b>29%</b><em>{{ t.fc_note }}</em><svg class="gauge2" viewBox="0 0 74 44" aria-hidden="true"><path class="bg" d="M7 40 A30 30 0 0 1 67 40"/><path class="v" id="gV" d="M7 40 A30 30 0 0 1 67 40" pathLength="100"/></svg></div>
       </div>
       <div class="dash-grid">
-        <figure class="ch ch-line"><figcaption><b>Kunlik savdo</b><span id="chPeriod">mln so'm · 30 kun</span></figcaption>
-          <div class="chart-wrap"><svg id="lineSvg" viewBox="0 0 600 220" role="img" aria-label="Kunlik savdo chizig'i"></svg><div class="tip" id="lineTip"></div></div>
+        <figure class="ch ch-line"><figcaption><b>{{ t.ch_daily }}</b><span id="chPeriod">{{ t.ch_per }}</span></figcaption>
+          <div class="chart-wrap"><svg id="lineSvg" viewBox="0 0 600 220" role="img" aria-label="{{ t.ch_line_label }}"></svg><div class="tip" id="lineTip"></div></div>
           <div class="xl" id="xl"></div></figure>
-        <figure class="ch ch-donut"><figcaption><b>To'lov turlari</b><span>ulush</span></figcaption>
+        <figure class="ch ch-donut"><figcaption><b>{{ t.ch_pay }}</b><span>{{ t.share }}</span></figcaption>
           <div class="dn"><div class="dn-c"><svg viewBox="0 0 120 120" aria-hidden="true">
             <circle class="d0" cx="60" cy="60" r="44"/>
             <circle class="d1" cx="60" cy="60" r="44" pathLength="100" style="--a:46;--o:0"/>
             <circle class="d2" cx="60" cy="60" r="44" pathLength="100" style="--a:38;--o:-46"/>
-            <circle class="d3" cx="60" cy="60" r="44" pathLength="100" style="--a:16;--o:-84"/></svg><b>46%<small>naqd</small></b></div>
-          <ul class="legend"><li><i class="c1"></i>Naqd <b>46%</b></li><li><i class="c2"></i>Karta <b>38%</b></li><li><i class="c3"></i>Click / Payme <b>16%</b></li></ul></div></figure>
-        <figure class="ch ch-bars"><figcaption><b>Filiallar</b><span>mln so'm, oy</span></figcaption>
-          <div class="hb"><span><b>Chilonzor</b><i style="--v:1"></i><em>412</em></span><span><b>Yunusobod</b><i style="--v:.86"></i><em>356</em></span><span><b>Sergeli</b><i style="--v:.58"></i><em>241</em></span></div></figure>
-        <figure class="ch ch-top"><figcaption><b>Eng ko'p sotilgan</b><span>porsiya, oy</span></figcaption>
-          <div class="hb"><span><b>Osh</b><i style="--v:1"></i><em>1 240</em></span><span><b>Lag'mon</b><i style="--v:.74"></i><em>918</em></span><span><b>Shashlik</b><i style="--v:.63"></i><em>781</em></span></div></figure>
+            <circle class="d3" cx="60" cy="60" r="44" pathLength="100" style="--a:16;--o:-84"/></svg><b>46%<small>{{ t.cash_|lower }}</small></b></div>
+          <ul class="legend"><li><i class="c1"></i>{{ t.cash_ }} <b>46%</b></li><li><i class="c2"></i>{{ t.card_ }} <b>38%</b></li><li><i class="c3"></i>Click / Payme <b>16%</b></li></ul></div></figure>
+        <figure class="ch ch-bars"><figcaption><b>{{ t.branches }}</b><span>{{ t.br_u }}</span></figcaption>
+          <div class="hb"><span><b>{{ t.b1 }}</b><i style="--v:1"></i><em>412</em></span><span><b>{{ t.b2 }}</b><i style="--v:.86"></i><em>356</em></span><span><b>{{ t.b3 }}</b><i style="--v:.58"></i><em>241</em></span></div></figure>
+        <figure class="ch ch-top"><figcaption><b>{{ t.ch_top }}</b><span>{{ t.top_u }}</span></figcaption>
+          <div class="hb"><span><b>{{ t.osh }}</b><i style="--v:1"></i><em>1 240</em></span><span><b>{{ t.lagmon }}</b><i style="--v:.74"></i><em>918</em></span><span><b>{{ t.shashlik }}</b><i style="--v:.63"></i><em>781</em></span></div></figure>
       </div>
     </div>
   </div>
@@ -357,33 +359,33 @@
 <section class="pricing" id="narxlar">
   <div class="wrap">
     <div class="sec-head c">
-      <h2 class="h2">Oddiy narx. Hammasi ichida.</h2>
-      <p class="sub">Birinchi {{ offer.trial_days }} kun bepul, karta so'ralmaydi. Server, domen va yangilanishlar narx ichida — qo'shimcha to'lov yo'q.</p>
+      <h2 class="h2">{{ t.pr_h }}</h2>
+      <p class="sub">{{ t.pr_sub }}</p>
     </div>
-    {% if offer.free_setup %}<div class="setup"><span>🎁</span><p><b>Aksiya:</b> {{ offer.setup_note }}.</p></div>{% endif %}
+    {% if offer.free_setup %}<div class="setup"><span>🎁</span><p><b>{{ t.promo_w }}</b> {{ o.setup_note }}.</p></div>{% endif %}
     <div class="plans">
       <article class="plan">
-        <h3>Dastur</h3>
-        <p class="pdesc">Restoranning butun ishi — kassadan omborgacha.</p>
-        <p class="price"><span class="cur">{{ offer.currency }}</span><b data-count="{{ offer.base_price }}">{{ offer.base_price }}</b><small>{{ offer.price_note }}</small><small class="perday">kuniga ≈ <b data-day></b> — bir piyola kofedan arzon</small></p>
-        <a class="btn ghost big wide" href="/signup/?plan=base">{{ offer.trial_days }} kun bepul boshlash</a>
+        <h3>{{ t.plan1 }}</h3>
+        <p class="pdesc">{{ t.plan1_d }}</p>
+        <p class="price"><span class="cur">{{ offer.currency }}</span><b data-count="{{ offer.base_price }}">{{ offer.base_price }}</b><small>{{ o.price_note }}</small><small class="perday">{{ t.perday }} <b data-day></b>{{ t.coffee }}</small></p>
+        <a class="btn ghost big wide" href="{{ lang_prefix }}/signup/?plan=base">{{ t.start_days }}</a>
         <ul class="incl">
-          <li>Kassa, smena va kassa topshirish</li><li>Oshxona ekrani, zal, bron</li><li>Taomnoma, tex-karta, ombor, zakup</li><li>Xodimlar, davomat, KPI, o'qitish</li><li>Vazifalar va loyihalar</li><li>Telegram bot, sayt, TV menyu</li><li>Hisobotlar va ko'p filial</li>
+          <li>{{ t.p1_1 }}</li><li>{{ t.p1_2 }}</li><li>{{ t.p1_3 }}</li><li>{{ t.p1_4 }}</li><li>{{ t.p1_5 }}</li><li>{{ t.p1_6 }}</li><li>{{ t.p1_7 }}</li>
         </ul>
       </article>
       <article class="plan best">
-        <span class="badge">Ko'proq tanlanadi</span>
-        <h3>Dastur + <span class="ai-t">AI Kotib</span></h3>
-        <p class="pdesc">Hammasi va sizning shaxsiy AI yordamchingiz.</p>
-        <p class="price"><span class="cur">{{ offer.currency }}</span><b data-count="{{ offer.ai_price }}">{{ offer.ai_price }}</b><small>{{ offer.price_note }}</small><small class="perday">kuniga ≈ <b data-day></b></small></p>
-        <a class="btn primary big wide" href="/signup/?plan=ai">{{ offer.trial_days }} kun bepul boshlash</a>
+        <span class="badge">{{ t.badge }}</span>
+        <h3>{{ t.plan2 }} <span class="ai-t">{{ t.ai_kotib }}</span></h3>
+        <p class="pdesc">{{ t.plan2_d }}</p>
+        <p class="price"><span class="cur">{{ offer.currency }}</span><b data-count="{{ offer.ai_price }}">{{ offer.ai_price }}</b><small>{{ o.price_note }}</small><small class="perday">{{ t.perday }} <b data-day></b></small></p>
+        <a class="btn primary big wide" href="{{ lang_prefix }}/signup/?plan=ai">{{ t.start_days }}</a>
         <ul class="incl">
-          <li><b>«Dastur»dagi hamma narsa</b></li><li>Ovozli buyruq: Telegram va saytda</li><li>Har kuni ertalab hisobot</li><li>Diagrammalar va tahlil</li><li>Internetdan narx va trend qidiruvi</li><li>Vazifa berish, ruxsat, stop-list — tasdiq bilan</li>
+          <li><b>{{ t.p2_1 }}</b></li><li>{{ t.p2_2 }}</li><li>{{ t.p2_3 }}</li><li>{{ t.p2_4 }}</li><li>{{ t.p2_5 }}</li><li>{{ t.p2_6 }}</li>
         </ul>
       </article>
     </div>
-    <p class="incl-h">Narx ichida — qo'shimcha to'lov yo'q</p>
-    <div class="incl-m" aria-label="Narx ichida"><div class="incl-t">{% for x in offer.includes %}<span>{{ x }}</span>{% endfor %}{% if offer.free_setup %}<span>Boshqa dasturdan ma'lumotlarni ko'chirish — bepul</span>{% endif %}{% for x in offer.includes %}<span aria-hidden="true">{{ x }}</span>{% endfor %}{% if offer.free_setup %}<span aria-hidden="true">Boshqa dasturdan ma'lumotlarni ko'chirish — bepul</span>{% endif %}</div></div>
+    <p class="incl-h">{{ t.incl_h }}</p>
+    <div class="incl-m" aria-label="{{ t.incl }}"><div class="incl-t">{% for x in o.includes %}<span>{{ x }}</span>{% endfor %}{% if offer.free_setup %}<span>{{ t.migr }}</span>{% endif %}{% for x in o.includes %}<span aria-hidden="true">{{ x }}</span>{% endfor %}{% if offer.free_setup %}<span aria-hidden="true">{{ t.migr }}</span>{% endif %}</div></div>
   </div>
 </section>
 
@@ -391,26 +393,26 @@
 <section class="faq" id="savollar">
   <div class="wrap faq-in">
     <aside class="faq-side">
-      <h2 class="h2">Ko'p beriladigan savollar</h2>
+      <h2 class="h2">{{ t.faq_h }}</h2>
       <div class="help">
         <span class="orb sm" aria-hidden="true"><span class="orb-core"></span><svg viewBox="0 0 24 24"><path d="M12 2.5l1.9 5.6 5.6 1.9-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.9Z"/></svg></span>
-        <b>Savolingiz bormi?</b>
-        <p>AI maslahatchi kechayu kunduz javob beradi — yozing, gapiring yoki menyu rasmini yuboring.</p>
-        <button class="btn primary wide" type="button" data-open-ai>AI'dan so'rash</button>
-        <a class="btn ghost wide" href="#ariza">Mutaxassis qo'ng'irog'i</a>
+        <b>{{ t.help_h }}</b>
+        <p>{{ t.help_p }}</p>
+        <button class="btn primary wide" type="button" data-open-ai>{{ t.help_ai }}</button>
+        <a class="btn ghost wide" href="#ariza">{{ t.help_call }}</a>
         {% if offer.phone or offer.telegram %}<p class="contacts">{% if offer.phone %}<a href="tel:{{ offer.phone|cut:' ' }}">📞 {{ offer.phone }}</a>{% endif %}{% if offer.telegram %}<a href="https://t.me/{{ offer.telegram }}" target="_blank" rel="noopener">✈️ @{{ offer.telegram }}</a>{% endif %}</p>{% endif %}
       </div>
     </aside>
     <div class="qa">
-      <details><summary>Bepul davrdan keyin nima bo'ladi?</summary><p>{{ offer.trial_days }} kun ichida hamma imkoniyat ochiq. Keyin tarifni tanlaysiz — {{ offer.currency }}{{ offer.base_price }} yoki AI bilan {{ offer.currency }}{{ offer.ai_price }} oyiga. Davom ettirmasangiz, hech narsa to'lamaysiz.</p></details>
-      <details><summary>Boshqa dasturdan o'tish qiyinmi?</summary><p>Yo'q. Menyu, mahsulotlar va xodimlar ro'yxatini biz ko'chirib beramiz{% if offer.free_setup %} (hozir bepul){% endif %}. Bir necha kun ikkalasini parallel ishlatib, keyin to'liq o'tasiz — ish to'xtamaydi.</p></details>
-      <details><summary>Server va domen uchun alohida to'lash kerakmi?</summary><p>Yo'q. Server, domen, SSL (https), har kungi zaxira nusxa va yangilanishlar narx ichida.</p></details>
-      <details><summary>Ulash va sozlashni kim qiladi?</summary><p>{% if offer.free_setup %}Biz. Hozir aksiya: {{ offer.setup_note|lower }}.{% else %}Biz yordam beramiz: menyuni kiritish, xodimlarni qo'shish va o'rgatish.{% endif %}</p></details>
-      <details><summary>Qaysi qurilmada ishlaydi?</summary><p>Brauzer bor har qanday qurilmada: telefon, planshet, kompyuter va TV. Alohida dastur o'rnatish shart emas.</p></details>
-      <details><summary>Bir nechta filial bo'lsa-chi?</summary><p>Hammasi bitta panelda. Siz barcha filiallarni ko'rasiz, filial menejeri esa faqat o'z filialini.</p></details>
-      <details><summary>Ma'lumotlarim xavfsizmi?</summary><p>Har restoranning ma'lumoti alohida bazada. Har xodim faqat o'ziga ruxsat berilgan bo'limni ko'radi, har o'zgarish tarixda saqlanadi.</p></details>
-      <details><summary>AI Kotib o'zboshimchalik qilmaydimi?</summary><p>Yo'q. U faqat o'qiydi va tavsiya beradi. Biror narsani o'zgartirishi kerak bo'lsa, avval sizdan «Tasdiqlaysizmi?» deb so'raydi. Pul va kassaga umuman tegmaydi.</p></details>
-      <details><summary>Fiskal kassa va Payme/Click bormi?</summary><p>Rejada. Kerak bo'lsa, sizning restoraningiz uchun ulab beramiz — AI maslahatchidan yoki telefon orqali so'rang.</p></details>
+      <details><summary>{{ t.q1 }}</summary><p>{{ t.a1q }}</p></details>
+      <details><summary>{{ t.q2 }}</summary><p>{{ t.a2a }}{% if offer.free_setup %}{{ t.a2f }}{% endif %}{{ t.a2b }}</p></details>
+      <details><summary>{{ t.q3 }}</summary><p>{{ t.a3q }}</p></details>
+      <details><summary>{{ t.q4 }}</summary><p>{% if offer.free_setup %}{{ t.a4f }}{% else %}{{ t.a4q }}{% endif %}</p></details>
+      <details><summary>{{ t.q5 }}</summary><p>{{ t.a5q }}</p></details>
+      <details><summary>{{ t.q6 }}</summary><p>{{ t.a6q }}</p></details>
+      <details><summary>{{ t.q7 }}</summary><p>{{ t.a7q }}</p></details>
+      <details><summary>{{ t.q8 }}</summary><p>{{ t.a8q }}</p></details>
+      <details><summary>{{ t.q9 }}</summary><p>{{ t.a9q }}</p></details>
     </div>
   </div>
 </section>
@@ -419,16 +421,16 @@
 <section class="final" id="ariza">
   <div class="wrap final-in">
     <div>
-      <h2 class="h2">Restoraningizni bugun ulab beramiz</h2>
-      <p>Raqamingizni qoldiring — mutaxassisimiz qo'ng'iroq qilib, hammasini ko'rsatadi. Yoki o'zingiz hoziroq bepul boshlang.</p>
+      <h2 class="h2">{{ t.fin_h }}</h2>
+      <p>{{ t.fin_p }}</p>
       <p class="contacts">{% if offer.phone %}<a href="tel:{{ offer.phone|cut:' ' }}">📞 {{ offer.phone }}</a>{% endif %}{% if offer.telegram %}<a href="https://t.me/{{ offer.telegram }}" target="_blank" rel="noopener">✈️ @{{ offer.telegram }}</a>{% endif %}</p>
     </div>
     <form class="lead-form" id="leadForm" novalidate>
-      <label>Ismingiz<input name="name" autocomplete="name" placeholder="Aziz"></label>
-      <label>Telefon<input name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+998 90 123 45 67" required></label>
-      <label>Restoran<input name="business" placeholder="Nomi, nechta filial"></label>
-      <button class="btn primary big wide" type="submit">Qo'ng'iroq kutaman</button>
-      <a class="btn ghost big wide" href="/signup/">O'zim boshlayman</a>
+      <label>{{ t.f_name }}<input name="name" autocomplete="name" placeholder="{{ t.f_name_ph }}"></label>
+      <label>{{ t.f_phone }}<input name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+998 90 123 45 67" required></label>
+      <label>{{ t.f_rest }}<input name="business" placeholder="{{ t.f_rest_ph }}"></label>
+      <button class="btn primary big wide" type="submit">{{ t.f_btn }}</button>
+      <a class="btn ghost big wide" href="{{ lang_prefix }}/signup/">{{ t.f_self }}</a>
       <p class="form-msg" id="leadMsg" role="status"></p>
     </form>
   </div>
@@ -438,51 +440,52 @@
 <footer class="foot">
   <div class="wrap foot-in">
     <span class="brand sm"><span class="mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M9 22V10h7a4 4 0 0 1 0 8H9m7 0 5 4" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>{{ platform }}</span>
-    <span>Restoran, kafe va fast-food uchun boshqaruv tizimi. O'zbekistonda yaratilgan.</span>
+    <span>{{ t.foot }}</span>
     <span>© {% now "Y" %} {{ platform }}</span>
   </div>
 </footer>
 
 <dialog class="login-dlg" id="loginDlg" aria-labelledby="loginT">
   <form method="dialog" id="loginForm">
-    <h3 id="loginT">Restoraningiz paneliga kirish</h3>
-    <p>Restoraningiz manzilini yozing — panel ochiladi, u yerda telefon va parol bilan kirasiz.</p>
-    <label class="slug"><input name="slug" required pattern="[a-z0-9][a-z0-9-]{1,30}" placeholder="lazzat" autocomplete="off" aria-label="Restoran manzili"><span>.{{ domain }}</span></label>
-    <div class="row"><button class="btn ghost" value="cancel" formnovalidate>Bekor</button><button class="btn primary" value="go">Panelni ochish</button></div>
+    <h3 id="loginT">{{ t.lg_h }}</h3>
+    <p>{{ t.lg_p }}</p>
+    <label class="slug"><input name="slug" required pattern="[a-z0-9][a-z0-9-]{1,30}" placeholder="lazzat" autocomplete="off" aria-label="{{ t.lg_slug }}"><span>.{{ domain }}</span></label>
+    <div class="row"><button class="btn ghost" value="cancel" formnovalidate>{{ t.cancel }}</button><button class="btn primary" value="go">{{ t.lg_go }}</button></div>
   </form>
 </dialog>
 
 {% if offer.ai_chat %}
 <!-- ============ AI maslahatchi ============ -->
 <div class="aic" id="aic">
-  <div class="aic-hint" id="aicHint" hidden><button type="button" class="x" id="aicHintX" aria-label="Yopish">✕</button><b>Salom! 👋</b> Men AI maslahatchiman. Restoraningiz haqida so'rang — yozing, 🎙 gapiring yoki rasm yuboring.</div>
-  <button class="aic-fab" type="button" id="aicFab" aria-expanded="false" aria-controls="aicBox" aria-label="AI maslahatchi bilan gaplashish">
+  <div class="aic-hint" id="aicHint" hidden><button type="button" class="x" id="aicHintX" aria-label="{{ t.close }}">✕</button>{{ t.aic_hint|safe }}</div>
+  <button class="aic-fab" type="button" id="aicFab" aria-expanded="false" aria-controls="aicBox" aria-label="{{ t.aic_fab }}">
     <span class="orb" aria-hidden="true"><span class="orb-core"></span><svg viewBox="0 0 24 24"><path d="M12 2.5l1.9 5.6 5.6 1.9-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.9Z"/><path d="M19 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8Z"/></svg></span>
-    <span class="fab-t"><b>AI maslahatchi</b><small><i></i>onlayn · javob beradi</small></span>
+    <span class="fab-t"><b>{{ t.aic_name }}</b><small><i></i>{{ t.aic_online }}</small></span>
   </button>
-  <section class="aic-box" id="aicBox" role="dialog" aria-label="AI maslahatchi" hidden>
+  <section class="aic-box" id="aicBox" role="dialog" aria-label="{{ t.aic_name }}" hidden>
     <header>
       <span class="orb sm" aria-hidden="true"><span class="orb-core"></span><svg viewBox="0 0 24 24"><path d="M12 2.5l1.9 5.6 5.6 1.9-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.9Z"/></svg></span>
-      <div><b>{{ platform }} AI maslahatchi</b><small id="aicSt"><i></i>onlayn · matn, ovoz yoki rasm</small></div>
-      <button class="icon-btn" type="button" id="aicClear" title="Yangi suhbat" aria-label="Yangi suhbat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4"/></svg></button>
-      <button class="icon-btn" type="button" id="aicClose" aria-label="Yopish"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      <div><b>{{ t.aic_title }}</b><small id="aicSt"><i></i>{{ t.aic_st }}</small></div>
+      <button class="icon-btn" type="button" id="aicClear" title="{{ t.aic_new }}" aria-label="{{ t.aic_new }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4"/></svg></button>
+      <button class="icon-btn" type="button" id="aicClose" aria-label="{{ t.close }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
     </header>
     <div class="aic-list" id="aicList">
-      <div class="m ai">Salom! 👋 Men {{ platform }} bo'yicha AI maslahatchiman. Restoraningiz haqida qisqacha ayting — sizga nima foydali ekanini ko'rsataman. Menyu yoki zal rasmini yuborishingiz, 🎙 ovozli xabar qoldirishingiz ham mumkin.</div>
-      <div class="sug" id="aicSug"><button type="button">Narxi qancha va ichida nima bor?</button><button type="button">Kassir pulni yashirsa, qanday bilaman?</button><button type="button">AI Kotib nima qila oladi?</button><button type="button">3 ta filialim bor — mos keladimi?</button></div>
+      <div class="m ai">{{ t.aic_greet }}</div>
+      <div class="sug" id="aicSug"><button type="button">{{ t.sug1 }}</button><button type="button">{{ t.sug2 }}</button><button type="button">{{ t.sug3 }}</button><button type="button">{{ t.sug4 }}</button></div>
     </div>
-    <div class="aic-prev" id="aicPrev" hidden><img alt="" id="aicImg"><button type="button" id="aicImgX" aria-label="Rasmni olib tashlash">✕</button></div>
+    <div class="aic-prev" id="aicPrev" hidden><img alt="" id="aicImg"><button type="button" id="aicImgX" aria-label="{{ t.img_rm }}">✕</button></div>
     <form class="aic-in" id="aicForm">
-      <label class="icon-btn attach" title="Rasm yuborish" aria-label="Rasm yuborish"><input type="file" accept="image/*" id="aicFile" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 11.5 12 20a5.5 5.5 0 0 1-7.8-7.8l8.5-8.5a3.7 3.7 0 0 1 5.2 5.2L9.4 17.4a1.8 1.8 0 0 1-2.6-2.6l7.8-7.8"/></svg></label>
-      <div class="recbar" id="recBar" hidden><span class="rdot"></span>Yozilmoqda… <b id="recT">0:00</b><button type="button" class="rx" id="recX" aria-label="Bekor qilish">✕</button></div>
-      <textarea id="aicQ" rows="1" placeholder="Savolingizni yozing…" aria-label="Savol"></textarea>
-      <button class="icon-btn mic" type="button" id="aicMic" title="Ovozli xabar" aria-label="Ovozli xabar yozish"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg></button>
-      <button class="send" type="submit" id="aicSend" aria-label="Yuborish"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg></button>
+      <label class="icon-btn attach" title="{{ t.attach }}" aria-label="{{ t.attach }}"><input type="file" accept="image/*" id="aicFile" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 11.5 12 20a5.5 5.5 0 0 1-7.8-7.8l8.5-8.5a3.7 3.7 0 0 1 5.2 5.2L9.4 17.4a1.8 1.8 0 0 1-2.6-2.6l7.8-7.8"/></svg></label>
+      <div class="recbar" id="recBar" hidden><span class="rdot"></span>{{ t.recording }} <b id="recT">0:00</b><button type="button" class="rx" id="recX" aria-label="{{ t.rec_cancel }}">✕</button></div>
+      <textarea id="aicQ" rows="1" placeholder="{{ t.q_ph }}" aria-label="{{ t.q_label }}"></textarea>
+      <button class="icon-btn mic" type="button" id="aicMic" title="{{ t.mic }}" aria-label="{{ t.mic_label }}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg></button>
+      <button class="send" type="submit" id="aicSend" aria-label="{{ t.send }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg></button>
     </form>
-    <p class="aic-note">Suhbat xizmat sifati uchun saqlanadi. Telefoningizni faqat o'zingiz qoldirsangiz bog'lanamiz.</p>
+    <p class="aic-note">{{ t.aic_note }}</p>
   </section>
 </div>
 {% endif %}
+<script id="rpI18n" type="application/json">{{ js_i18n|safe }}</script>
 <script src="{% static 'platform/platform.js' %}" defer></script>
 </body>
 </html>

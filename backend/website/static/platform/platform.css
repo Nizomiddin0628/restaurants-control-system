@@ -73,6 +73,7 @@ section { padding: clamp(72px, 9vw, 124px) 0; }
 .icon-btn { width: 44px; height: 44px; display: inline-grid; place-items: center; border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface); cursor: pointer; color: var(--ink); transition: border-color .25s, color .25s; }
 .icon-btn:hover { border-color: var(--acc); color: var(--acc-t); }
 .icon-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.icon-btn.lang { font: 800 12px/1 var(--body); letter-spacing: .06em; text-decoration: none; }
 
 /* ---------- yuqori panel ---------- */
 .top { position: sticky; top: 0; z-index: 40; background: color-mix(in srgb, var(--bg) 78%, transparent); backdrop-filter: saturate(1.5) blur(16px); -webkit-backdrop-filter: saturate(1.5) blur(16px);
@@ -85,7 +86,7 @@ section { padding: clamp(72px, 9vw, 124px) 0; }
 .mark svg { width: 22px; height: 22px; }
 .brand.sm .mark { width: 28px; height: 28px; } .brand.sm .mark svg { width: 18px; }
 .nav { display: flex; gap: 2px; margin: 0 auto; }
-.nav a { position: relative; padding: 9px 14px; border-radius: 10px; text-decoration: none; color: var(--ink-2); font-weight: 600; font-size: 15px; transition: color .25s; }
+.nav a { position: relative; padding: 9px 12px; border-radius: 10px; text-decoration: none; color: var(--ink-2); font-weight: 600; font-size: 14px; white-space: nowrap; transition: color .25s; }
 .nav a::after { content: ""; position: absolute; left: 14px; right: 14px; bottom: 3px; height: 2px; border-radius: 2px; background: var(--acc); transform: scaleX(0); transition: transform .35s cubic-bezier(.2,.8,.2,1); }
 .nav a:hover { color: var(--ink); } .nav a:hover::after { transform: scaleX(1); }
 .top-act { display: flex; gap: 8px; align-items: center; }

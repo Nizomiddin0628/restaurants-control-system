@@ -65,6 +65,11 @@ def signup(request, data: SignupIn):
         raise HttpError(409, "Bu manzil yoki telefon band") from e
     domain = t.domains.first().domain
     sch = "https" if request.is_secure() else "http"
+    try:
+        from website import sales_ai
+        sales_ai.notify(f"🎉 <b>Yangi restoran ro'yxatdan o'tdi</b>\n🏪 {t.name} — {domain}\n👤 {data.owner_name or '—'}\n📞 {data.phone}\n📦 {data.preset} · tarif: {data.plan}")
+    except Exception:
+        pass
     return {"ok": True, "tenant": t.slug, "domain": domain, "admin_url": f"{sch}://{domain}/admin/",
             "site_url": f"{sch}://{domain}/", "modules": t.enabled_modules, "platform": settings.PLATFORM_NAME}
 
@@ -75,6 +80,7 @@ class SalesIn(Schema):
     history: list[dict] = []
     image: str = ""            # data:image/jpeg;base64,... (brauzerda kichraytirilgan)
     sid: str = ""              # brauzerdagi suhbat kaliti (HQ'da suhbatlar ro'yxati uchun)
+    lang: str = "uz"           # sayt tili: uz | ru — AI shu tilda javob beradi
 
 
 @public_api.post("/sales/ask-stream")
@@ -101,7 +107,8 @@ def sales_ask_stream(request, data: SalesIn):
     if msg:
         raise HttpError(429, msg)
     tenant, box, flag = request.tenant, queue.Queue(), {"stop": False}
-    holder, sys_prompt = sales_ai.key_holder(), sales_ai.system(settings.PLATFORM_NAME)   # so'rov ipida o'qiladi
+    holder, sys_prompt = sales_ai.key_holder(), sales_ai.system(settings.PLATFORM_NAME, "ru" if data.lang == "ru" else "uz")   # so'rov ipida o'qiladi
+    holder.notify = sales_ai.notify_chat()                                                                                  # Telegram manzili ham shu ipda
     hist = [h for h in data.history if isinstance(h, dict)][-10:]
 
     def work():

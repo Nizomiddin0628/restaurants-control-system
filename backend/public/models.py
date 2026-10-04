@@ -275,10 +275,24 @@ class SiteOffer(models.Model):
     telegram = models.CharField(max_length=60, blank=True, default="", help_text="masalan: restopos_uz (@ siz)")
     ai_chat = models.BooleanField(default=True, help_text="Saytda AI maslahatchi yoqilgan")
     ai_key = models.CharField(max_length=200, blank=True, default="", help_text="Gemini API kaliti (saytdagi AI uchun); bo'sh — .env yoki restoran kaliti")
+    lead_chat = models.CharField(max_length=40, blank=True, default="", help_text="Arizalar yuboriladigan Telegram chat ID (botga /id yozing)")
+    price_note_ru = models.CharField(max_length=120, blank=True, default="")
+    setup_note_ru = models.CharField(max_length=200, blank=True, default="")
+    includes_ru = models.JSONField(default=list, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     DEFAULT_INCLUDES = ["Server va zaxira nusxa (har kuni)", "Domen va SSL (https)", "Barcha modullar va yangilanishlar",
                         "Telegram bot va restoran sayti", "Qo'llab-quvvatlash (Telegram, telefon)", "Ma'lumotlar xavfsizligi va alohida baza"]
+    DEFAULT_INCLUDES_RU = ["Сервер и резервные копии (ежедневно)", "Домен и SSL (https)", "Все модули и обновления",
+                           "Telegram-бот и сайт ресторана", "Поддержка (Telegram, телефон)", "Безопасность данных и отдельная база"]
+    DEFAULT_PRICE_NOTE_RU, DEFAULT_SETUP_NOTE_RU = "за один ресторан, в месяц", "Сейчас подключение, ввод меню и обучение сотрудников — бесплатно"
+
+    def localized(self, lang: str) -> dict:
+        """Saytda ko'rsatiladigan matnlar tanlangan tilda (RU bo'sh bo'lsa — standart ruscha)."""
+        if lang == "ru":
+            return {"price_note": self.price_note_ru or self.DEFAULT_PRICE_NOTE_RU, "setup_note": self.setup_note_ru or self.DEFAULT_SETUP_NOTE_RU,
+                    "includes": self.includes_ru or list(self.DEFAULT_INCLUDES_RU)}
+        return {"price_note": self.price_note, "setup_note": self.setup_note, "includes": self.includes or []}
 
     def __str__(self) -> str:
         return f"Taklif: {self.currency}{self.base_price} / {self.currency}{self.ai_price}"

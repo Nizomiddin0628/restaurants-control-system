@@ -1,0 +1,278 @@
+"""Platforma sayti tillari: o'zbek (asosiy) va rus. Kalit → (uz, ru). {days}, {platform} kabi joylar view'da to'ldiriladi."""
+from __future__ import annotations
+
+LANGS = ("uz", "ru")
+
+S: dict[str, tuple[str, str]] = {
+    # --- umumiy / sarlavha
+    "title": ("{platform} — restoranni bitta paneldan boshqarish", "{platform} — управление рестораном с одной панели"),
+    "meta": ("Kassa, oshxona ekrani, ombor, xodimlar, Telegram bot va AI Kotib — bitta tizimda. Birinchi {days} kun bepul.",
+             "Касса, экран кухни, склад, сотрудники, Telegram-бот и AI-секретарь — в одной системе. Первые {days} {days_w} бесплатно."),
+    "skip": ("Asosiy qismga o'tish", "К основному содержимому"),
+    "home": ("bosh sahifa", "главная"),
+    "nav_how": ("Qanday ishlaydi", "Как это работает"), "nav_feat": ("Imkoniyatlar", "Возможности"), "nav_tg": ("Telegram bot", "Telegram-бот"),
+    "nav_price": ("Narxlar", "Цены"), "nav_faq": ("Savollar", "Вопросы"), "nav_label": ("Sahifa bo'limlari", "Разделы страницы"), "mnav_label": ("Mobil menyu", "Мобильное меню"),
+    "theme": ("Tungi / kunduzgi rejim", "Тёмная / светлая тема"), "lang_btn": ("Русский", "O'zbekcha"), "lang_title": ("Rus tiliga o'tish", "Перейти на узбекский"),
+    "login": ("Kirish", "Войти"), "login_long": ("Restoranim paneliga kirish", "Войти в панель ресторана"), "start": ("Bepul boshlash", "Начать бесплатно"),
+    "start_days": ("{days} kun bepul boshlash", "Начать — {days} {days_w} бесплатно"), "menu": ("Menyu", "Меню"), "close": ("Yopish", "Закрыть"),
+    # --- hero
+    "pill": ("{days} kun bepul", "{days} {days_w} бесплатно"), "promo": ("Karta so'ralmaydi", "Карта не нужна"), "promo_setup": (", ulab berish ham bepul", ", подключение тоже бесплатно"),
+    "h1a": ("Restoraningiz bilan", "Говорите со своим"), "h1b": ("gaplashing.", "рестораном."),
+    "lead": ("Telegram'da ovozli xabar yuboring — AI Kotib kassa, oshxona, ombor va xodimlardagi haqiqiy raqamlar bilan javob beradi. Restoranning butun ishi bitta tizimda, siz esa shunchaki so'raysiz.",
+             "Отправьте голосовое в Telegram — AI-секретарь ответит реальными цифрами из кассы, кухни, склада и по сотрудникам. Вся работа ресторана в одной системе, а вы просто спрашиваете."),
+    "ask_ai": ("AI'dan hozir so'rang", "Спросить AI сейчас"), "facts": ("Qisqacha", "Коротко"),
+    "fact1": ("bo'lim bitta tizimda", "разделов в одной системе"), "fact2": ("ovozli savol — aniq raqamli javob", "голосовой вопрос — точный ответ цифрами"),
+    "fact3": ("kun bepul, karta so'ralmaydi", "{days_w} бесплатно, карта не нужна"), "talk": ("AI Kotib bilan suhbat namunasi", "Пример разговора с AI-секретарём"),
+    "kassa": ("Kassa", "Касса"), "kds": ("Oshxona", "Кухня"), "stock": ("Ombor", "Склад"), "staff": ("Xodimlar", "Сотрудники"), "tasks": ("Vazifalar", "Задачи"), "branches": ("Filiallar", "Филиалы"),
+    "ai_kotib": ("AI Kotib", "AI-секретарь"), "ph_st": ("restoran boti", "бот ресторана"),
+    # --- zanjir
+    "ch_h1": ("Kassir «To'lash»ni bosdi —", "Кассир нажал «Оплатить» —"), "ch_h2": ("oltita bo'lim", "шесть разделов"), "ch_h3": ("o'zi yangilandi", "обновились сами"),
+    "ch_sub": ("Bitta chek yopiladi. Ombor, oshxona, kassa, hisobot, xodim va mijoz kartasi o'sha zahoti yangilanadi — hech kim hech narsani qayta kiritmaydi.",
+               "Закрывается один чек. Склад, кухня, касса, отчёт, сотрудник и карта клиента обновляются мгновенно — никто ничего не вводит повторно."),
+    "pos_h": ("Kassa · Chilonzor", "Касса · Чиланзар"), "total": ("Jami", "Итого"), "pay": ("To'lash", "Оплатить"), "paid": ("✓ To'landi", "✓ Оплачено"),
+    "screens": ("Yangilangan bo'limlar", "Обновлённые разделы"), "rice": ("Guruch", "Рис"), "by_recipe": ("tex-karta bo'yicha", "по техкарте"), "on_kds": ("oshpaz ekranida", "на экране повара"),
+    "today_rev": ("Bugungi tushum", "Выручка сегодня"), "report": ("Hisobot", "Отчёт"), "gross": ("Yalpi foyda", "Валовая прибыль"), "margin": ("marja 34%", "маржа 34%"),
+    "employee": ("Xodim", "Сотрудник"), "today": ("bugun", "сегодня"), "closed_checks": ("chek yopdi", "чеков закрыл"), "client": ("Mijoz", "Клиент"),
+    "to_bonus": ("bonus kartasiga", "на бонусную карту"), "written": ("yozildi", "начислено"),
+    # --- atom
+    "at_h1": ("Yagona tizim — hamma bo'lim", "Единая система — все разделы вокруг"), "at_h2": ("bitta yadro", "одного ядра"), "at_h3": ("atrofida", ""),
+    "at_sub": ("Yigirmadan ortiq bo'lim bir-biriga to'xtovsiz ma'lumot uzatib turadi. Biri o'zgarsa — boshqalari o'sha zahoti biladi. Bo'limga bosing.",
+               "Больше двадцати разделов непрерывно обмениваются данными. Изменился один — остальные знают сразу. Нажмите на раздел."),
+    "at_label": ("Bo'limlar yadro atrofida aylanadi", "Разделы вращаются вокруг ядра"),
+    # --- xodimlar boti
+    "sb_label": ("Xodimlar boti namunasi", "Пример бота для сотрудников"), "sb_name": ("Lazzat — xodimlar", "Lazzat — сотрудники"), "bot": ("bot", "бот"),
+    "sb_in": ("🕘 Keldim", "🕘 Пришёл"), "sb_hi": ("✅ Xush kelibsiz, Nodira! Smena boshlandi — <b>08:57</b>.", "✅ Добро пожаловать, Нодира! Смена началась — <b>08:57</b>."),
+    "sb_tasks": ("📋 Vazifalarim", "📋 Мои задачи"),
+    "sb_tasks_msg": ("📋 <b>Bugun 2 ta vazifa:</b><br>1. Muzlatgichni tozalash — 11:00 gacha<br>2. Choyxona stollarini tekshirish — 15:00",
+                     "📋 <b>Сегодня 2 задачи:</b><br>1. Помыть холодильник — до 11:00<br>2. Проверить столы в чайхане — 15:00"),
+    "sb_cash": ("💵 <b>Kassa sizga topshirildi:</b> 2 450 000 so'm, farq yo'q. Pulni sanab oldingizmi?", "💵 <b>Вам передана касса:</b> 2 450 000 сум, расхождений нет. Пересчитали деньги?"),
+    "sb_accept": ("✅ Qabul qildim", "✅ Принял"), "kb_ai": ("🤖 AI Kotib", "🤖 AI-секретарь"), "sb_out": ("🏁 Ketdim", "🏁 Ушёл"),
+    "sb_h": ("Xodimlar ham Telegram'da ishlaydi", "Сотрудники тоже работают в Telegram"),
+    "sb_p": ("Alohida ilova o'rnatish, o'rgatish shart emas. Restoranning o'z boti — har bir xodim faqat o'ziga keraklisini ko'radi.",
+             "Не нужно ставить и осваивать отдельное приложение. У ресторана свой бот — каждый сотрудник видит только своё."),
+    "sb_t1": ("<b>Davomat</b> — «Keldim / Ketdim», kechikishlar o'zi hisoblanadi", "<b>Посещаемость</b> — «Пришёл / Ушёл», опоздания считаются сами"),
+    "sb_t2": ("<b>Vazifalar</b> — muddat, eslatma; bajarilganini rasm bilan isbotlash", "<b>Задачи</b> — срок, напоминание; подтверждение фото"),
+    "sb_t3": ("<b>Kassa</b> — topshirilganda xabar keladi, «Qabul qildim» bitta bosishda", "<b>Касса</b> — уведомление о передаче, «Принял» в одно касание"),
+    "sb_t4": ("<b>Rahbar uchun</b> — ovozli savol, ertalabki hisobot, tasdiqlash tugmalari", "<b>Руководителю</b> — голосовые вопросы, утренний отчёт, кнопки подтверждения"),
+    # --- solishtirish
+    "cmp_h": ("Hozirgi dasturingiz bilan solishtiring", "Сравните с вашей текущей программой"),
+    "cmp_sub": ("Hozir ishlatayotgan dasturingizda bor narsalarni belgilang.", "Отметьте, что есть в программе, которой вы пользуетесь сейчас."),
+    "c1": ("Har sotilgan taom tex-karta bo'yicha ombordan o'zi ayiriladi", "Каждое проданное блюдо списывается со склада по техкарте"),
+    "c2": ("Oshxona ekrani — buyurtma darhol oshpazga", "Экран кухни — заказ сразу у повара"), "c3": ("Zal, stollar xaritasi va bron", "Зал, карта столов и бронь"),
+    "c4": ("Kassani sanab topshirish, farq nazorati, Telegram'da qabul", "Передача кассы с пересчётом, контроль расхождений, приём в Telegram"),
+    "c5": ("Xodimlar davomati Telegram orqali", "Посещаемость сотрудников через Telegram"), "c6": ("Har kuni ertalab rahbarga Telegram'da hisobot", "Каждое утро отчёт руководителю в Telegram"),
+    "c7": ("Ovoz bilan so'rasangiz, raqam bilan javob beradigan AI", "AI, который отвечает цифрами на голосовой вопрос"),
+    "c8": ("Bayram va ob-havoni hisobga olgan xarid prognozi", "Прогноз закупок с учётом праздников и погоды"), "c9": ("Restoranning o'z Telegram boti va sayti", "Собственный Telegram-бот и сайт ресторана"),
+    "c10": ("Server, domen va yangilanishlar narx ichida", "Сервер, домен и обновления включены в цену"),
+    "achv": ("Biz bilan bunga erishasiz", "С нами вы получите"),
+    "a1": ("Mahsulot tugashidan <em>2 kun oldin</em> bilasiz", "Узнаете о нехватке продукта <em>за 2 дня</em>"), "a2": ("Kassada farq bo'lsa — <em>darhol</em> Telegram'da", "Расхождение в кассе — <em>сразу</em> в Telegram"),
+    "a3": ("Har kuni ertalab hisobot <em>telefoningizda</em>", "Каждое утро отчёт <em>в вашем телефоне</em>"), "a4": ("Kim kechikdi — <em>bir qarashda</em>", "Кто опоздал — <em>с одного взгляда</em>"),
+    "a5": ("Ovoz bilan so'rang — <em>raqam bilan</em> javob", "Спросите голосом — ответ <em>цифрами</em>"), "a6": ("Xodimlar Telegram'da — <em>alohida ilova yo'q</em>", "Сотрудники в Telegram — <em>без отдельного приложения</em>"),
+    "sc_you": ("Sizning dasturingiz", "Ваша программа"), "sc_msg0": ("Belgilashni boshlang — farq shu yerda ko'rinadi.", "Начните отмечать — разница появится здесь."),
+    "move_h": ("Boshqa dasturdan o'tyapsizmi?", "Переходите с другой программы?"), "move_p": ("Menyu, mahsulotlar va xodimlar ro'yxatini biz ko'chirib beramiz", "Меню, продукты и список сотрудников перенесём мы"),
+    "move_free": (" — hozir bepul", " — сейчас бесплатно"), "move_p2": (". Ish to'xtamaydi.", ". Работа не останавливается."), "move_btn": ("O'tishni rejalashtirish", "Запланировать переход"),
+    # --- imkoniyatlar
+    "feat_h": ("Restoran uchun kerak bo'lgan hamma narsa", "Всё, что нужно ресторану"),
+    "feat_sub": ("Yigirmadan ortiq bo'lim — alohida dastur sotib olish, bir-biriga ulash shart emas.", "Больше двадцати разделов — не нужно покупать отдельные программы и связывать их между собой."),
+    "f1": ("Kassa va smena", "Касса и смена"), "f1p": ("Stol, olib ketish va yetkazish. Smena, Z-hisobot, kirim/chiqim.", "Стол, самовывоз и доставка. Смена, Z-отчёт, приход/расход."),
+    "f2": ("Oshxona ekrani", "Экран кухни"), "f2p": ("Buyurtma darhol oshxonaga. Kutish vaqti ranglar bilan, TV rejimi.", "Заказ сразу на кухню. Время ожидания цветом, режим TV."),
+    "f3": ("Ombor va tannarx", "Склад и себестоимость"), "f3p": ("Qoldiq, food cost, tugayotgan mahsulot ogohlantirishi, zakup va qarzlar.", "Остатки, food cost, предупреждения о заканчивающихся продуктах, закупки и долги."),
+    "f4": ("Xodimlar", "Сотрудники"), "f4p": ("Smena jadvali, davomat, KPI, vakansiya va ishga olish.", "График смен, посещаемость, KPI, вакансии и найм."),
+    "f5": ("Bot, sayt, TV menyu", "Бот, сайт, TV-меню"), "f5p": ("Restoranning o'z boti, Mini App, sayt va QR menyu.", "Собственный бот ресторана, Mini App, сайт и QR-меню."),
+    "f6": ("Hisobot va filiallar", "Отчёты и филиалы"), "f6p": ("Savdo, xarajat, foyda. Hamma filial bitta panelda.", "Продажи, расходы, прибыль. Все филиалы в одной панели."),
+    "f7": ("Vazifa va o'qitish", "Задачи и обучение"), "f7p": ("Muddat, rasm bilan isbot, o'z videolaringiz va testlar.", "Сроки, подтверждение фото, ваши видео и тесты."),
+    "f8": ("Kirish huquqlari", "Права доступа"), "f8p": ("Har kim faqat o'z bo'limi va filialini ko'radi, hamma o'zgarish tarixda.", "Каждый видит только свой раздел и филиал, все изменения в истории."),
+    "f9p": ("Ovozli savol, diagramma, ertalabki hisobot, tasdiq bilan buyruqlar.", "Голосовые вопросы, диаграммы, утренний отчёт, команды с подтверждением."),
+    # --- bir kun
+    "day_h": ("Restoraningizning bir kuni {platform} bilan", "Один день вашего ресторана с {platform}"),
+    "day_sub": ("Siz ishxonaga kelmasdan ham hammasi ko'z oldingizda. Har soat — o'z sahnasi, bosib ko'ring.", "Всё перед глазами, даже если вы не в ресторане. Каждый час — своя сцена, нажмите."),
+    "d1": ("Ertalabki hisobot", "Утренний отчёт"), "d1s": ("Telegram'ga keladi: kechagi savdo, kim kechikdi, nima tugayapti.", "Приходит в Telegram: вчерашние продажи, кто опоздал, что заканчивается."),
+    "d2": ("Bozorlik", "Закупка"), "d2s": ("Prognoz bayram va ob-havoni hisobga olib nima va qancha olishni aytadi.", "Прогноз с учётом праздников и погоды подскажет, что и сколько купить."),
+    "d3": ("Tushlik cho'qqisi", "Обеденный пик"), "d3s": ("Kassa, Telegram va saytdan buyurtmalar bitta oshxona ekraniga tushadi.", "Заказы с кассы, Telegram и сайта попадают на один экран кухни."),
+    "d4": ("Nazorat", "Контроль"), "d4s": ("Vazifa rasm bilan tasdiqlanadi, kechikkanlar o'zi ko'rinadi.", "Задача подтверждается фото, опоздавшие видны сами."),
+    "d5": ("Smena almashinuvi", "Пересменка"), "d5s": ("Kassir kassani sanab topshiradi, keyingisi Telegram'da qabul qiladi.", "Кассир пересчитывает и передаёт кассу, следующий принимает в Telegram."),
+    "d6": ("Kun yakuni", "Конец дня"), "d6s": ("Z-hisobot, foyda, eng ko'p sotilgan taomlar — ertalab yana Telegram'da.", "Z-отчёт, прибыль, самые продаваемые блюда — утром снова в Telegram."),
+    "s0_h": ("AI Kotib · ertalabki hisobot", "AI-секретарь · утренний отчёт"),
+    "s0_1": ("📊 <b>Kecha: 12,4 mln so'm</b> — 96 chek, o'rtacha 129 000. O'tgan dushanbadan <b>+12%</b>.", "📊 <b>Вчера: 12,4 млн сум</b> — 96 чеков, средний 129 000. К прошлому понедельнику <b>+12%</b>."),
+    "s0_2": ("⏰ <b>Kechikdi:</b> Jasur — 14 daqiqa.", "⏰ <b>Опоздал:</b> Жасур — 14 минут."), "s0_3": ("📦 <b>Tugayapti:</b> guruch — 2 kunga, yog' — 3 kunga.", "📦 <b>Заканчивается:</b> рис — на 2 дня, масло — на 3 дня."),
+    "s0_4": ("📅 <b>Bugun:</b> 3 ta bron (19:00 — 7-stol, 8 kishi), ta'minotchidan go'sht keladi.", "📅 <b>Сегодня:</b> 3 брони (19:00 — стол 7, 8 человек), поставщик привезёт мясо."),
+    "s0_b": ("7 kunlik savdo", "продажи за 7 дней"),
+    "s1_h": ("Bozorlik ro'yxati", "Список закупок"), "s1_d": ("Payshanba", "Четверг"), "s1_hot": ("Bayram arafasi · prognoz +18%", "Канун праздника · прогноз +18%"),
+    "i_rice": ("Guruch", "Рис"), "i_meat": ("Go'sht (mol)", "Мясо (говядина)"), "i_carrot": ("Sabzi", "Морковь"), "i_oil": ("Yog'", "Масло"), "i_tomato": ("Pomidor", "Помидоры"),
+    "kg": ("kg", "кг"), "l": ("l", "л"), "s1_total": ("Jami xarajat", "Итого расход"), "s1_note": ("o'sha zahoti xarajatga yoziladi", "сразу записывается в расходы"),
+    "s2_h": ("Oshxona ekrani va zal", "Экран кухни и зал"), "t1": ("#1051 · Stol 4", "#1051 · Стол 4"), "t1i": ("Osh ×2, choy", "Плов ×2, чай"),
+    "t2": ("#1052 · Olib ketish", "#1052 · Самовывоз"), "t2i": ("Lag'mon ×1, somsa ×3", "Лагман ×1, самса ×3"), "t3": ("#1053 · Stol 9", "#1053 · Стол 9"), "t3i": ("Shashlik ×4, salat", "Шашлык ×4, салат"),
+    "qr": ("QR menyu", "QR-меню"), "s2_hint": ("Uchala manbadan buyurtmalar bitta ekranda. Stollar xaritasida band joylar o'zi belgilanadi.", "Заказы из трёх источников на одном экране. Занятые столы отмечаются на карте сами."),
+    "s3_h": ("Vazifa nazorati", "Контроль задач"), "s3_t": ("Muzlatgichni tozalash", "Помыть холодильник"), "s3_s": ("Nodira · 15:00 gacha · rasm bilan isbot", "Нодира · до 15:00 · подтверждение фото"),
+    "st1": ("Berildi", "Назначена"), "st2": ("Bajarilmoqda", "Выполняется"), "st3": ("📷 Rasm", "📷 Фото"), "st4": ("✅ Tasdiqlandi", "✅ Подтверждена"),
+    "s3_photo": ("📷 2 ta rasm yuborildi", "📷 Отправлено 2 фото"), "s3_alert": ("⏰ Jasur 14 daqiqa kechikdi — eslatma Telegram'ga yuborildi", "⏰ Жасур опоздал на 14 минут — напоминание отправлено в Telegram"),
+    "s4_h": ("Kassa topshirish", "Передача кассы"), "s4_c": ("Sanaldi", "Пересчитано"), "s4_s": ("Tizimda", "В системе"), "s4_ok": ("Farq: 0 ✓", "Расхождение: 0 ✓"),
+    "s4_msg": ("✈️ Nodira: <b>✅ Qabul qildim</b> · 18:04", "✈️ Нодира: <b>✅ Приняла</b> · 18:04"),
+    "s5_h": ("Z-hisobot", "Z-отчёт"), "rev": ("Tushum", "Выручка"), "checks": ("Cheklar", "Чеки"), "avg": ("O'rtacha chek", "Средний чек"),
+    "osh": ("Osh", "Плов"), "lagmon": ("Lag'mon", "Лагман"), "shashlik": ("Shashlik", "Шашлык"), "s5_hint": ("Ertaga 08:30 da hammasi yana Telegram'ingizda.", "Завтра в 08:30 всё снова в вашем Telegram."),
+    # --- panel
+    "ch_h": ("Raqamlar o'zi gapiradi", "Цифры говорят сами"),
+    "dash_sub": ("Demo restoranning paneli. Sizniki ham shunday ko'rinadi — telefon, planshet yoki kompyuterda. Davrni almashtirib ko'ring.",
+               "Панель демо-ресторана. Ваша будет выглядеть так же — на телефоне, планшете или компьютере. Попробуйте переключить период."),
+    "live": ("jonli", "онлайн"), "tab7": ("7 kun", "7 дней"), "tab30": ("30 kun", "30 дней"), "tab90": ("90 kun", "90 дней"), "fc_note": ("me'yorda (28–35%)", "в норме (28–35%)"),
+    "ch_daily": ("Kunlik savdo", "Продажи по дням"), "ch_per": ("mln so'm · 30 kun", "млн сум · 30 дней"), "ch_pay": ("To'lov turlari", "Способы оплаты"), "share": ("ulush", "доля"),
+    "cash_": ("Naqd", "Наличные"), "card_": ("Karta", "Карта"), "br_u": ("mln so'm, oy", "млн сум, месяц"), "b1": ("Chilonzor", "Чиланзар"), "b2": ("Yunusobod", "Юнусабад"), "b3": ("Sergeli", "Сергели"),
+    "ch_top": ("Eng ko'p sotilgan", "Самые продаваемые"), "top_u": ("porsiya, oy", "порций, месяц"), "ch_line_label": ("Kunlik savdo chizig'i", "График продаж по дням"),
+    # --- narxlar
+    "pr_h": ("Oddiy narx. Hammasi ichida.", "Простая цена. Всё включено."),
+    "pr_sub": ("Birinchi {days} kun bepul, karta so'ralmaydi. Server, domen va yangilanishlar narx ichida — qo'shimcha to'lov yo'q.",
+               "Первые {days} {days_w} бесплатно, карта не нужна. Сервер, домен и обновления включены — без доплат."),
+    "promo_w": ("Aksiya:", "Акция:"), "plan1": ("Dastur", "Программа"), "plan1_d": ("Restoranning butun ishi — kassadan omborgacha.", "Вся работа ресторана — от кассы до склада."),
+    "perday": ("kuniga ≈", "в день ≈"), "coffee": (" — bir piyola kofedan arzon", " — дешевле чашки кофе"),
+    "p1_1": ("Kassa, smena va kassa topshirish", "Касса, смены и передача кассы"), "p1_2": ("Oshxona ekrani, zal, bron", "Экран кухни, зал, бронь"),
+    "p1_3": ("Taomnoma, tex-karta, ombor, zakup", "Меню, техкарты, склад, закупки"), "p1_4": ("Xodimlar, davomat, KPI, o'qitish", "Сотрудники, посещаемость, KPI, обучение"),
+    "p1_5": ("Vazifalar va loyihalar", "Задачи и проекты"), "p1_6": ("Telegram bot, sayt, TV menyu", "Telegram-бот, сайт, TV-меню"), "p1_7": ("Hisobotlar va ko'p filial", "Отчёты и филиалы"),
+    "badge": ("Ko'proq tanlanadi", "Выбирают чаще"), "plan2": ("Dastur +", "Программа +"), "plan2_d": ("Hammasi va sizning shaxsiy AI yordamchingiz.", "Всё это плюс ваш личный AI-помощник."),
+    "p2_1": ("«Dastur»dagi hamma narsa", "Всё из «Программы»"), "p2_2": ("Ovozli buyruq: Telegram va saytda", "Голосовые команды: в Telegram и на сайте"), "p2_3": ("Har kuni ertalab hisobot", "Отчёт каждое утро"),
+    "p2_4": ("Diagrammalar va tahlil", "Диаграммы и аналитика"), "p2_5": ("Internetdan narx va trend qidiruvi", "Поиск цен и трендов в интернете"), "p2_6": ("Vazifa berish, ruxsat, stop-list — tasdiq bilan", "Задачи, доступы, стоп-лист — с подтверждением"),
+    "incl_h": ("Narx ichida — qo'shimcha to'lov yo'q", "Включено в цену — без доплат"), "incl": ("Narx ichida", "Включено в цену"),
+    "migr": ("Boshqa dasturdan ma'lumotlarni ko'chirish — bepul", "Перенос данных из другой программы — бесплатно"),
+    # --- savollar
+    "faq_h": ("Ko'p beriladigan savollar", "Частые вопросы"), "help_h": ("Savolingiz bormi?", "Есть вопрос?"),
+    "help_p": ("AI maslahatchi kechayu kunduz javob beradi — yozing, gapiring yoki menyu rasmini yuboring.", "AI-консультант отвечает круглосуточно — напишите, скажите голосом или отправьте фото меню."),
+    "help_ai": ("AI'dan so'rash", "Спросить AI"), "help_call": ("Mutaxassis qo'ng'irog'i", "Звонок специалиста"),
+    "q1": ("Bepul davrdan keyin nima bo'ladi?", "Что после бесплатного периода?"),
+    "a1q": ("{days} kun ichida hamma imkoniyat ochiq. Keyin tarifni tanlaysiz — {cur}{base} yoki AI bilan {cur}{ai} oyiga. Davom ettirmasangiz, hech narsa to'lamaysiz.",
+            "В течение {days} {days_w} открыты все возможности. Потом выбираете тариф — {cur}{base} или {cur}{ai} с AI в месяц. Не продолжите — ничего не платите."),
+    "q2": ("Boshqa dasturdan o'tish qiyinmi?", "Сложно ли перейти с другой программы?"),
+    "a2a": ("Yo'q. Menyu, mahsulotlar va xodimlar ro'yxatini biz ko'chirib beramiz", "Нет. Меню, продукты и список сотрудников перенесём мы"), "a2f": (" (hozir bepul)", " (сейчас бесплатно)"),
+    "a2b": (". Bir necha kun ikkalasini parallel ishlatib, keyin to'liq o'tasiz — ish to'xtamaydi.", ". Несколько дней работаете в обеих параллельно, потом переходите полностью — работа не останавливается."),
+    "q3": ("Server va domen uchun alohida to'lash kerakmi?", "Нужно ли отдельно платить за сервер и домен?"),
+    "a3q": ("Yo'q. Server, domen, SSL (https), har kungi zaxira nusxa va yangilanishlar narx ichida.", "Нет. Сервер, домен, SSL (https), ежедневные резервные копии и обновления включены в цену."),
+    "q4": ("Ulash va sozlashni kim qiladi?", "Кто подключает и настраивает?"), "a4f": ("Biz. Hozir aksiya: {setup_lower}.", "Мы. Сейчас акция: {setup_lower}."),
+    "a4q": ("Biz yordam beramiz: menyuni kiritish, xodimlarni qo'shish va o'rgatish.", "Мы поможем: ввести меню, добавить сотрудников и обучить."),
+    "q5": ("Qaysi qurilmada ishlaydi?", "На каких устройствах работает?"),
+    "a5q": ("Brauzer bor har qanday qurilmada: telefon, planshet, kompyuter va TV. Alohida dastur o'rnatish shart emas.", "На любом устройстве с браузером: телефон, планшет, компьютер и TV. Отдельную программу ставить не нужно."),
+    "q6": ("Bir nechta filial bo'lsa-chi?", "А если несколько филиалов?"), "a6q": ("Hammasi bitta panelda. Siz barcha filiallarni ko'rasiz, filial menejeri esa faqat o'z filialini.", "Всё в одной панели. Вы видите все филиалы, менеджер филиала — только свой."),
+    "q7": ("Ma'lumotlarim xavfsizmi?", "Мои данные в безопасности?"),
+    "a7q": ("Har restoranning ma'lumoti alohida bazada. Har xodim faqat o'ziga ruxsat berilgan bo'limni ko'radi, har o'zgarish tarixda saqlanadi.",
+            "Данные каждого ресторана в отдельной базе. Каждый сотрудник видит только разрешённые разделы, каждое изменение сохраняется в истории."),
+    "q8": ("AI Kotib o'zboshimchalik qilmaydimi?", "AI-секретарь не наделает самодеятельности?"),
+    "a8q": ("Yo'q. U faqat o'qiydi va tavsiya beradi. Biror narsani o'zgartirishi kerak bo'lsa, avval sizdan «Tasdiqlaysizmi?» deb so'raydi. Pul va kassaga umuman tegmaydi.",
+            "Нет. Он только читает и советует. Если нужно что-то изменить, сначала спросит «Подтверждаете?». К деньгам и кассе не прикасается."),
+    "q9": ("Fiskal kassa va Payme/Click bormi?", "Есть фискальная касса и Payme/Click?"),
+    "a9q": ("Rejada. Kerak bo'lsa, sizning restoraningiz uchun ulab beramiz — AI maslahatchidan yoki telefon orqali so'rang.", "В планах. Если нужно — подключим для вашего ресторана, спросите у AI-консультанта или по телефону."),
+    # --- yakun
+    "fin_h": ("Restoraningizni bugun ulab beramiz", "Подключим ваш ресторан сегодня"),
+    "fin_p": ("Raqamingizni qoldiring — mutaxassisimiz qo'ng'iroq qilib, hammasini ko'rsatadi. Yoki o'zingiz hoziroq bepul boshlang.", "Оставьте номер — наш специалист позвонит и всё покажет. Или начните бесплатно прямо сейчас."),
+    "f_name": ("Ismingiz", "Ваше имя"), "f_name_ph": ("Aziz", "Азиз"), "f_phone": ("Telefon", "Телефон"), "f_rest": ("Restoran", "Ресторан"), "f_rest_ph": ("Nomi, nechta filial", "Название, сколько филиалов"),
+    "f_btn": ("Qo'ng'iroq kutaman", "Жду звонка"), "f_self": ("O'zim boshlayman", "Начну сам"),
+    "foot": ("Restoran, kafe va fast-food uchun boshqaruv tizimi. O'zbekistonda yaratilgan.", "Система управления для ресторанов, кафе и фастфуда. Создана в Узбекистане."),
+    "lg_h": ("Restoraningiz paneliga kirish", "Вход в панель ресторана"), "lg_p": ("Restoraningiz manzilini yozing — panel ochiladi, u yerda telefon va parol bilan kirasiz.", "Введите адрес ресторана — откроется панель, там войдёте по телефону и паролю."),
+    "lg_slug": ("Restoran manzili", "Адрес ресторана"), "cancel": ("Bekor", "Отмена"), "lg_go": ("Panelni ochish", "Открыть панель"),
+    # --- AI maslahatchi
+    "aic_hint": ("<b>Salom! 👋</b> Men AI maslahatchiman. Restoraningiz haqida so'rang — yozing, 🎙 gapiring yoki rasm yuboring.", "<b>Привет! 👋</b> Я AI-консультант. Спросите о своём ресторане — напишите, 🎙 скажите голосом или отправьте фото."),
+    "aic_fab": ("AI maslahatchi bilan gaplashish", "Поговорить с AI-консультантом"), "aic_name": ("AI maslahatchi", "AI-консультант"), "aic_online": ("onlayn · javob beradi", "онлайн · отвечает"),
+    "aic_title": ("{platform} AI maslahatchi", "AI-консультант {platform}"), "aic_st": ("onlayn · matn, ovoz yoki rasm", "онлайн · текст, голос или фото"), "aic_new": ("Yangi suhbat", "Новый разговор"),
+    "aic_greet": ("Salom! 👋 Men {platform} bo'yicha AI maslahatchiman. Restoraningiz haqida qisqacha ayting — sizga nima foydali ekanini ko'rsataman. Menyu yoki zal rasmini yuborishingiz, 🎙 ovozli xabar qoldirishingiz ham mumkin.",
+                  "Привет! 👋 Я AI-консультант по {platform}. Коротко расскажите о своём ресторане — покажу, что будет полезно именно вам. Можно отправить фото меню или зала, 🎙 или оставить голосовое."),
+    "sug1": ("Narxi qancha va ichida nima bor?", "Сколько стоит и что входит?"), "sug2": ("Kassir pulni yashirsa, qanday bilaman?", "Как узнать, если кассир прячет деньги?"),
+    "sug3": ("AI Kotib nima qila oladi?", "Что умеет AI-секретарь?"), "sug4": ("3 ta filialim bor — mos keladimi?", "У меня 3 филиала — подойдёт?"),
+    "img_rm": ("Rasmni olib tashlash", "Убрать фото"), "attach": ("Rasm yuborish", "Отправить фото"), "recording": ("Yozilmoqda…", "Запись…"), "rec_cancel": ("Bekor qilish", "Отменить"),
+    "q_ph": ("Savolingizni yozing…", "Напишите вопрос…"), "q_label": ("Savol", "Вопрос"), "mic": ("Ovozli xabar", "Голосовое сообщение"), "mic_label": ("Ovozli xabar yozish", "Записать голосовое"), "send": ("Yuborish", "Отправить"),
+    "aic_note": ("Suhbat xizmat sifati uchun saqlanadi. Telefoningizni faqat o'zingiz qoldirsangiz bog'lanamiz.", "Разговор сохраняется для качества сервиса. Свяжемся, только если вы сами оставите номер."),
+    # --- ro'yxatdan o'tish sahifasi
+    "su_title": ("Bepul boshlash — {platform}", "Начать бесплатно — {platform}"), "su_h": ("Restoraningizni bugun ishga tushiring", "Запустите свой ресторан сегодня"),
+    "su_p": ("Restoran turini tanlang — bo'limlar, sayt va Telegram bot tayyor holda o'rnatiladi. Keyin hammasini panelda o'zingiz o'zgartirasiz.",
+             "Выберите тип ресторана — разделы, сайт и Telegram-бот будут настроены сразу. Потом всё меняется в панели."),
+    "su_l1": ("Birinchi {days} kun bepul, karta so'ralmaydi", "Первые {days} {days_w} бесплатно, карта не нужна"), "su_l3": ("Server, domen va yangilanishlar narx ichida", "Сервер, домен и обновления включены в цену"),
+    "su_name": ("Restoran nomi", "Название ресторана"), "su_addr": ("Manzil", "Адрес"), "su_phone": ("Telefoningiz", "Ваш телефон"), "su_owner": ("Ismingiz", "Ваше имя"), "su_owner_ph": ("Akmal", "Акмал"),
+    "su_type": ("Restoran turi", "Тип ресторана"), "su_btn": ("Restoranni yaratish", "Создать ресторан"), "su_wait": ("Restoran yaratilmoqda — 5–15 soniya…", "Создаём ресторан — 5–15 секунд…"),
+    "su_fail": ("Yaratib bo'lmadi", "Не удалось создать"), "su_ok": ("Tayyor! Panel:", "Готово! Панель:"), "su_ok2": ("Telefon raqamingiz bilan kiring.", "Войдите по номеру телефона."), "su_net": ("Server bilan aloqa yo'q", "Нет связи с сервером"),
+}
+
+# JS uchun matnlar (sahna, kassa, atom, panel, chat)
+J: dict[str, tuple] = {
+    "days": ("kun", "дней"), "mln": ("mln", "млн"), "sum": (" so'm", " сум"), "prev": ("oldingi davrga", "к прошлому периоду"), "kg": ("kg", "кг"),
+    "mon": (["yan", "fev", "mar", "apr", "may", "iyun", "iyul", "avg", "sen", "okt", "noy", "dek"], ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"]),
+    "typing": ("yozmoqda…", "печатает…"), "bot_st": ("restoran boti", "бот ресторана"), "accepted": ("✅ Qabul qilindi · 18:04", "✅ Принято · 18:04"),
+    "sc_low": ("Ko'p ish hali qo'lda yoki alohida dasturlarda. {p}da bularning hammasi bitta tizimda.", "Многое ещё вручную или в разных программах. В {p} всё это в одной системе."),
+    "sc_mid": ("Yaxshi! Qolgan {n} tasi uchun alohida dastur yoki qo'l mehnati kerak bo'lyapti — {p}da hammasi bor.", "Хорошо! Для остальных {n} нужны отдельные программы или ручная работа — в {p} есть всё."),
+    "sc_high": ("Zo'r dastur! Endi narxni solishtiring: {p}da server, domen va yangilanishlar narx ichida.", "Отличная программа! Теперь сравните цену: в {p} сервер, домен и обновления включены."),
+    "sc_zero": ("Belgilashni boshlang — farq shu yerda ko'rinadi.", "Начните отмечать — разница появится здесь."),
+    # hero suhbati
+    "h_q1": ("🗣 «Kecha savdo qanday bo'ldi?»", "🗣 «Как вчера прошли продажи?»"),
+    "h_a1": ("<b>📊 Kecha: 12,4 mln so'm</b> — 96 chek, o'rtacha chek 129 000.<br>O'tgan dushanbadan <b>+12%</b>. Eng ko'p: Osh (64), Lag'mon (41).", "<b>📊 Вчера: 12,4 млн сум</b> — 96 чеков, средний чек 129 000.<br>К прошлому понедельнику <b>+12%</b>. Лидеры: плов (64), лагман (41)."),
+    "h_bars": ("7 kunlik savdo · shanba eng yaxshi kun", "продажи за 7 дней · суббота — лучший день"),
+    "h_a1b": ("<b>🎯 Tavsiya:</b> guruch 2 kunga yetadi — bugun buyurtma bering.", "<b>🎯 Совет:</b> риса хватит на 2 дня — закажите сегодня."),
+    "h_q2": ("Omborda nima tugayapti?", "Что заканчивается на складе?"),
+    "h_a2": ("🔴 <b>Guruch</b> — 2 kunga yetadi<br>🟠 <b>Kungaboqar yog'i</b> — 3 kunga<br>🟠 <b>Pomidor</b> — 3 kunga<br>🟢 Go'sht va un — yetarli", "🔴 <b>Рис</b> — на 2 дня<br>🟠 <b>Подсолнечное масло</b> — на 3 дня<br>🟠 <b>Помидоры</b> — на 3 дня<br>🟢 Мясо и мука — достаточно"),
+    "h_q3": ("🗣 «Mantini bugunga stop-listga qo'y»", "🗣 «Поставь манты в стоп-лист на сегодня»"),
+    "h_a3": ("🛑 <b>Manti</b> stop-listga qo'yiladi — bugun kassa va saytda ko'rinmaydi.<br>Tasdiqlaysizmi?", "🛑 <b>Манты</b> уйдут в стоп-лист — сегодня не будут видны в кассе и на сайте.<br>Подтверждаете?"),
+    "h_ok": ("✅ Tasdiqlash", "✅ Подтвердить"), "h_no": ("✖️ Bekor", "✖️ Отмена"),
+    "h_a3b": ("✅ Bajarildi — Manti stop-listda. Ertaga o'zim eslataman.", "✅ Готово — манты в стоп-листе. Завтра сам напомню."),
+    "h_q4": ("Qaysi filial yaxshi ishlayapti?", "Какой филиал работает лучше?"), "h_a4": ("<b>Shu oy savdo, mln so'm:</b>", "<b>Продажи за месяц, млн сум:</b>"),
+    "h_a4b": ("💡 Sergeli'da o'rtacha chek boshqalardan <b>18%</b> past — kechki menyuni ko'rib chiqish kerak.", "💡 В Сергели средний чек на <b>18%</b> ниже остальных — стоит пересмотреть вечернее меню."),
+    "h_q5": ("🗣 «Bugun kim kechikdi?»", "🗣 «Кто сегодня опоздал?»"),
+    "h_a5": ("⏰ <b>2 kishi kechikdi:</b><br>Jasur — 09:14 (+14 daq)<br>Malika — 09:06 (+6 daq)<br>Qolgan 11 kishi vaqtida keldi.", "⏰ <b>Опоздали двое:</b><br>Жасур — 09:14 (+14 мин)<br>Малика — 09:06 (+6 мин)<br>Остальные 11 пришли вовремя."),
+    "b1": ("Chilonzor", "Чиланзар"), "b2": ("Yunusobod", "Юнусабад"), "b3": ("Sergeli", "Сергели"),
+    # kassa zanjiri
+    "sale_items": ([["Osh, choyxona ×2", "Achchiq-chuchuk", "Non ×2"], ["Shashlik (qo'y) ×6", "Lag'mon ×2", "Kompot ×2"], ["Manti ×10", "Sho'rva ×2", "Choy"]],
+                   [["Плов чайханский ×2", "Аччик-чучук", "Лепёшка ×2"], ["Шашлык (баранина) ×6", "Лагман ×2", "Компот ×2"], ["Манты ×10", "Шурпа ×2", "Чай"]]),
+    "sale_stock": (["Guruch", "Go'sht", "Un"], ["Рис", "Мясо", "Мука"]), "sale_tkt": (["Osh ×2, achchiq-chuchuk", "Shashlik ×6, lag'mon ×2", "Manti ×10, sho'rva ×2"], ["Плов ×2, аччик-чучук", "Шашлык ×6, лагман ×2", "Манты ×10, шурпа ×2"]),
+    "deducted": (["−0,4 kg ayirildi", "−1,2 kg ayirildi", "−1,5 kg ayirildi"], ["−0,4 кг списано", "−1,2 кг списано", "−1,5 кг списано"]), "disc": ("Chegirma", "Скидка"),
+    # atom
+    "mods": (["Kassa", "Oshxona", "Ombor", "Zakup", "Xodimlar", "Telegram", "Sayt", "Bron", "Mijozlar", "Hisobotlar", "Filiallar", "AI Kotib"],
+             ["Касса", "Кухня", "Склад", "Закупки", "Сотрудники", "Telegram", "Сайт", "Бронь", "Клиенты", "Отчёты", "Филиалы", "AI-секретарь"]),
+    "events": ([["Chek #1047 — 92 000 so'm", "Smena ochildi", "Kassa topshirildi, farq yo'q"], ["Buyurtma #1047 tushdi", "#1045 tayyor — 6:40 da", "Stol 4: Osh ×2"],
+                ["Guruch −0,4 kg", "Qoldiq yangilandi", "Yog' tugayapti — ogohlantirish"], ["Bozorlik: 1 840 000 so'm", "Ta'minotchiga buyurtma", "Qarz to'landi"],
+                ["Nodira keldi — 08:57", "Jasur: 27 chek", "Smena jadvali saqlandi"], ["Vazifa yuborildi", "«Keldim» qabul qilindi", "Kassa qabul tasdiqlandi"],
+                ["QR menyudan buyurtma", "Stop-list yangilandi", "Menyu e'lon qilindi"], ["Stol 7 — 19:00 bron", "Bron tasdiqlandi", "Zalda 3 ta bo'sh stol"],
+                ["+840 bonus yozildi", "Yangi mijoz", "Xabar tarqatildi"], ["Foyda qayta hisoblandi", "Z-hisobot saqlandi", "Food cost: 29%"],
+                ["Chilonzor yangilandi", "Sergeli: smena yopildi", "Narxlar sinxronlandi"], ["Ertalabki hisobot yuborildi", "«Kecha qancha savdo?» — javob", "Diagramma chizildi"]],
+               [["Чек #1047 — 92 000 сум", "Смена открыта", "Касса передана, расхождений нет"], ["Поступил заказ #1047", "#1045 готов — за 6:40", "Стол 4: плов ×2"],
+                ["Рис −0,4 кг", "Остатки обновлены", "Масло заканчивается — предупреждение"], ["Закупка: 1 840 000 сум", "Заказ поставщику", "Долг оплачен"],
+                ["Нодира пришла — 08:57", "Жасур: 27 чеков", "График смен сохранён"], ["Задача отправлена", "«Пришёл» принято", "Приём кассы подтверждён"],
+                ["Заказ из QR-меню", "Стоп-лист обновлён", "Меню опубликовано"], ["Стол 7 — бронь на 19:00", "Бронь подтверждена", "В зале 3 свободных стола"],
+                ["+840 бонусов начислено", "Новый клиент", "Рассылка отправлена"], ["Прибыль пересчитана", "Z-отчёт сохранён", "Food cost: 29%"],
+                ["Чиланзар обновлён", "Сергели: смена закрыта", "Цены синхронизированы"], ["Утренний отчёт отправлен", "«Сколько продали вчера?» — ответ", "Диаграмма построена"]]),
+    # chat
+    "c_short": ("Juda qisqa yozildi — 🎙 ni bosib gapiring, tugatgach yana bosing.", "Слишком коротко — нажмите 🎙, скажите, затем нажмите ещё раз."),
+    "c_mic_denied": ("Mikrofonga ruxsat berilmadi — brauzer sozlamasida ruxsat bering yoki yozib yuboring.", "Нет доступа к микрофону — разрешите в настройках браузера или напишите текстом."),
+    "c_listen": ("🎙 <i>Eshityapman…</i>", "🎙 <i>Слушаю…</i>"), "c_voice_err": ("Ovozni o'qib bo'lmadi", "Не удалось распознать голос"), "c_no_answer": ("Javob olib bo'lmadi", "Не удалось получить ответ"),
+    "c_empty": ("⚠️ Javob kelmadi — qayta urinib ko'ring", "⚠️ Ответ не пришёл — попробуйте ещё раз"), "c_stopped": ("⏹ To'xtatildi", "⏹ Остановлено"), "c_err": ("Xato", "Ошибка"),
+    "c_sent_img": ("(rasm yubordi)", "(отправил фото)"), "c_lead_ok": ("✅ Arizangiz qabul qilindi — mutaxassisimiz tez orada bog'lanadi.", "✅ Заявка принята — наш специалист скоро свяжется."),
+    "c_lead_h": ("📞 Mutaxassis bepul ko'rsatib bersinmi?", "📞 Показать систему бесплатно?"), "c_lead_p": ("10 daqiqada restoraningizga moslab ko'rsatamiz. Raqamingizni faqat shu uchun ishlatamiz.", "За 10 минут покажем на примере вашего ресторана. Номер используем только для этого."),
+    "c_name": ("Ismingiz", "Ваше имя"), "c_call": ("Qo'ng'iroq qilinsin", "Позвоните мне"), "c_later": ("Keyinroq", "Позже"),
+    "c_thanks": ("✅ Rahmat! Mutaxassisimiz tez orada qo'ng'iroq qiladi.", "✅ Спасибо! Наш специалист скоро позвонит."), "c_phone": ("Telefon raqamini to'liq yozing", "Введите номер телефона полностью"),
+    "c_send_fail": ("Yuborib bo'lmadi", "Не удалось отправить"), "c_form_ok": ("Rahmat! Mutaxassisimiz tez orada qo'ng'iroq qiladi.", "Спасибо! Наш специалист скоро позвонит."), "c_retry": ("Xato — qayta urinib ko'ring", "Ошибка — попробуйте ещё раз"),
+    "c_stop": ("To'xtatish", "Остановить"), "c_send": ("Yuborish", "Отправить"), "c_online": ("onlayn · matn, ovoz yoki rasm", "онлайн · текст, голос или фото"), "c_image_alt": ("Yuborilgan rasm", "Отправленное фото"),
+}
+
+
+def ru_days(n: int) -> str:
+    n = abs(int(n))
+    if n % 10 == 1 and n % 100 != 11:
+        return "день"
+    if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
+        return "дня"
+    return "дней"
+
+
+class _Safe(dict):
+    def __missing__(self, k):
+        return "{" + k + "}"
+
+
+def norm(lang: str | None) -> str:
+    return "ru" if (lang or "").lower().startswith("ru") else "uz"
+
+
+def strings(lang: str, **ctx) -> dict[str, str]:
+    i = 1 if norm(lang) == "ru" else 0
+    ctx.setdefault("days_w", ru_days(ctx.get("days", 30)) if i else "kun")
+    out = {}
+    for k, v in S.items():
+        s = v[i]
+        out[k] = s.format_map(_Safe(ctx)) if "{" in s else s
+    return out
+
+
+def js_strings(lang: str) -> dict:
+    i = 1 if norm(lang) == "ru" else 0
+    return {k: v[i] for k, v in J.items()}

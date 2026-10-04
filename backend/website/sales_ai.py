@@ -103,9 +103,13 @@ def offer_text(platform: str) -> str:
                           includes="; ".join(o.includes or []) or "server, domen, yangilanishlar, qo'llab-quvvatlash", contact=contact)
 
 
-def system(platform: str) -> str:
+LANG_RULE = {"ru": "Sayt rus tilida ochilgan: javoblarni RUS tilida yoz (mehmon boshqa tilda yozsa — o'sha tilda). Narx va ro'yxatlarni ruscha tushuntir.",
+             "uz": "Sayt o'zbek tilida ochilgan: standart javob tili — o'zbek (mehmon rus yoki ingliz tilida yozsa — o'sha tilda)."}
+
+
+def system(platform: str, lang: str = "uz") -> str:
     now = timezone.localtime()
-    return RULES.format(platform=platform) + f"\nBugun: {now:%Y-%m-%d}.\n\n" + offer_text(platform)
+    return RULES.format(platform=platform) + "\n8. " + LANG_RULE.get(lang, LANG_RULE["uz"]) + f"\nBugun: {now:%Y-%m-%d}.\n\n" + offer_text(platform)
 
 
 # ------------------------------------------------------------------ cheklovlar
@@ -158,7 +162,7 @@ def _history(history) -> list[dict]:
     return out
 
 
-def _save_lead(request, args: dict, source: str = "ai_chat") -> dict:
+def _save_lead(request, args: dict, source: str = "ai_chat", target: tuple | None = None) -> dict:
     from core.phone import normalize_uz
     from public.models import Lead
     phone = str(args.get("phone") or "").strip()
@@ -178,21 +182,34 @@ def _save_lead(request, args: dict, source: str = "ai_chat") -> dict:
     if not created:
         lead.note = (lead.note + "\n" + str(args.get("note") or "")).strip()[:2000]
         lead.save(update_fields=["note"])
-    _notify(lead)
+    _notify(lead, target)
     return {"ok": True, "saved": True}
 
 
-def _notify(lead) -> None:
-    """Platforma jamoasiga Telegram (ixtiyoriy): .env PLATFORM_TG_CHAT va TELEGRAM_BOT_TOKEN bo'lsa."""
-    chat, tok = os.environ.get("PLATFORM_TG_CHAT", "").strip(), os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+def notify_chat() -> tuple[str, str]:
+    """Bildirishnoma qayerga: HQ → «Sayt va narxlar» → chat ID (yoki .env PLATFORM_TG_CHAT); token — .env TELEGRAM_BOT_TOKEN."""
+    from public.models import SiteOffer
+    saved = SiteOffer.objects.order_by("pk").values_list("lead_chat", flat=True).first() or ""   # yaratmaydi (oqim ipida ham xavfsiz)
+    chat = (saved or os.environ.get("PLATFORM_TG_CHAT", "")).strip()
+    return chat, os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+
+
+def notify(text: str, target: tuple | None = None) -> bool:
+    """Platforma egasiga Telegram xabar (ariza, ro'yxatdan o'tish). Sozlanmagan bo'lsa — jim. target — so'rov ipida olingan (chat, token)."""
+    chat, tok = target or notify_chat()
     if not (chat and tok):
-        return
+        return False
     try:
         from integrations.telegram import call
-        call("sendMessage", {"chat_id": chat, "parse_mode": "HTML",
-                             "text": f"🆕 <b>Saytdan ariza</b>\n👤 {lead.name or '—'}\n📞 {lead.phone}\n🏪 {lead.business or '—'}\n📝 {lead.note or '—'}"}, tok)
+        return bool(call("sendMessage", {"chat_id": chat, "parse_mode": "HTML", "text": text}, tok))
     except Exception:
-        log.exception("lead notify")
+        log.exception("tg notify")
+        return False
+
+
+def _notify(lead, target: tuple | None = None) -> None:
+    src = {"ai_chat": "🤖 AI maslahatchi", "form": "📝 forma"}.get(lead.source, lead.source)
+    notify(f"🆕 <b>Saytdan ariza</b> ({src})\n👤 {lead.name or '—'}\n📞 {lead.phone}\n🏪 {lead.business or '—'}\n📝 {lead.note or '—'}", target)
 
 
 def _session(request, sid: str):
@@ -253,7 +270,7 @@ def ask(request, question: str, *, history=None, image: str = "", on_text=None, 
             contents.append({"role": "model", "parts": (res["data"]["candidates"][0].get("content") or {}).get("parts") or []})
             outs = []
             for c in calls[:2]:
-                r = _save_lead(request, c.get("args") or {}) if c.get("name") == "save_lead" else {"error": "noma'lum asbob"}
+                r = _save_lead(request, c.get("args") or {}, target=getattr(tenant, "notify", None)) if c.get("name") == "save_lead" else {"error": "noma'lum asbob"}
                 lead_saved = lead_saved or bool(r.get("saved"))
                 resp = {"name": c.get("name"), "response": {"result": r}}
                 if c.get("id"):

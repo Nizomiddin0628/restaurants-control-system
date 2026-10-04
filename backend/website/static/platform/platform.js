@@ -10,6 +10,8 @@
   const fmt = (n) => Math.round(n).toLocaleString('ru-RU').replace(/[\s,]/g, ' ')
   const sleep = (ms) => new Promise(r => setTimeout(r, ms))
   const css = (name) => getComputedStyle(root).getPropertyValue(name).trim()
+  let I18N = { lang: 'uz', s: {} }; try { I18N = JSON.parse($('#rpI18n')?.textContent || '{}') } catch { /* uz */ }
+  const S = I18N.s || {}, LANG = I18N.lang || 'uz', T = (k, d) => S[k] ?? d
   // silliq raqam: eski qiymatdan yangisiga easeOut bilan
   const tween = (el, to, { dur = 900, prefix = '', suffix = '', from } = {}) => {
     if (!el) return
@@ -123,43 +125,44 @@
     const enter = (d) => { if (!reduce) d.animate([{ opacity: 0, transform: 'translateY(14px) scale(.97)' }, { opacity: 1, transform: 'none' }], { duration: 560, easing: 'cubic-bezier(.2,.8,.2,1)' }) }
     const el = (cls, html) => { const d = document.createElement('div'); d.className = 'msg ' + cls; d.innerHTML = html; return d }
     const say = (cls, html) => { const d = el(cls, html); flip(() => pb.appendChild(d)); enter(d); return d }
-    const status = (t) => { st.textContent = t ? 'yozmoqda…' : 'restoran boti'; st.classList.toggle('typing-st', !!t) }
+    const status = (t) => { st.textContent = t ? T('typing', 'yozmoqda…') : T('bot_st', 'restoran boti'); st.classList.toggle('typing-st', !!t) }
     const think = () => { status(true); return say('ai typing', '<span></span><span></span><span></span>') }
     const answer = (t, html) => { const d = el('ai', html); flip(() => t.replaceWith(d)); enter(d); status(false); return d }
     const grow = (d) => setTimeout(() => $('.mbars, .mhb', d)?.classList.add('in'), 120)
     const voice = (sec) => say('me v', '<span class="play"></span><span class="wave" aria-hidden="true">' + '<i></i>'.repeat(16) + `</span><em>0:0${sec}</em>`)
-    const bars = '<div class="mbars">' + [.45, .6, .4, .75, .62, 1, .85].map((h, i) => `<i style="--h:${h};transition-delay:${i * 70}ms"${i === 5 ? ' class="hl"' : ''}></i>`).join('') + '</div><small>7 kunlik savdo · shanba eng yaxshi kun</small>'
+    const H = (k) => T(k, '')
+    const bars = '<div class="mbars">' + [.45, .6, .4, .75, .62, 1, .85].map((h, i) => `<i style="--h:${h};transition-delay:${i * 70}ms"${i === 5 ? ' class="hl"' : ''}></i>`).join('') + '</div><small>' + T('h_bars', '7 kunlik savdo · shanba eng yaxshi kun') + '</small>'
     const scenes = [
       async () => {
-        voice(6); await wait(900); say('me tr', '🗣 «Kecha savdo qanday bo\'ldi?»'); await wait(500)
+        voice(6); await wait(900); say('me tr', H('h_q1')); await wait(500)
         const t = think(); await light(['kassa', 'rep']); await wait(500)
-        answer(t, '<b>📊 Kecha: 12,4 mln so\'m</b> — 96 chek, o\'rtacha chek 129 000.<br>O\'tgan dushanbadan <b>+12%</b>. Eng ko\'p: Osh (64), Lag\'mon (41).'); await wait(1200)
+        answer(t, H('h_a1')); await wait(1200)
         grow(say('ai', bars)); await wait(1800)
         const t2 = think(); await light(['stock']); await wait(400)
-        answer(t2, '<b>🎯 Tavsiya:</b> guruch 2 kunga yetadi — bugun buyurtma bering.')
+        answer(t2, H('h_a1b'))
       },
       async () => {
-        say('me', 'Omborda nima tugayapti?'); await wait(600)
+        say('me', H('h_q2')); await wait(600)
         const t = think(); await light(['stock']); await wait(500)
-        answer(t, '🔴 <b>Guruch</b> — 2 kunga yetadi<br>🟠 <b>Kungaboqar yog\'i</b> — 3 kunga<br>🟠 <b>Pomidor</b> — 3 kunga<br>🟢 Go\'sht va un — yetarli')
+        answer(t, H('h_a2'))
       },
       async () => {
-        voice(4); await wait(900); say('me tr', '🗣 «Mantini bugunga stop-listga qo\'y»'); await wait(500)
+        voice(4); await wait(900); say('me tr', H('h_q3')); await wait(500)
         const t = think(); await light(['kds', 'kassa']); await wait(400)
-        const a = answer(t, '🛑 <b>Manti</b> stop-listga qo\'yiladi — bugun kassa va saytda ko\'rinmaydi.<br>Tasdiqlaysizmi?<div class="mbtns"><span>✅ Tasdiqlash</span><span>✖️ Bekor</span></div>')
+        const a = answer(t, H('h_a3') + '<div class="mbtns"><span>' + H('h_ok') + '</span><span>' + H('h_no') + '</span></div>')
         await wait(1900); $('.mbtns span', a)?.classList.add('tap'); await wait(800)
-        answer(think(), '✅ Bajarildi — Manti stop-listda. Ertaga o\'zim eslataman.')
+        answer(think(), H('h_a3b'))
       },
       async () => {
-        say('me', 'Qaysi filial yaxshi ishlayapti?'); await wait(600)
+        say('me', H('h_q4')); await wait(600)
         const t = think(); await light(['rep', 'kassa']); await wait(400)
-        grow(answer(t, '<b>Shu oy savdo, mln so\'m:</b><div class="mhb"><span>Chilonzor<i style="--v:1"></i><em>412</em></span><span>Yunusobod<i style="--v:.86"></i><em>356</em></span><span>Sergeli<i style="--v:.58"></i><em>241</em></span></div>')); await wait(1700)
-        answer(think(), '💡 Sergeli\'da o\'rtacha chek boshqalardan <b>18%</b> past — kechki menyuni ko\'rib chiqish kerak.')
+        grow(answer(t, H('h_a4') + `<div class="mhb"><span>${H('b1')}<i style="--v:1"></i><em>412</em></span><span>${H('b2')}<i style="--v:.86"></i><em>356</em></span><span>${H('b3')}<i style="--v:.58"></i><em>241</em></span></div>`)); await wait(1700)
+        answer(think(), H('h_a4b'))
       },
       async () => {
-        voice(3); await wait(900); say('me tr', '🗣 «Bugun kim kechikdi?»'); await wait(500)
+        voice(3); await wait(900); say('me tr', H('h_q5')); await wait(500)
         const t = think(); await light(['staff', 'task']); await wait(400)
-        answer(t, '⏰ <b>2 kishi kechikdi:</b><br>Jasur — 09:14 (+14 daq)<br>Malika — 09:06 (+6 daq)<br>Qolgan 11 kishi vaqtida keldi.')
+        answer(t, H('h_a5'))
       },
     ]
     let rt = 0
@@ -185,11 +188,14 @@
     const dot = $('#chainDot'), fill = $('#chainFill'), rail = $('.rail2', chain), scr = $$('#screens > li')
     const k = (n) => $(`[data-k="${n}"]`, chain)
     const spark = $$('[data-k="spark"] i', chain)
+    const SI = T('sale_items', [['Osh, choyxona ×2', 'Achchiq-chuchuk', 'Non ×2'], ['Shashlik (qo\'y) ×6', 'Lag\'mon ×2', 'Kompot ×2'], ['Manti ×10', 'Sho\'rva ×2', 'Choy']])
+    const SS = T('sale_stock', ['Guruch', 'Go\'sht', 'Un']), ST = T('sale_tkt', ['Osh ×2, achchiq-chuchuk', 'Shashlik ×6, lag\'mon ×2', 'Manti ×10, sho\'rva ×2']), SD = T('deducted', ['−0,4 kg ayirildi', '−1,2 kg ayirildi', '−1,5 kg ayirildi'])
     const sales = [
-      { who: 'Dilnoza', items: [['Osh, choyxona ×2', 64000], ['Achchiq-chuchuk', 12000], ['Non ×2', 8000]], disc: 0, stock: ['Guruch', 18.6, .62, '−0,4 kg ayirildi'], tkt: ['#1044', 'Osh ×2, achchiq-chuchuk'], staff: 18, crm: 'Aziz K.' },
-      { who: 'Jasur', items: [['Shashlik (qo\'y) ×6', 108000], ['Lag\'mon ×2', 56000], ['Kompot ×2', 16000]], disc: 9000, stock: ['Go\'sht', 23.4, .5, '−1,2 kg ayirildi'], tkt: ['#1045', 'Shashlik ×6, lag\'mon ×2'], staff: 26, crm: 'Malika R.' },
-      { who: 'Nodira', items: [['Manti ×10', 70000], ['Sho\'rva ×2', 44000], ['Choy', 6000]], disc: 0, stock: ['Un', 41, .74, '−1,5 kg ayirildi'], tkt: ['#1046', 'Manti ×10, sho\'rva ×2'], staff: 21, crm: 'Bobur T.' },
+      { who: 'Dilnoza', items: [[SI[0][0], 64000], [SI[0][1], 12000], [SI[0][2], 8000]], disc: 0, stock: [SS[0], 18.6, .62, SD[0]], tkt: ['#1044', ST[0]], staff: 18, crm: 'Aziz K.' },
+      { who: 'Jasur', items: [[SI[1][0], 108000], [SI[1][1], 56000], [SI[1][2], 16000]], disc: 9000, stock: [SS[1], 23.4, .5, SD[1]], tkt: ['#1045', ST[1]], staff: 26, crm: 'Malika R.' },
+      { who: 'Nodira', items: [[SI[2][0], 70000], [SI[2][1], 44000], [SI[2][2], 6000]], disc: 0, stock: [SS[2], 41, .74, SD[2]], tkt: ['#1046', ST[2]], staff: 21, crm: 'Bobur T.' },
     ]
+    const KG = T('kg', 'kg')
     let rev = 8420000, pro = 2930000, si = 0, tt = 0
     const place = (i) => {
       if (getComputedStyle(rail).display === 'none') return
@@ -199,7 +205,7 @@
     const tktTimer = () => { clearInterval(tt); let sec = 0; const e = k('tktT'); e.textContent = '0:00'; tt = setInterval(() => { sec += 7; e.textContent = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}` }, 1000) }
     const fire = (i, s, total) => {
       scr[i].classList.add('on')
-      if (i === 0) { $('.stk span', scr[0]).textContent = s.stock[0]; k('stockV').textContent = String(s.stock[1]).replace('.', ',') + ' kg'; k('stockB').style.setProperty('--w', s.stock[2]); setTimeout(() => { k('stockV').textContent = String(+(s.stock[1] - .4).toFixed(1)).replace('.', ',') + ' kg'; k('stockB').style.setProperty('--w', s.stock[2] - .05) }, 350); k('stockN').textContent = s.stock[3] }
+      if (i === 0) { $('.stk span', scr[0]).textContent = s.stock[0]; k('stockV').textContent = String(s.stock[1]).replace('.', ',') + ' ' + KG; k('stockB').style.setProperty('--w', s.stock[2]); setTimeout(() => { k('stockV').textContent = String(+(s.stock[1] - .4).toFixed(1)).replace('.', ',') + ' ' + KG; k('stockB').style.setProperty('--w', s.stock[2] - .05) }, 350); k('stockN').textContent = s.stock[3] }
       if (i === 1) { k('tktN').textContent = s.tkt[0]; k('tktI').textContent = s.tkt[1]; tktTimer() }
       if (i === 2) { rev += total; tween(k('cash'), rev, { dur: 1100 }); const hs = spark.map(b => parseFloat(b.style.getPropertyValue('--h'))); hs.shift(); hs.push(.5 + Math.random() * .5); spark.forEach((b, j) => b.style.setProperty('--h', hs[j].toFixed(2))) }
       if (i === 3) { pro += Math.round(total * .36); tween(k('profit'), pro, { dur: 1100 }); k('pfill').style.setProperty('--w', (.33 + Math.random() * .05).toFixed(2)) }
@@ -212,7 +218,7 @@
       for (;;) {
         const s = sales[si++ % sales.length], total = s.items.reduce((a, [, p]) => a + p, 0) - s.disc
         reset(); who.textContent = s.who
-        items.innerHTML = s.items.map(([n, p], i) => `<li style="animation-delay:${i * 140}ms">${n}<em>${fmt(p)}</em></li>`).join('') + (s.disc ? `<li class="disc" style="animation-delay:${s.items.length * 140}ms">Chegirma<em>−${fmt(s.disc)}</em></li>` : '')
+        items.innerHTML = s.items.map(([n, p], i) => `<li style="animation-delay:${i * 140}ms">${n}<em>${fmt(p)}</em></li>`).join('') + (s.disc ? `<li class="disc" style="animation-delay:${s.items.length * 140}ms">${T('disc', 'Chegirma')}<em>−${fmt(s.disc)}</em></li>` : '')
         tween(tot, total, { from: 0, dur: 700 })
         await wait(1600)
         pay.classList.add('press'); await wait(420); pay.classList.remove('press'); pos.classList.add('paid'); ok.classList.add('on')
@@ -229,20 +235,10 @@
   const cvA = $('#atom')
   if (cvA) {
     const ctx = cvA.getContext('2d'), card = $('#atomCard'), tk = $('#tk')
-    const MODS = [
-      ['Kassa', '--herb', 'kassa', ['Chek #1047 — 92 000 so\'m', 'Smena ochildi', 'Kassa topshirildi, farq yo\'q']],
-      ['Oshxona', '--ember', 'kds', ['Buyurtma #1047 tushdi', '#1045 tayyor — 6:40 da', 'Stol 4: Osh ×2']],
-      ['Ombor', '--teal', 'stock', ['Guruch −0,4 kg', 'Qoldiq yangilandi', 'Yog\' tugayapti — ogohlantirish']],
-      ['Zakup', '--cyan', 'stock', ['Bozorlik: 1 840 000 so\'m', 'Ta\'minotchiga buyurtma', 'Qarz to\'landi']],
-      ['Xodimlar', '--cyan', 'staff', ['Nodira keldi — 08:57', 'Jasur: 27 chek', 'Smena jadvali saqlandi']],
-      ['Telegram', '--tg', 'tg', ['Vazifa yuborildi', '«Keldim» qabul qilindi', 'Kassa qabul tasdiqlandi']],
-      ['Sayt', '--tg', 'tg', ['QR menyudan buyurtma', 'Stop-list yangilandi', 'Menyu e\'lon qilindi']],
-      ['Bron', '--rose', 'task', ['Stol 7 — 19:00 bron', 'Bron tasdiqlandi', 'Zalda 3 ta bo\'sh stol']],
-      ['Mijozlar', '--rose', 'gift', ['+840 bonus yozildi', 'Yangi mijoz', 'Xabar tarqatildi']],
-      ['Hisobotlar', '--acc', 'rep', ['Foyda qayta hisoblandi', 'Z-hisobot saqlandi', 'Food cost: 29%']],
-      ['Filiallar', '--acc', 'rep', ['Chilonzor yangilandi', 'Sergeli: smena yopildi', 'Narxlar sinxronlandi']],
-      ['AI Kotib', '--violet', 'ai', ['Ertalabki hisobot yuborildi', '«Kecha qancha savdo?» — javob', 'Diagramma chizildi']],
-    ]
+    const MN = T('mods', ['Kassa', 'Oshxona', 'Ombor', 'Zakup', 'Xodimlar', 'Telegram', 'Sayt', 'Bron', 'Mijozlar', 'Hisobotlar', 'Filiallar', 'AI Kotib'])
+    const ME = T('events', null) || MN.map(() => ['', '', ''])
+    const MODS = [['--herb', 'kassa'], ['--ember', 'kds'], ['--teal', 'stock'], ['--cyan', 'stock'], ['--cyan', 'staff'], ['--tg', 'tg'], ['--tg', 'tg'], ['--rose', 'task'], ['--rose', 'gift'], ['--acc', 'rep'], ['--acc', 'rep'], ['--violet', 'ai']]
+      .map(([c, ic], i) => [MN[i], c, ic, ME[i]])
     const ROT = [0, Math.PI / 6, -Math.PI / 6, Math.PI / 2], SPD = [.4, -.32, .28, -.36]   // orbita burchagi va tezligi
     let W = 0, H = 0, ORB = [], cx = 0, cy = 0, els = [], sparks = [], pings = [], colors = {}, ink = '', surf = '', line = '', run = false, raf = 0, last = 0, active = 0, auto = true, t = 0, below = false
     const readColors = () => { MODS.forEach(m => { colors[m[1]] = css(m[1]) }); ink = css('--ink'); surf = css('--surface'); line = css('--line') }
@@ -350,7 +346,7 @@
   const dayb = $('#dayb')
   if (dayb) {
     const steps = $$('#daySteps li'), scenes = $$('#dayStage .scene'), wait = gateFor(dayb), DUR = 5400
-    const mln = (n) => (n / 1e6).toFixed(1).replace('.', ',') + ' mln'
+    const mln = (n) => (n / 1e6).toFixed(1).replace('.', ',') + ' ' + T('mln', 'mln')
     let timers = [], cur = -1, hold = 0
     const later = (fn, ms) => timers.push(setTimeout(fn, ms))
     const counts = (sc) => $$('[data-n]', sc).forEach((el, j) => later(() => {
@@ -382,7 +378,7 @@
   const dash = $('#dash')
   if (dash) {
     const svg = $('#lineSvg'), tip = $('#lineTip'), xl = $('#xl'), per = $('#chPeriod'), tabs = $$('#dashTabs button')
-    const MON = ['yan', 'fev', 'mar', 'apr', 'may', 'iyun', 'iyul', 'avg', 'sen', 'okt', 'noy', 'dek']
+    const MON = T('mon', ['yan', 'fev', 'mar', 'apr', 'may', 'iyun', 'iyul', 'avg', 'sen', 'okt', 'noy', 'dek']), MLN = T('mln', 'mln')
     const seed = (q) => { const x = Math.sin(q * 12.9898 + 78.233) * 43758.5453; return x - Math.floor(x) }
     const gen = (n) => { const out = [], today = new Date(); for (let i = 0; i < n; i++) { const d = new Date(today); d.setDate(today.getDate() - (n - 1 - i)); const wk = d.getDay(); out.push({ d, v: Math.max(6, 9.5 + (i / n) * 3.2 + ((wk === 5 || wk === 6) ? 1.8 : wk === 0 ? .9 : 0) + (seed(i + n * 7) - .5) * 1.6) }) } return out }
     const DELTA = { 7: ['+6%', '+4%', '+2%'], 30: ['+12%', '+9%', '+3%'], 90: ['+21%', '+15%', '+5%'] }
@@ -394,7 +390,7 @@
       const [x, y] = pts[i], cl = $('#curL'), cd = $('#curD')
       if (cl) { cl.style.transform = `translate(${x}px, 0)`; cd.style.transform = `translate(${x}px, ${y}px)` }
       const r = svg.getBoundingClientRect(); tip.style.left = (x / 600 * r.width) + 'px'; tip.style.top = (y / 220 * r.height) + 'px'
-      tip.innerHTML = `${data[i].d.getDate()} ${MON[data[i].d.getMonth()]} · <b>${data[i].v.toFixed(1).replace('.', ',')} mln</b>`; tip.classList.add('on')
+      tip.innerHTML = `${data[i].d.getDate()} ${MON[data[i].d.getMonth()]} · <b>${data[i].v.toFixed(1).replace('.', ',')} ${MLN}</b>`; tip.classList.add('on')
     }
     const render = (n) => {
       data = gen(n); const max = Math.max(...data.map(x => x.v)) * 1.1, min = Math.min(...data.map(x => x.v)) * .82
@@ -406,12 +402,12 @@
       const ln = $('#ln2'); ln.style.strokeDasharray = '1'; ln.style.strokeDashoffset = '1'; ln.getBoundingClientRect(); ln.style.transition = reduce ? '' : 'stroke-dashoffset 1.8s cubic-bezier(.65,0,.35,1)'; ln.style.strokeDashoffset = '0'
       const stepN = n > 30 ? 15 : n > 7 ? 5 : 1
       xl.innerHTML = data.filter((_, i) => i % stepN === 0 || i === n - 1).map(x => `<span>${x.d.getDate()} ${MON[x.d.getMonth()]}</span>`).join('')
-      per.textContent = `mln so'm · ${n} kun`
+      per.textContent = `${MLN}${T('sum', ' so\'m')} · ${n} ${T('days', 'kun')}`
       const rev = data.reduce((a, x) => a + x.v, 0), cnt = Math.round(rev * 1e6 / 129000), avg = Math.round(rev * 1e6 / cnt)
       const t0 = performance.now(), from = parseFloat(K('rev').dataset.v || '0'); K('rev').dataset.v = rev
-      const f = (now) => { const kk = clamp((now - t0) / 1000, 0, 1); K('rev').textContent = lerp(from, rev, easeOut(kk)).toFixed(1).replace('.', ',') + ' mln'; if (kk < 1) requestAnimationFrame(f) }; requestAnimationFrame(f)
-      tween(K('cnt'), cnt, { dur: 1000 }); tween(K('avg'), avg, { dur: 1000, suffix: ' so\'m' })
-      const dl = DELTA[n]; K('revD').textContent = dl[0] + ' oldingi davrga'; K('cntD').textContent = dl[1]; K('avgD').textContent = dl[2]
+      const f = (now) => { const kk = clamp((now - t0) / 1000, 0, 1); K('rev').textContent = lerp(from, rev, easeOut(kk)).toFixed(1).replace('.', ',') + ' ' + MLN; if (kk < 1) requestAnimationFrame(f) }; requestAnimationFrame(f)
+      tween(K('cnt'), cnt, { dur: 1000 }); tween(K('avg'), avg, { dur: 1000, suffix: T('sum', ' so\'m') })
+      const dl = DELTA[n]; K('revD').textContent = dl[0] + ' ' + T('prev', 'oldingi davrga'); K('cntD').textContent = dl[1]; K('avgD').textContent = dl[2]
       const sp = data.slice(-14).map((x, i, a) => [+(i / (a.length - 1) * 90).toFixed(1), +(32 - (x.v - min) / (max - min) * 28).toFixed(1)]), spd = smooth(sp)
       $('#spL').setAttribute('d', spd); $('#spA').setAttribute('d', spd + ' L90 34 L0 34Z')
       scan = n - 1; placeCur(scan)
@@ -433,7 +429,7 @@
   const sp = $('#staffPhone')
   if (sp) {
     const btn = $('#sbBtn')
-    const tap = () => { btn?.classList.add('tap'); setTimeout(() => { if (btn) { btn.classList.add('done'); btn.textContent = '✅ Qabul qilindi · 18:04' } }, 650) }
+    const tap = () => { btn?.classList.add('tap'); setTimeout(() => { if (btn) { btn.classList.add('done'); btn.textContent = T('accepted', '✅ Qabul qilindi · 18:04') } }, 650) }
     if (reduce) tap()
     else { sp.classList.add('armed'); once(sp, () => { sp.classList.add('play'); setTimeout(tap, 6400) }, .35) }
   }
@@ -442,10 +438,11 @@
   const checks = $$('#checks input'), score = $('.score')
   if (checks.length && score) {
     const you = $('#scYou'), bar = $('#scBarYou'), msg = $('#scMsg'), name = score.dataset.platform || 'Biz'
-    const text = (n) => n === 0 ? 'Belgilashni boshlang — farq shu yerda ko\'rinadi.'
-      : n < 5 ? `Ko'p ish hali qo'lda yoki alohida dasturlarda. ${name}da bularning hammasi bitta tizimda.`
-        : n < 9 ? `Yaxshi! Qolgan ${10 - n} tasi uchun alohida dastur yoki qo'l mehnati kerak bo'lyapti — ${name}da hammasi bor.`
-          : `Zo'r dastur! Endi narxni solishtiring: ${name}da server, domen va yangilanishlar narx ichida.`
+    const fill = (k, d) => T(k, d).replace('{p}', name)
+    const text = (n) => n === 0 ? T('sc_zero', 'Belgilashni boshlang — farq shu yerda ko\'rinadi.')
+      : n < 5 ? fill('sc_low', `Ko'p ish hali qo'lda yoki alohida dasturlarda. {p}da bularning hammasi bitta tizimda.`)
+        : n < 9 ? fill('sc_mid', `Yaxshi! Qolgan {n} tasi uchun alohida dastur yoki qo'l mehnati kerak bo'lyapti — {p}da hammasi bor.`).replace('{n}', 10 - n)
+          : fill('sc_high', `Zo'r dastur! Endi narxni solishtiring: {p}da server, domen va yangilanishlar narx ichida.`)
     const upd = () => { const n = checks.filter(c => c.checked).length; tween(you, n, { dur: 500 }); bar.style.width = n * 10 + '%'; msg.textContent = text(n) }
     checks.forEach(c => c.addEventListener('change', upd))
   }
@@ -461,17 +458,17 @@
 
   // ---------- ariza
   const sendLead = async (data) => {
-    if ((data.phone || '').replace(/\D/g, '').length < 9) throw new Error('Telefon raqamini to\'liq yozing')
+    if ((data.phone || '').replace(/\D/g, '').length < 9) throw new Error(T('c_phone', 'Telefon raqamini to\'liq yozing'))
     const r = await fetch('/api/v1/sales/lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
     const j = await r.json().catch(() => ({}))
-    if (!r.ok) throw new Error(j.detail || 'Yuborib bo\'lmadi')
+    if (!r.ok) throw new Error(j.detail || T('c_send_fail', 'Yuborib bo\'lmadi'))
   }
   const lf = $('#leadForm'), lm = $('#leadMsg')
   lf?.addEventListener('submit', async (e) => {
     e.preventDefault()
     const btn = $('button[type=submit]', lf); btn.disabled = true
-    try { await sendLead(Object.fromEntries(new FormData(lf))); lm.className = 'form-msg ok'; lm.textContent = 'Rahmat! Mutaxassisimiz tez orada qo\'ng\'iroq qiladi.'; lf.reset() }
-    catch (err) { lm.className = 'form-msg err'; lm.textContent = err.message || 'Xato — qayta urinib ko\'ring' } finally { btn.disabled = false }
+    try { await sendLead(Object.fromEntries(new FormData(lf))); lm.className = 'form-msg ok'; lm.textContent = T('c_form_ok', 'Rahmat! Mutaxassisimiz tez orada qo\'ng\'iroq qiladi.'); lf.reset() }
+    catch (err) { lm.className = 'form-msg err'; lm.textContent = err.message || T('c_retry', 'Xato — qayta urinib ko\'ring') } finally { btn.disabled = false }
   })
 
   // ---------- AI maslahatchi
@@ -507,9 +504,9 @@
     if (leadDone || leadShown) return
     leadShown = true
     const c = document.createElement('form'); c.className = 'lcard'; c.noValidate = true
-    c.innerHTML = '<b>📞 Mutaxassis bepul ko\'rsatib bersinmi?</b><p>10 daqiqada restoraningizga moslab ko\'rsatamiz. Raqamingizni faqat shu uchun ishlatamiz.</p>'
-      + '<input name="name" placeholder="Ismingiz" autocomplete="name"><input name="phone" type="tel" inputmode="tel" placeholder="+998 90 123 45 67" autocomplete="tel" required>'
-      + '<div class="row"><button class="btn primary" type="submit">Qo\'ng\'iroq qilinsin</button><button class="btn ghost" type="button" data-x>Keyinroq</button></div>'
+    c.innerHTML = `<b>${T('c_lead_h', '📞 Mutaxassis bepul ko\'rsatib bersinmi?')}</b><p>${T('c_lead_p', '10 daqiqada restoraningizga moslab ko\'rsatamiz. Raqamingizni faqat shu uchun ishlatamiz.')}</p>`
+      + `<input name="name" placeholder="${T('c_name', 'Ismingiz')}" autocomplete="name"><input name="phone" type="tel" inputmode="tel" placeholder="+998 90 123 45 67" autocomplete="tel" required>`
+      + `<div class="row"><button class="btn primary" type="submit">${T('c_call', 'Qo\'ng\'iroq qilinsin')}</button><button class="btn ghost" type="button" data-x>${T('c_later', 'Keyinroq')}</button></div>`
     list.appendChild(c); scroll()
     c.querySelector('[data-x]').addEventListener('click', () => c.remove())
     c.addEventListener('submit', async (e) => {
@@ -518,7 +515,7 @@
       try {
         await sendLead({ ...Object.fromEntries(new FormData(c)), note: 'AI chat: ' + hist.filter(h => h.role === 'me').map(h => h.text).slice(-3).join(' | ').slice(0, 400) })
         leadDone = true; ss.set('rp.lead', '1')
-        const ok = document.createElement('div'); ok.className = 'lead-ok'; ok.textContent = '✅ Rahmat! Mutaxassisimiz tez orada qo\'ng\'iroq qiladi.'; c.replaceWith(ok); scroll()
+        const ok = document.createElement('div'); ok.className = 'lead-ok'; ok.textContent = T('c_thanks', '✅ Rahmat! Mutaxassisimiz tez orada qo\'ng\'iroq qiladi.'); c.replaceWith(ok); scroll()
       } catch (err) { b.disabled = false; let m = c.querySelector('.err'); if (!m) { m = document.createElement('p'); m.className = 'err'; m.style.color = 'var(--red)'; c.appendChild(m) } m.textContent = err.message }
     })
   }
@@ -544,10 +541,21 @@
   const canRec = !!(navigator.mediaDevices?.getUserMedia && window.MediaRecorder)
   if (!canRec) mic?.remove()
   const stopRec = (drop) => { discard = drop; if (rec && rec.state !== 'inactive') rec.stop() }
+  const toWav = async (blob) => {
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return blob
+    const ac = new AC(), buf = await ac.decodeAudioData(await blob.arrayBuffer()); ac.close?.()
+    const rate = 16000, n = Math.round(buf.duration * rate), ch = buf.numberOfChannels, out = new Float32Array(n)
+    for (let c = 0; c < ch; c++) { const d = buf.getChannelData(c), k = buf.sampleRate / rate; for (let i = 0; i < n; i++) out[i] += d[Math.min(d.length - 1, Math.floor(i * k))] / ch }
+    const wav = new DataView(new ArrayBuffer(44 + n * 2)), w = (o, str) => { for (let i = 0; i < str.length; i++) wav.setUint8(o + i, str.charCodeAt(i)) }
+    w(0, 'RIFF'); wav.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt '); wav.setUint32(16, 16, true); wav.setUint16(20, 1, true); wav.setUint16(22, 1, true)
+    wav.setUint32(24, rate, true); wav.setUint32(28, rate * 2, true); wav.setUint16(32, 2, true); wav.setUint16(34, 16, true); w(36, 'data'); wav.setUint32(40, n * 2, true)
+    for (let i = 0; i < n; i++) { const v = Math.max(-1, Math.min(1, out[i])); wav.setInt16(44 + i * 2, v < 0 ? v * 32768 : v * 32767, true) }
+    return new Blob([wav], { type: 'audio/wav' })
+  }
   mic?.addEventListener('click', async () => {
     if (busy) return
     if (rec) { stopRec(false); return }
-    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }) } catch { add('ai err', 'Mikrofonga ruxsat berilmadi — brauzer sozlamasida ruxsat bering yoki yozib yuboring.'); return }
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }) } catch { add('ai err', T('c_mic_denied', 'Mikrofonga ruxsat berilmadi — brauzer sozlamasida ruxsat bering yoki yozib yuboring.')); return }
     const type = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/webm', 'audio/mp4'].find(t => MediaRecorder.isTypeSupported?.(t)) || ''
     rec = new MediaRecorder(stream, type ? { mimeType: type } : undefined); chunks = []; secs = 0; discard = false
     rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data) }
@@ -555,14 +563,15 @@
       clearInterval(rtimer); stream.getTracks().forEach(t => t.stop()); mic.classList.remove('rec'); recBar.hidden = true
       const mime = rec.mimeType || 'audio/webm'; rec = null
       if (discard) return
-      const blob = new Blob(chunks, { type: mime })
-      if (blob.size < 1500) { add('ai', 'Juda qisqa yozildi — 🎙 ni bosib gapiring, tugatgach yana bosing.'); return }
+      let blob = new Blob(chunks, { type: mime })
+      try { blob = await toWav(blob) } catch (e) { console.warn('wav', e) }   // webm/ogg → wav (16 kHz, mono): AI buni ishonchli o'qiydi
+      if (blob.size < 1500) { add('ai', T('c_short', 'Juda qisqa yozildi — 🎙 ni bosib gapiring, tugatgach yana bosing.')); return }
       const data = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(String(fr.result)); fr.readAsDataURL(blob) })
-      const m = add('me', '🎙 <i>Eshityapman…</i>'); setBusy(true)
+      const m = add('me', T('c_listen', '🎙 <i>Eshityapman…</i>')); setBusy(true)
       try {
         const r = await fetch('/api/v1/sales/transcribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ audio: data.replace(/^data:([^;]+);[^,]*,/, 'data:$1;base64,') }) })
         const j = await r.json().catch(() => ({}))
-        if (!r.ok) throw new Error(j.detail || 'Ovozni o\'qib bo\'lmadi')
+        if (!r.ok) throw new Error(j.detail || T('c_voice_err', 'Ovozni o\'qib bo\'lmadi'))
         m.remove(); setBusy(false); q.value = j.text; ask()
       } catch (err) { m.classList.add('err'); m.textContent = '⚠️ ' + err.message; setBusy(false) }
     }
@@ -572,19 +581,19 @@
   $('#recX')?.addEventListener('click', () => stopRec(true))
 
   const setBusy = (v) => {
-    busy = v; send.classList.toggle('stop', v); send.setAttribute('aria-label', v ? 'To\'xtatish' : 'Yuborish')
+    busy = v; send.classList.toggle('stop', v); send.setAttribute('aria-label', v ? T('c_stop', 'To\'xtatish') : T('c_send', 'Yuborish'))
     send.innerHTML = v ? '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" stroke="none"/></svg>'
       : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg>'
     q.disabled = v
-    $('#aicSt').innerHTML = v ? '<i></i>yozmoqda…' : '<i></i>onlayn · matn, ovoz yoki rasm'
+    $('#aicSt').innerHTML = v ? '<i></i>' + T('typing', 'yozmoqda…') : '<i></i>' + T('c_online', 'onlayn · matn, ovoz yoki rasm')
   }
   async function ask() {
     const text = q.value.trim()
     if (busy || (!text && !img)) return
     $('#aicSug')?.remove()
-    add('me', (img ? `<img src="${img}" alt="Yuborilgan rasm">` : '') + esc(text || '📷'))
+    add('me', (img ? `<img src="${img}" alt="${T('c_image_alt', 'Yuborilgan rasm')}">` : '') + esc(text || '📷'))
     const history = hist.slice(-10), image = img
-    hist.push({ role: 'me', text: text || '(rasm yubordi)' }); save()
+    hist.push({ role: 'me', text: text || T('c_sent_img', '(rasm yubordi)') }); save()
     q.value = ''; img = ''; prev.hidden = true
     setBusy(true)
     const m = add('ai live', '<span class="typing"><i></i><i></i><i></i></span>')
@@ -592,8 +601,8 @@
     ctrl = new AbortController()
     try {
       const r = await fetch('/api/v1/sales/ask-stream', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctrl.signal,
-        body: JSON.stringify({ question: text, history, image, sid }) })
-      if (!r.ok || !r.body) { const j = await r.json().catch(() => ({})); throw new Error(j.detail || 'Javob olib bo\'lmadi') }
+        body: JSON.stringify({ question: text, history, image, sid, lang: LANG }) })
+      if (!r.ok || !r.body) { const j = await r.json().catch(() => ({})); throw new Error(j.detail || T('c_no_answer', 'Javob olib bo\'lmadi')) }
       const rd = r.body.getReader(), dec = new TextDecoder(); let buf = ''
       for (;;) {
         const { value, done: end } = await rd.read(); if (end) break
@@ -607,18 +616,18 @@
             done = true; m.classList.remove('live')
             if (x.ok) {
               m.innerHTML = safe(x.answer); hist.push({ role: 'ai', text: x.answer.replace(/<[^>]+>/g, '') }); save()
-              if (x.lead) { leadDone = true; ss.set('rp.lead', '1'); const d = document.createElement('div'); d.className = 'lead-ok'; d.textContent = '✅ Arizangiz qabul qilindi — mutaxassisimiz tez orada bog\'lanadi.'; list.appendChild(d) }
+              if (x.lead) { leadDone = true; ss.set('rp.lead', '1'); const d = document.createElement('div'); d.className = 'lead-ok'; d.textContent = T('c_lead_ok', '✅ Arizangiz qabul qilindi — mutaxassisimiz tez orada bog\'lanadi.'); list.appendChild(d) }
               else if (hist.filter(h => h.role === 'ai').length >= 2) leadCard()
-            } else { m.classList.add('err'); m.textContent = '⚠️ ' + (x.error || 'Xato'); if (x.detail) console.warn('AI:', x.detail) }
+            } else { m.classList.add('err'); m.textContent = '⚠️ ' + (x.error || T('c_err', 'Xato')); if (x.detail) console.warn('AI:', x.detail) }
             scroll()
           }
         }
       }
-      if (!done) { m.classList.remove('live'); if (!raw) { m.classList.add('err'); m.textContent = '⚠️ Javob kelmadi — qayta urinib ko\'ring' } }
+      if (!done) { m.classList.remove('live'); if (!raw) { m.classList.add('err'); m.textContent = T('c_empty', '⚠️ Javob kelmadi — qayta urinib ko\'ring') } }
     } catch (e) {
       m.classList.remove('live')
-      if (e.name === 'AbortError') { m.innerHTML = (raw ? safe(raw) + '\n\n' : '') + '<i>⏹ To\'xtatildi</i>' }
-      else { m.classList.add('err'); m.textContent = '⚠️ ' + (e.message || 'Xato') }
+      if (e.name === 'AbortError') { m.innerHTML = (raw ? safe(raw) + '\n\n' : '') + '<i>' + T('c_stopped', '⏹ To\'xtatildi') + '</i>' }
+      else { m.classList.add('err'); m.textContent = '⚠️ ' + (e.message || T('c_err', 'Xato')) }
     } finally { setBusy(false); ctrl = null; q.focus() }
   }
 })()

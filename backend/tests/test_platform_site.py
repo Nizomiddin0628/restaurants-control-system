@@ -35,14 +35,14 @@ def test_offer_edit_in_hq_and_landing(client, hq):  # noqa: F811
     assert r.status_code == 200
     html = r.content.decode()
     assert "100" in html and "150" in html and "30 kun bepul" in html
-    assert "Restoraningiz bilan" in html and 'id="solishtirish"' in html and "ko'chirish — bepul" in html   # v44: o'z uslubimiz
+    assert "Restoraningiz bilan" in html and 'id="solishtirish"' in html and "chirish — bepul" in html   # v44: o'z uslubimiz
     assert hq.get("/api/v1/hq/offer").json()["base_price"] == 100
     r = hq.put("/api/v1/hq/offer", {"currency": "$", "base_price": 120, "ai_price": 180, "trial_days": 14, "free_setup": False,
                                      "includes": ["Server", " ", "Domen"], "telegram": "@restopos_uz", "price_note": "oyiga"})
     assert r.status_code == 200, r.content
     assert r.json()["includes"] == ["Server", "Domen"] and r.json()["telegram"] == "restopos_uz"
     html = client.get("/", **PUB).content.decode()
-    assert "180" in html and "14 kun bepul" in html and "Aksiya:" not in html and "ko'chirish — bepul" not in html and "t.me/restopos_uz" in html
+    assert "180" in html and "14 kun bepul" in html and "Aksiya:" not in html and "chirish — bepul" not in html and "t.me/restopos_uz" in html
     assert "14 kun bepul" in client.get("/signup/", **PUB).content.decode()
     assert hq.put("/api/v1/hq/offer", {"base_price": 0, "ai_price": 10}).status_code == 400
 
@@ -134,3 +134,35 @@ def test_sales_key_fallback_sessions_and_voice(client, hq, tenant, monkeypatch):
     r = client.post("/api/v1/sales/transcribe", {"audio": audio}, content_type="application/json", **PUB)
     assert r.status_code == 200 and r.json()["text"] == "kassa haqida aytib bering"
     assert client.post("/api/v1/sales/transcribe", {"audio": "data:audio/webm;base64,AAAA"}, content_type="application/json", **PUB).status_code == 400
+
+
+@pytest.mark.django_db
+def test_russian_site_and_telegram_notify(client, hq, monkeypatch):  # noqa: F811
+    """v47: /ru/ — ruscha sayt va AI ruscha javob beradi; ariza va ro'yxatdan o'tish HQ'dagi chat ID'ga Telegram orqali boradi."""
+    cache.clear()
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key-1234567890abcdef")
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123:abc")
+    html = client.get("/ru/", **PUB).content.decode()
+    assert 'lang="ru"' in html and "Говорите со своим" in html and "30 дней бесплатно" in html and 'href="/"' in html and "рестораном" in html
+    assert "Restoraningiz bilan" not in html and "за один ресторан, в месяц" in html
+    assert "Запустите свой ресторан" in client.get("/ru/signup/", **PUB).content.decode()
+    r = hq.put("/api/v1/hq/offer", {"base_price": 100, "ai_price": 150, "trial_days": 21, "lead_chat": " 777 ", "price_note_ru": "в месяц", "includes_ru": ["Сервер"]})
+    assert r.status_code == 200 and r.json()["lead_chat"] == "777" and r.json()["notify_ready"] is True
+    html = client.get("/ru/", **PUB).content.decode()
+    assert "21 день бесплатно" in html and "в месяц" in html and "Сервер" in html
+    # AI: ruscha qoida system promptda; ariza → Telegram
+    from modules.ai import gemini
+    fake = FakeGemini([{"call": ("save_lead", {"name": "Иван", "phone": "90 222 33 44"})}, {"text": "Спасибо!"}])
+    monkeypatch.setattr(gemini, "generate", fake)
+    sent = []
+    import integrations.telegram as tg
+    monkeypatch.setattr(tg, "call", lambda method, payload, token=None: sent.append((method, payload, token)) or {"ok": True})
+    r = client.post("/api/v1/sales/ask-stream", {"question": "Сколько стоит? 90 222 33 44", "lang": "ru"}, content_type="application/json", **PUB)
+    assert _stream(r)[-1]["ok"]
+    assert "RUS tilida" in fake.seen[0]["system"]
+    assert sent and sent[0][1]["chat_id"] == "777" and "Иван" in sent[0][1]["text"] and sent[0][2] == "123:abc"
+    # sinov xabari va ro'yxatdan o'tish
+    assert hq.post("/api/v1/hq/offer/test-notify", {}).status_code == 200 and "Sinov" in sent[-1][1]["text"]
+    r = client.post("/api/v1/signup", {"name": "Yangi", "slug": "yangi-resto", "phone": "+998 90 999 88 77", "preset": "cafe"}, content_type="application/json", **PUB)
+    assert r.status_code == 200, r.content
+    assert "Yangi restoran" in sent[-1][1]["text"] and "yangi-resto" in sent[-1][1]["text"]

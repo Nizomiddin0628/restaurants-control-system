@@ -6,6 +6,7 @@ restoran domenida ishlamaydi, restoran tokeni esa bu yerda ishlamaydi.
 """
 from __future__ import annotations
 
+import re
 from collections import Counter, defaultdict
 from datetime import timedelta
 from typing import Optional
@@ -746,6 +747,10 @@ class OfferIn(Schema):
     ai_chat: bool = True
     ai_key: str = ""          # yangi kalit (bo'sh — o'zgarmaydi)
     clear_ai_key: bool = False
+    lead_chat: str = ""       # arizalar yuboriladigan Telegram chat ID
+    price_note_ru: str = ""
+    setup_note_ru: str = ""
+    includes_ru: list[str] = []
 
 
 def _mask(k: str) -> str:
@@ -756,6 +761,8 @@ def _offer_out(o) -> dict:
     return {"currency": o.currency, "base_price": o.base_price, "ai_price": o.ai_price, "price_note": o.price_note, "trial_days": o.trial_days,
             "free_setup": o.free_setup, "setup_note": o.setup_note, "includes": o.includes or [], "phone": o.phone, "telegram": o.telegram,
             "ai_chat": o.ai_chat, "ai_key": _mask(o.ai_key or ""), "ai_key_source": _key_source(o),
+            "lead_chat": o.lead_chat, "price_note_ru": o.price_note_ru, "setup_note_ru": o.setup_note_ru, "includes_ru": o.includes_ru or [],
+            "notify_ready": bool((o.lead_chat or "").strip()) and bool(__import__("os").environ.get("TELEGRAM_BOT_TOKEN", "").strip()),
             "updated_at": o.updated_at.isoformat() if o.updated_at else None}
 
 
@@ -794,8 +801,10 @@ def offer_put(request, data: OfferIn):
     for k, v in d.items():
         if isinstance(v, str):
             v = v.strip()
-        if k == "includes":
+        if k in ("includes", "includes_ru"):
             v = [str(x).strip()[:120] for x in v if str(x).strip()][:12]
+        if k == "lead_chat":
+            v = re.sub(r"[^\d-]", "", v)[:20]
         if k == "telegram":
             v = v.lstrip("@").replace("https://t.me/", "")
         setattr(o, k, v)
@@ -803,6 +812,21 @@ def offer_put(request, data: OfferIn):
     hq.audit(request.staff, "offer", before={k: before[k] for k in ("base_price", "ai_price", "trial_days", "free_setup")},
              after={"base_price": o.base_price, "ai_price": o.ai_price, "trial_days": o.trial_days, "free_setup": o.free_setup})
     return _offer_out(o)
+
+
+@router.post("/offer/test-notify", auth=hq_auth)
+def offer_test_notify(request):
+    """Arizalar keladigan Telegram chatga sinov xabari."""
+    _need(request, "sales", "finance")
+    from website import sales_ai
+    chat, tok = sales_ai.notify_chat()
+    if not chat:
+        raise HttpError(400, "Chat ID kiritilmagan — botga /id yozing va raqamni saqlang.")
+    if not tok:
+        raise HttpError(400, "Serverda bot tokeni yo'q (.env TELEGRAM_BOT_TOKEN).")
+    if not sales_ai.notify("✅ <b>Sinov</b>: saytdan arizalar va ro'yxatdan o'tganlar shu chatga keladi."):
+        raise HttpError(400, "Yuborib bo'lmadi — chat ID to'g'rimi, botga /start bosilganmi?")
+    return {"ok": True}
 
 
 def _lead_out(x) -> dict:

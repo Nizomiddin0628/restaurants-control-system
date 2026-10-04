@@ -8,13 +8,13 @@ import { dt } from '../fmt'
 
 const s = useHq()
 const canEdit = computed(() => s.can('sales', 'finance'))
-const O = ref<any>(null), inc = ref(''), busy = ref(false)
+const O = ref<any>(null), inc = ref(''), incRu = ref(''), busy = ref(false), testing = ref(false)
 const L = ref<{ items: any[]; new: number } | null>(null), fs = ref('')
 const C = ref<any[]>([]), openChat = ref<number | null>(null), newKey = ref('')
 const STATUS: Record<string, string> = { new: 'Yangi', contacted: "Bog'lanildi", won: "Mijoz bo'ldi", lost: 'Rad etdi' }
 const SRC: Record<string, string> = { ai_chat: '🤖 AI suhbat', form: '📝 Forma' }
 async function load() {
-  O.value = await api.get('/hq/offer'); inc.value = (O.value.includes || []).join('\n')
+  O.value = await api.get('/hq/offer'); inc.value = (O.value.includes || []).join('\n'); incRu.value = (O.value.includes_ru || []).join('\n')
   try { L.value = await api.get('/hq/leads', fs.value ? { status: fs.value } : {}) } catch { L.value = null }
   try { C.value = (await api.get('/hq/chats')).items } catch { C.value = [] }
 }
@@ -23,15 +23,20 @@ async function save() {
   busy.value = true
   try {
     O.value = await api.put('/hq/offer', { ...O.value, base_price: Number(O.value.base_price), ai_price: Number(O.value.ai_price),
-      trial_days: Number(O.value.trial_days), includes: inc.value.split('\n').map((x: string) => x.trim()).filter(Boolean), ai_key: newKey.value.trim() })
+      trial_days: Number(O.value.trial_days), includes: inc.value.split('\n').map((x: string) => x.trim()).filter(Boolean),
+      includes_ru: incRu.value.split('\n').map((x: string) => x.trim()).filter(Boolean), ai_key: newKey.value.trim() })
     newKey.value = ''
-    inc.value = O.value.includes.join('\n'); toast('Saqlandi — saytda darhol ko\'rinadi')
+    inc.value = O.value.includes.join('\n'); incRu.value = (O.value.includes_ru || []).join('\n'); toast('Saqlandi — saytda darhol ko\'rinadi')
   } catch (e: any) { toast(e.detail ?? 'Xato', 'danger') } finally { busy.value = false }
 }
 async function setStatus(l: any, st: string) {
   try { Object.assign(l, await api.post(`/hq/leads/${l.id}`, { status: st })); if (L.value) L.value.new = L.value.items.filter(x => x.status === 'new').length } catch (e: any) { toast(e.detail ?? 'Xato', 'danger') }
 }
 async function filter(v: string) { fs.value = v; await load() }
+async function testNotify() {
+  testing.value = true
+  try { await api.post('/hq/offer/test-notify', {}); toast('Sinov xabari yuborildi — Telegram\'ni tekshiring') } catch (e: any) { toast(e.detail ?? 'Xato', 'danger') } finally { testing.value = false }
+}
 </script>
 
 <template>
@@ -49,9 +54,21 @@ async function filter(v: string) { fs.value = v; await load() }
       <div class="row"><UiToggle v-model="O.free_setup" label="Aksiya: ulab berish bepul" :disabled="!canEdit" /></div>
       <UiInput v-if="O.free_setup" v-model="O.setup_note" label="Aksiya matni" :disabled="!canEdit" />
       <label class="ta"><span>Narx ichida (har qator — bitta band)</span><textarea v-model="inc" rows="6" :disabled="!canEdit"></textarea></label>
+      <details class="ru">
+        <summary>🇷🇺 Rus tilidagi sayt matnlari (bo'sh qolsa — standart tarjima)</summary>
+        <UiInput v-model="O.price_note_ru" label="Narx izohi (RU)" placeholder="за один ресторан, в месяц" :disabled="!canEdit" />
+        <UiInput v-if="O.free_setup" v-model="O.setup_note_ru" label="Aksiya matni (RU)" placeholder="Сейчас подключение, ввод меню и обучение — бесплатно" :disabled="!canEdit" />
+        <label class="ta"><span>Narx ichida (RU, har qator — bitta band)</span><textarea v-model="incRu" rows="4" :disabled="!canEdit"></textarea></label>
+      </details>
       <div class="g2">
         <UiInput v-model="O.phone" label="Telefon (saytda)" placeholder="+998 71 200 00 00" :disabled="!canEdit" />
         <UiInput v-model="O.telegram" label="Telegram (@ siz)" placeholder="restopos_uz" :disabled="!canEdit" />
+      </div>
+      <div class="key">
+        <UiInput v-model="O.lead_chat" label="Arizalar Telegram'ga: chat ID" placeholder="masalan: 123456789" inputmode="numeric" :disabled="!canEdit" />
+        <small>Telegram'da restoran botiga <b>/id</b> deb yozing — u chat ID'ni qaytaradi. Saytdan kelgan arizalar, AI chatdagi raqamlar va yangi ro'yxatdan o'tganlar shu chatga keladi.
+          <button v-if="O.lead_chat" type="button" class="lnk" :disabled="testing" @click="testNotify">Sinov xabari yuborish</button>
+          <b v-if="O.notify_ready" class="okk">· ulangan</b></small>
       </div>
       <div class="row"><UiToggle v-model="O.ai_chat" label="Saytda AI maslahatchi yoqilgan" :disabled="!canEdit" /></div>
       <div class="key">
@@ -99,7 +116,9 @@ async function filter(v: string) { fs.value = v; await load() }
 .fl { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
 .fl button { border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 6px 12px; font: inherit; font-size: var(--fs-xs); font-weight: 700; cursor: pointer; color: var(--ink); }
 .fl button.on { background: #2563EB; border-color: #2563EB; color: #fff; }
-.key { display: grid; gap: 6px; margin: 10px 0; } .key small { color: var(--muted); font-size: var(--fs-xs); } .key small.bad b { color: #DC2626; }
+.key { display: grid; gap: 6px; margin: 10px 0; } .key small { color: var(--muted); font-size: var(--fs-xs); } .key small.bad b { color: #DC2626; } .key .okk { color: #16A34A; }
+.lnk { border: 0; background: none; padding: 0; margin-left: 6px; color: #2563EB; font: inherit; font-weight: 700; cursor: pointer; text-decoration: underline; }
+.ru { margin-top: 10px; border: 1px dashed var(--line); border-radius: var(--radius); padding: 8px 12px; } .ru summary { cursor: pointer; font-weight: 700; font-size: var(--fs-s); color: var(--muted); } .ru > * + * { margin-top: 8px; }
 .ch { border-top: 1px solid var(--line-2, var(--line)); }
 .chh { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; text-align: left; border: 0; background: transparent; padding: 12px 4px; cursor: pointer; font: inherit; color: var(--ink); }
 .cq { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .cm { color: var(--muted); font-size: var(--fs-xs); } .cl { grid-column: 1 / -1; color: #16A34A; font-size: var(--fs-s); }

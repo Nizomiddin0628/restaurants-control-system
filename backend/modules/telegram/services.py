@@ -223,6 +223,9 @@ def handle_update(tenant, update: dict, base_url: str | None = None) -> bool:
         return True                         # guruhlarda javob bermaymiz (xodimlar guruhi — faqat bildirishnoma uchun)
     text = (msg.get("text") or "").strip()
     bu = touch(msg)
+    if text == "/id":                       # HQ → «Sayt va narxlar» → arizalar shu chatga
+        say(tenant, bu.chat_id, f"🆔 Chat ID: <code>{bu.chat_id}</code>\n\nHQ → «Sayt va narxlar» → «Arizalar Telegram'ga» maydoniga shu raqamni yozing.")
+        return True
 
     # --- ishga ariza suhbati (HR) — kontakt ham shu yerda qabul qilinadi
     if str((bu.state or {}).get("step") or "").startswith("rec_") and text not in (BTN_CANCEL, "/cancel") and not text.startswith("/start"):

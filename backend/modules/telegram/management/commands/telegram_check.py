@@ -27,6 +27,7 @@ COMMANDS = [
     {"command": "ai", "description": "AI Kotib (restoran)"},
     {"command": "global", "description": "Global qidiruv (restoran + internet)"},
     {"command": "hisobot", "description": "Bugungi hisobot"},
+    {"command": "id", "description": "Chat ID (bildirishnomalar uchun)"},
     {"command": "profil", "description": "Profilim: kirish, parol, xavfsizlik"},
 ]
 
