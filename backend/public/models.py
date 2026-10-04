@@ -258,3 +258,54 @@ class Release(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+
+
+class SiteOffer(models.Model):
+    """Platforma saytidagi taklif va narxlar — HQ panelidan o'zgartiriladi (bitta yozuv)."""
+
+    currency = models.CharField(max_length=8, default="$")
+    base_price = models.PositiveIntegerField(default=100, help_text="Dastur — oyiga")
+    ai_price = models.PositiveIntegerField(default=150, help_text="Dastur + AI Kotib — oyiga")
+    price_note = models.CharField(max_length=120, default="bitta restoran uchun, oyiga")
+    trial_days = models.PositiveIntegerField(default=30)
+    free_setup = models.BooleanField(default=True, help_text="Ulash va sozlash bepul (aksiya)")
+    setup_note = models.CharField(max_length=200, default="Hozir ulash, menyuni kiritish va xodimlarni o'rgatish — bepul")
+    includes = models.JSONField(default=list, blank=True, help_text="narx ichida nimalar bor (ro'yxat)")
+    phone = models.CharField(max_length=40, blank=True, default="")
+    telegram = models.CharField(max_length=60, blank=True, default="", help_text="masalan: restopos_uz (@ siz)")
+    ai_chat = models.BooleanField(default=True, help_text="Saytda AI maslahatchi yoqilgan")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    DEFAULT_INCLUDES = ["Server va zaxira nusxa (har kuni)", "Domen va SSL (https)", "Barcha modullar va yangilanishlar",
+                        "Telegram bot va restoran sayti", "Qo'llab-quvvatlash (Telegram, telefon)", "Ma'lumotlar xavfsizligi va alohida baza"]
+
+    def __str__(self) -> str:
+        return f"Taklif: {self.currency}{self.base_price} / {self.currency}{self.ai_price}"
+
+    @classmethod
+    def get(cls) -> "SiteOffer":
+        o = cls.objects.order_by("pk").first()
+        if o is None:
+            o = cls.objects.create(includes=list(cls.DEFAULT_INCLUDES))
+        return o
+
+
+class Lead(models.Model):
+    """Saytdan kelgan mijoz (AI maslahatchi yoki forma orqali)."""
+
+    NEW, CONTACTED, WON, LOST = "new", "contacted", "won", "lost"
+    STATUS = [(NEW, "Yangi"), (CONTACTED, "Bog'lanildi"), (WON, "Mijoz bo'ldi"), (LOST, "Rad etdi")]
+    name = models.CharField(max_length=120, blank=True)
+    phone = models.CharField(max_length=40)
+    business = models.CharField(max_length=160, blank=True, help_text="restoran nomi / turi / filiallar")
+    note = models.TextField(blank=True)
+    source = models.CharField(max_length=20, default="ai_chat")
+    status = models.CharField(max_length=12, choices=STATUS, default=NEW, db_index=True)
+    ip = models.CharField(max_length=64, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-id"]
+
+    def __str__(self) -> str:
+        return f"{self.name or '—'} {self.phone}"

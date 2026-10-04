@@ -14,6 +14,7 @@ const NAV = [
   { to: '/tenants', label: 'Mijozlar', icon: 'store' },
   { to: '/billing', label: 'Billing', icon: 'receipt' },
   { to: '/tickets', label: 'Texnik yordam', icon: 'headset', badge: true },
+  { to: '/site', label: 'Sayt va narxlar', icon: 'globe' },
   { to: '/health', label: 'Tizim holati', icon: 'pulse' },
   { to: '/system', label: 'Funksiyalar va jamoa', icon: 'flag' },
 ]

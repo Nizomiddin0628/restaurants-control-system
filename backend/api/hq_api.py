@@ -729,3 +729,86 @@ def staff_add(request, data: StaffIn):
     s, _ = PlatformStaff.objects.update_or_create(user=u, defaults={"role": data.role, "is_active": True})
     hq.audit(request.staff, "staff_add", phone=phone, role=data.role)
     return _staff_out(s)
+
+
+# ------------------------------------------------------------------ platforma sayti: narxlar va taklif, mijozlar (lead)
+class OfferIn(Schema):
+    currency: str = "$"
+    base_price: int = 100
+    ai_price: int = 150
+    price_note: str = ""
+    trial_days: int = 30
+    free_setup: bool = True
+    setup_note: str = ""
+    includes: list[str] = []
+    phone: str = ""
+    telegram: str = ""
+    ai_chat: bool = True
+
+
+def _offer_out(o) -> dict:
+    return {"currency": o.currency, "base_price": o.base_price, "ai_price": o.ai_price, "price_note": o.price_note, "trial_days": o.trial_days,
+            "free_setup": o.free_setup, "setup_note": o.setup_note, "includes": o.includes or [], "phone": o.phone, "telegram": o.telegram,
+            "ai_chat": o.ai_chat, "updated_at": o.updated_at.isoformat() if o.updated_at else None}
+
+
+@router.get("/offer", auth=hq_auth)
+def offer_get(request):
+    from public.models import SiteOffer
+    return _offer_out(SiteOffer.get())
+
+
+@router.put("/offer", auth=hq_auth)
+def offer_put(request, data: OfferIn):
+    _need(request, "sales", "finance")
+    from public.models import SiteOffer
+    if not (0 < data.base_price <= 100000 and 0 < data.ai_price <= 100000):
+        raise HttpError(400, "Narx 1 dan 100 000 gacha bo'lsin.")
+    if not 0 <= data.trial_days <= 365:
+        raise HttpError(400, "Bepul davr 0–365 kun.")
+    o = SiteOffer.get()
+    before = _offer_out(o)
+    for k, v in data.dict().items():
+        if isinstance(v, str):
+            v = v.strip()
+        if k == "includes":
+            v = [str(x).strip()[:120] for x in v if str(x).strip()][:12]
+        if k == "telegram":
+            v = v.lstrip("@").replace("https://t.me/", "")
+        setattr(o, k, v)
+    o.save()
+    hq.audit(request.staff, "offer", before={k: before[k] for k in ("base_price", "ai_price", "trial_days", "free_setup")},
+             after={"base_price": o.base_price, "ai_price": o.ai_price, "trial_days": o.trial_days, "free_setup": o.free_setup})
+    return _offer_out(o)
+
+
+def _lead_out(x) -> dict:
+    return {"id": x.pk, "name": x.name, "phone": x.phone, "business": x.business, "note": x.note, "source": x.source,
+            "status": x.status, "status_label": x.get_status_display(), "created_at": x.created_at.isoformat()}
+
+
+@router.get("/leads", auth=hq_auth)
+def leads(request, status: str = ""):
+    _need(request, "sales", "support")
+    from public.models import Lead
+    qs = Lead.objects.all()
+    if status:
+        qs = qs.filter(status=status)
+    return {"items": [_lead_out(x) for x in qs[:300]], "new": Lead.objects.filter(status=Lead.NEW).count()}
+
+
+class LeadIn(Schema):
+    status: str
+
+
+@router.post("/leads/{int:lid}", auth=hq_auth)
+def lead_status(request, lid: int, data: LeadIn):
+    _need(request, "sales", "support")
+    from public.models import Lead
+    x = get_object_or_404(Lead, pk=lid)
+    if data.status not in dict(Lead.STATUS):
+        raise HttpError(400, "Noma'lum holat")
+    x.status = data.status
+    x.save(update_fields=["status"])
+    hq.audit(request.staff, "lead", lead=lid, status=data.status)
+    return _lead_out(x)

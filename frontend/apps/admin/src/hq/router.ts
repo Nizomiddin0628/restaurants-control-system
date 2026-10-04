@@ -14,6 +14,7 @@ export const hqRouter = createRouter({
         { path: 'billing', component: () => import('./views/HqBilling.vue'), meta: { title: 'Billing' } },
         { path: 'tickets', component: () => import('./views/HqTickets.vue'), meta: { title: 'Texnik yordam' } },
         { path: 'health', component: () => import('./views/HqHealth.vue'), meta: { title: 'Tizim holati' } },
+        { path: 'site', component: () => import('./views/HqSite.vue'), meta: { title: 'Sayt va narxlar' } },
         { path: 'system', component: () => import('./views/HqSystem.vue'), meta: { title: 'Funksiyalar va jamoa' } },
         { path: ':pathMatch(.*)*', redirect: '/' },
       ],
