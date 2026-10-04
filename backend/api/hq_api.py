@@ -744,12 +744,29 @@ class OfferIn(Schema):
     phone: str = ""
     telegram: str = ""
     ai_chat: bool = True
+    ai_key: str = ""          # yangi kalit (bo'sh — o'zgarmaydi)
+    clear_ai_key: bool = False
+
+
+def _mask(k: str) -> str:
+    return (k[:4] + "…" + k[-4:]) if len(k) > 10 else ("••••" if k else "")
 
 
 def _offer_out(o) -> dict:
     return {"currency": o.currency, "base_price": o.base_price, "ai_price": o.ai_price, "price_note": o.price_note, "trial_days": o.trial_days,
             "free_setup": o.free_setup, "setup_note": o.setup_note, "includes": o.includes or [], "phone": o.phone, "telegram": o.telegram,
-            "ai_chat": o.ai_chat, "updated_at": o.updated_at.isoformat() if o.updated_at else None}
+            "ai_chat": o.ai_chat, "ai_key": _mask(o.ai_key or ""), "ai_key_source": _key_source(o),
+            "updated_at": o.updated_at.isoformat() if o.updated_at else None}
+
+
+def _key_source(o) -> str:
+    import os
+    if os.environ.get("GEMINI_API_KEY", "").strip():
+        return "server .env (GEMINI_API_KEY)"
+    if (o.ai_key or "").strip():
+        return "shu sahifadagi kalit"
+    from website.sales_ai import key_holder
+    return "restoranning AI Kotib kaliti" if key_holder().settings["modules"]["ai"]["api_key"] else "YO'Q — kalit kiriting"
 
 
 @router.get("/offer", auth=hq_auth)
@@ -768,7 +785,13 @@ def offer_put(request, data: OfferIn):
         raise HttpError(400, "Bepul davr 0–365 kun.")
     o = SiteOffer.get()
     before = _offer_out(o)
-    for k, v in data.dict().items():
+    d = data.dict()
+    new_key, clear = (d.pop("ai_key") or "").strip(), d.pop("clear_ai_key")
+    if clear:
+        o.ai_key = ""
+    elif new_key and "…" not in new_key and "•" not in new_key:
+        o.ai_key = new_key[:200]
+    for k, v in d.items():
         if isinstance(v, str):
             v = v.strip()
         if k == "includes":
@@ -812,3 +835,18 @@ def lead_status(request, lid: int, data: LeadIn):
     x.save(update_fields=["status"])
     hq.audit(request.staff, "lead", lead=lid, status=data.status)
     return _lead_out(x)
+
+
+
+@router.get("/chats", auth=hq_auth)
+def chats(request):
+    """Saytdagi AI maslahatchi bilan suhbatlar (oxirgi 100)."""
+    _need(request, "sales", "support")
+    from public.models import ChatSession
+    out = []
+    for c in ChatSession.objects.select_related("lead")[:100]:
+        out.append({"id": c.pk, "count": c.count, "ip": c.ip, "updated_at": c.updated_at.isoformat(), "created_at": c.created_at.isoformat(),
+                    "lead": ({"name": c.lead.name, "phone": c.lead.phone} if c.lead else None),
+                    "first": next((m["text"] for m in c.messages or [] if m.get("role") == "me"), "")[:160],
+                    "messages": c.messages or []})
+    return {"items": out}

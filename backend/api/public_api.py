@@ -74,6 +74,7 @@ class SalesIn(Schema):
     question: str = ""
     history: list[dict] = []
     image: str = ""            # data:image/jpeg;base64,... (brauzerda kichraytirilgan)
+    sid: str = ""              # brauzerdagi suhbat kaliti (HQ'da suhbatlar ro'yxati uchun)
 
 
 @public_api.post("/sales/ask-stream")
@@ -100,13 +101,16 @@ def sales_ask_stream(request, data: SalesIn):
     if msg:
         raise HttpError(429, msg)
     tenant, box, flag = request.tenant, queue.Queue(), {"stop": False}
+    holder, sys_prompt = sales_ai.key_holder(), sales_ai.system(settings.PLATFORM_NAME)   # so'rov ipida o'qiladi
     hist = [h for h in data.history if isinstance(h, dict)][-10:]
 
     def work():
         try:
             with schema_context(tenant.schema_name):
-                res = sales_ai.ask(request, q, history=hist, image=data.image,
+                res = sales_ai.ask(request, q, history=hist, image=data.image, holder=holder, sys_prompt=sys_prompt,
                                    on_text=lambda d: box.put(("t", d)), stop=lambda: flag["stop"])
+                sales_ai.log_turn(request, data.sid, q, res.get("answer") or ("⚠️ " + (res.get("detail") or res.get("error") or "")),
+                                  image=bool(data.image), lead_saved=bool(res.get("lead")))
                 box.put(("done", res))
         except Exception as e:  # noqa: BLE001
             box.put(("done", {"ok": False, "error": f"Ichki xato: {type(e).__name__}"}))
@@ -153,3 +157,29 @@ def sales_lead(request, data: LeadFormIn):
     if not r.get("ok"):
         raise HttpError(400, r.get("error") or "Xato")
     return {"ok": True}
+
+
+class VoiceIn(Schema):
+    audio: str               # data:audio/webm;base64,...
+
+
+@public_api.post("/sales/transcribe")
+def sales_transcribe(request, data: VoiceIn):
+    """AI chatdagi 🎙: ovoz → matn (keyin savol sifatida yuboriladi)."""
+    from modules.ai import gemini
+    from public.models import SiteOffer
+    from website import sales_ai
+    if not SiteOffer.get().ai_chat:
+        raise HttpError(403, "AI maslahatchi hozir o'chirilgan")
+    if len(data.audio) > 11_000_000:
+        raise HttpError(400, "Ovozli xabar juda uzun (2 daqiqagacha)")
+    msg = sales_ai.allow(request)
+    if msg:
+        raise HttpError(429, msg)
+    try:
+        text = sales_ai.transcribe(request, data.audio)
+    except gemini.AiError as e:
+        raise HttpError(400, str(e)) from None
+    if not text or "[tushunarsiz]" in text.lower():
+        raise HttpError(400, "Ovozni tushunib bo'lmadi — aniqroq gapirib qayta yozing")
+    return {"text": text}

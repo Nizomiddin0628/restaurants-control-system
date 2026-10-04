@@ -5,13 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{{ platform }} — restoranni bitta paneldan boshqarish</title>
 <meta name="description" content="Kassa, oshxona ekrani, ombor, xodimlar, Telegram bot va AI Kotib — bitta tizimda. Birinchi {{ offer.trial_days }} kun bepul.">
-<meta name="theme-color" content="#F3F4EF" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#100E0B" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F6F7FB" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0B0D17" media="(prefers-color-scheme: dark)">
 <script>(function(){try{var t=localStorage.getItem('rp.theme');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t}catch(e){}})()</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Unbounded:wght@500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
 <link rel="stylesheet" href="{% static 'platform/platform.css' %}">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%23E39B0B'/><path d='M9 22V10h7a4 4 0 0 1 0 8h-7m7 0 5 4' stroke='%2315130F' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%234F46E5'/><path d='M9 22V10h7a4 4 0 0 1 0 8h-7m7 0 5 4' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
 </head>
 <body>
 <a class="skip" href="#main">Asosiy qismga o'tish</a>
@@ -49,134 +49,145 @@
 </header>
 
 <main id="main">
-<!-- ============ HERO: buyurtmalar bitta panelga oqib keladi ============ -->
+<!-- ============ HERO: panel va uning atrofida aylanayotgan bo'limlar ============ -->
 <section class="hero">
   <div class="wrap hero-in">
     <div class="hero-copy">
-      <p class="promo"><span class="dot"></span>Birinchi {{ offer.trial_days }} kun bepul{% if offer.free_setup %}, ulab berish ham bepul{% endif %}</p>
-      <h1>Butun restoraningiz bitta jonli panelda.</h1>
-      <p class="lead">Buyurtma qayerdan kelmasin — kassadan, Telegram botdan yoki saytdan — u darhol oshxonaga tushadi, ombordan ayiriladi va hisobotga yoziladi. Ertalab AI Kotib kechagi kunni o'zi aytib beradi.</p>
+      <p class="promo"><span class="pill">{{ offer.trial_days }} kun bepul</span>Karta so'ralmaydi{% if offer.free_setup %}, ulab berish ham bepul{% endif %}</p>
+      <h1><span class="rot" id="rot" aria-live="polite"><span class="rw on">Restoraningizni</span><span class="rw">Kassani</span><span class="rw">Omborni</span><span class="rw">Xodimlarni</span><span class="rw">Filiallarni</span></span><span class="h1b">bitta ekrandan boshqaring</span></h1>
+      <p class="lead">Kassa, oshxona, ombor, xodimlar, Telegram va hisobotlar bir-biriga ulangan. Har sotuv hamma joyda o'zi yangilanadi — siz esa restoran qanday ketayotganini har kuni ertalab bir qarashda ko'rasiz.</p>
       <div class="cta-row">
-        <a class="btn primary big" href="/signup/">{{ offer.trial_days }} kun bepul boshlash</a>
-        <button class="btn ghost big" type="button" data-open-ai>AI'dan so'rash</button>
+        <a class="btn primary big" href="/signup/">Bepul sinab ko'rish <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a>
+        {% if offer.phone %}<a class="call" href="tel:{{ offer.phone|cut:' ' }}"><span class="call-i" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6.6 10.8a15.2 15.2 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.6a1 1 0 0 1-.25 1Z"/></svg></span><span><small>Savolingiz bormi?</small><b>{{ offer.phone }}</b></span></a>
+        {% else %}<button class="call" type="button" data-open-ai><span class="call-i ai" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M6 18l2-2M16 8l2-2"/></svg></span><span><small>Savolingiz bormi?</small><b>AI maslahatchidan so'rang</b></span></button>{% endif %}
       </div>
       <ul class="facts" aria-label="Qisqacha">
-        <li><b>20+</b> bo'lim bitta tizimda</li>
-        <li><b>4</b> ekran: telefon, planshet, kompyuter, TV</li>
-        <li><b>1</b> panel barcha filiallar uchun</li>
+        <li><b data-count="20" data-suffix="+">20+</b><span>bo'lim bitta tizimda</span></li>
+        <li><b data-count="4">4</b><span>ekran: telefon, planshet, kompyuter, TV</span></li>
+        <li><b data-count="{{ offer.trial_days }}">{{ offer.trial_days }}</b><span>kun bepul sinov</span></li>
       </ul>
     </div>
 
-    <div class="stage" id="stage" aria-label="Buyurtmalar panelga qanday tushishi — jonli namuna" role="img">
-      <svg class="rails" viewBox="0 0 560 520" preserveAspectRatio="none" aria-hidden="true">
-        <path id="r1" d="M60 70 C 220 70, 230 220, 330 240"/>
-        <path id="r2" d="M60 260 C 200 260, 220 260, 330 260"/>
-        <path id="r3" d="M60 450 C 220 450, 230 300, 330 280"/>
-      </svg>
-      <div class="src s1"><i>🧾</i><span>Kassa</span></div>
-      <div class="src s2"><i>✈️</i><span>Telegram</span></div>
-      <div class="src s3"><i>🌐</i><span>Sayt / QR</span></div>
-      <div class="board" id="board">
-        <div class="board-h"><span class="live"><i></i>Jonli</span><span class="muted">Bugun · Chilonzor</span></div>
-        <div class="kpi"><small>Savdo</small><b id="rev">4 860 000</b><em>so'm</em></div>
-        <div class="kpis">
-          <div><small>Buyurtma</small><b id="cnt">38</b></div>
-          <div><small>O'rtacha chek</small><b id="avg">127 900</b></div>
-          <div><small>Oshxonada</small><b id="kit">3</b></div>
+    <div class="orbit-stage" id="orbit" aria-label="Boshqaruv paneli va unga ulangan bo'limlar" role="img">
+      <div class="ring r1"><i class="sat"></i></div>
+      <div class="ring r2"><i class="sat"></i><i class="sat s2"></i></div>
+      <div class="ring r3"></div>
+
+      <div class="device" id="device">
+        <div class="d-top"><i></i><i></i><i></i><span>app.restopos.uz</span></div>
+        <div class="d-body">
+          <aside class="d-side"><b>R</b><span class="on"></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></aside>
+          <div class="d-main">
+            <p class="d-hi">Xayrli kun, Akmal! <em>Bugun · Chilonzor</em></p>
+            <div class="d-kpis">
+              <div><small>Savdo</small><b id="dRev">8 420 000</b></div>
+              <div><small>Cheklar</small><b id="dCnt">64</b></div>
+              <div><small>Foyda</small><b id="dPro">2 930 000</b></div>
+            </div>
+            <div class="d-chart">
+              <svg viewBox="0 0 300 90" preserveAspectRatio="none" aria-hidden="true">
+                <defs><linearGradient id="dg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--brand)" stop-opacity=".35"/><stop offset="1" stop-color="var(--brand)" stop-opacity="0"/></linearGradient></defs>
+                <path class="d-area" d="M0 72 C30 66 40 50 70 54 S110 34 140 40 S190 22 220 30 S270 12 300 16 L300 90 L0 90Z" fill="url(#dg)"/>
+                <path class="d-line" d="M0 72 C30 66 40 50 70 54 S110 34 140 40 S190 22 220 30 S270 12 300 16"/>
+                <circle class="d-dot" r="4"><animateMotion dur="6s" repeatCount="indefinite" path="M0 72 C30 66 40 50 70 54 S110 34 140 40 S190 22 220 30 S270 12 300 16"/></circle>
+              </svg>
+            </div>
+            <div class="d-row">
+              <div class="d-donut"><svg viewBox="0 0 42 42" aria-hidden="true"><circle r="15.9" cx="21" cy="21" class="dn0"/><circle r="15.9" cx="21" cy="21" class="dn1"/><circle r="15.9" cx="21" cy="21" class="dn2"/><circle r="15.9" cx="21" cy="21" class="dn3"/></svg><span><b>46%</b>naqd</span></div>
+              <div class="d-bars" id="dBars"><i style="--h:.4"></i><i style="--h:.62"></i><i style="--h:.5"></i><i style="--h:.78"></i><i style="--h:.58"></i><i style="--h:.9"></i><i style="--h:.7" class="now"></i></div>
+            </div>
+          </div>
         </div>
-        <div class="bars" id="bars" aria-hidden="true"><i style="--h:.35"></i><i style="--h:.52"></i><i style="--h:.44"></i><i style="--h:.7"></i><i style="--h:.62"></i><i style="--h:.86"></i><i style="--h:.5" class="now"></i></div>
-        <ul class="feed" id="feed" aria-hidden="true">
-          <li><span class="tag t-pos">Kassa</span>Stol 7 · Lag'mon, choy<b>86 000</b></li>
-          <li><span class="tag t-tg">Telegram</span>Olib ketish · Somsa ×4<b>48 000</b></li>
-          <li><span class="tag t-web">Sayt</span>Yetkazish · Osh ×2<b>110 000</b></li>
-        </ul>
       </div>
-      <div class="note n1"><b>⚠️ Ombor</b><span>Guruch: 2 kunlik qoldi</span></div>
-      <div class="note n2"><b>🤖 AI Kotib</b><span>«Kecha savdo 12% oshdi»</span></div>
+
+      <span class="chip c1" style="--d:0s"><i class="ic kassa"></i>Kassa</span>
+      <span class="chip c2" style="--d:-1.2s"><i class="ic kds"></i>Oshxona ekrani</span>
+      <span class="chip c3" style="--d:-2.4s"><i class="ic stock"></i>Ombor va filiallar</span>
+      <span class="chip c4" style="--d:-3.1s"><i class="ic tg"></i>Telegram</span>
+      <span class="chip c5" style="--d:-.6s"><i class="ic staff"></i>Xodimlar</span>
+      <span class="chip c6" style="--d:-1.8s"><i class="ic ai"></i>AI Kotib</span>
+
+      <div class="fcard sales" aria-hidden="true"><small>Bugungi savdo</small><b id="fRev">12 480 000</b><span class="mini" id="fBars"><i style="--h:.3"></i><i style="--h:.45"></i><i style="--h:.38"></i><i style="--h:.6"></i><i style="--h:.52"></i><i style="--h:.85" class="now"></i></span></div>
+      <div class="fcard toast" id="fToast" aria-hidden="true"><i class="ic kassa"></i><div><b>Yangi sotuv</b><small>Chek #1043 — 86 000 so'm</small></div><em><i></i>hozir</em></div>
+      <div class="fcard dark" aria-hidden="true"><small>AI Kotib</small><b>Kecha savdo <span>+12%</span></b></div>
     </div>
   </div>
 </section>
 
-<!-- ============ Og'riq → yechim ============ -->
-<section class="pains" id="imkoniyatlar">
+<!-- ============ Bitta sotuv — hamma bo'lim yangilanadi (tomirlar) ============ -->
+<section class="flow-sec">
   <div class="wrap">
-    <h2 class="h2">Restoran egasining tanish muammolari — va ularning yechimi</h2>
-    <div class="pain-list">
-      <div class="pain"><q>Kassada kechqurun pul kam chiqadi.</q><p><b>Kassa topshirish</b> — kassir kupyuralarni sanaydi, farq bo'lsa sababini yozadi. Qabul qiluvchi Telegram'da «Qabul qildim»ni bosadi. Kim, qachon, qancha — hammasi yozib qolinadi.</p></div>
-      <div class="pain"><q>Go'sht va yog' qayerga ketyapti, bilmayman.</q><p><b>Ombor va tannarx</b> — har sotilgan taom tex-karta bo'yicha ombordan ayiriladi. Qoldiq, tannarx va food cost har kuni ko'rinadi, tugayotgan mahsulot haqida ogohlantiradi.</p></div>
-      <div class="pain"><q>Xodimlar kechikadi, smena kimniki — chalkash.</q><p><b>Xodimlar va davomat</b> — smena jadvali, Telegram botda «Keldim / Ketdim», kechikishlar, KPI va ishga olish bitta joyda.</p></div>
-      <div class="pain"><q>Har kuni menejerga qo'ng'iroq qilib hisob so'rayman.</q><p><b>AI Kotib</b> — har kuni ertalab Telegram'ga hisobot keladi. Savolingizni ovoz bilan bering: «kecha qancha savdo bo'ldi?» — raqam bilan javob oladi.</p></div>
-      <div class="pain"><q>Uchta filial — uchta har xil daftar.</q><p><b>Bitta panel</b> — har filial alohida, siz esa hammasini birga ko'rasiz. Menejer faqat o'z filialini ko'radi, kassir faqat kassani.</p></div>
-      <div class="pain"><q>Buyurtma oshxonaga yetib bormay qoladi.</q><p><b>Oshxona ekrani</b> — buyurtma kassadan, botdan yoki saytdan darhol oshxonaga tushadi, tayyor bo'lganini oshpaz bir bosishda belgilaydi.</p></div>
+    <div class="sec-head">
+      <h2 class="h2">Bitta sotuv — <span class="grad">6 ta bo'lim</span> bir vaqtda yangilanadi</h2>
+      <p class="sub">Kassir chekni yopdi — ombordan mahsulot ayirildi, oshxonaga buyurtma tushdi, kassa va hisobot yangilandi, xodim savdosi va mijoz bonusi yozildi. Hech kim qayta kiritmaydi.</p>
+    </div>
+    <div class="flow" id="flow">
+      <svg class="veins" id="veins" aria-hidden="true"></svg>
+      <div class="receipt" id="receipt">
+        <span class="stamp" id="stamp">Sotildi</span>
+        <div class="r-h"><i class="ic kassa"></i><div><small>Kassa · Chilonzor</small><b>Kassir: <span id="rCashier">Dilnoza</span></b></div></div>
+        <div class="r-body" id="rBody"></div>
+      </div>
+      <div class="hub" id="hub"><i></i></div>
+      <div class="mods-grid" id="mods">
+        <article class="mcard" data-c="teal"><header><i class="ic stock"></i><b>Ombor</b><span class="ok"></span></header><p class="val" data-k="stock">—</p><small data-k="stockN">Guruch qoldig'i</small><i class="bar"></i></article>
+        <article class="mcard" data-c="green"><header><i class="ic kassa"></i><b>Kassa</b><span class="ok"></span></header><p class="val" data-k="cash">—</p><small data-k="cashN">Naqd va karta</small><i class="bar"></i></article>
+        <article class="mcard" data-c="orange"><header><i class="ic kds"></i><b>Oshxona</b><span class="ok"></span></header><p class="val" data-k="kds">—</p><small data-k="kdsN">Tayyorlanmoqda</small><i class="bar"></i></article>
+        <article class="mcard" data-c="blue"><header><i class="ic rep"></i><b>Hisobotlar</b><span class="ok"></span></header><p class="val" data-k="rep">—</p><small>Bugungi yalpi foyda</small><i class="bar"></i></article>
+        <article class="mcard" data-c="amber"><header><i class="ic staff"></i><b>Xodimlar</b><span class="ok"></span></header><p class="val" data-k="staff">—</p><small data-k="staffN">Bugungi savdo</small><i class="bar"></i></article>
+        <article class="mcard" data-c="violet"><header><i class="ic gift"></i><b>Mijoz va bonus</b><span class="ok"></span></header><p class="val" data-k="crm">—</p><small data-k="crmN">Bonus yozildi</small><i class="bar"></i></article>
+      </div>
+    </div>
+    <p class="flow-note"><i></i><b>6 ta bo'lim</b> bir vaqtda, avtomatik yangilandi</p>
+  </div>
+</section>
+
+<!-- ============ Hammasi bir-biriga ulangan (tarmoq + jonli oqim) ============ -->
+<section class="net-sec" id="imkoniyatlar">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2 class="h2">Yangi avlod tizimi — hammasi bir-biriga ulangan</h2>
+      <p class="sub">Yigirmadan ortiq bo'lim bir-biriga to'xtovsiz ma'lumot uzatib turadi. Biri o'zgarsa — boshqalari o'sha zahoti biladi.</p>
+    </div>
+    <div class="net">
+      <ul class="net-list" id="netList">
+        <li data-n="0"><b>Kassa</b><span>Buyurtma, smena, kassa topshirish</span></li>
+        <li data-n="1"><b>Oshxona ekrani</b><span>Buyurtma darhol oshpazga</span></li>
+        <li data-n="2"><b>Ombor</b><span>Qoldiq, tannarx, ogohlantirish</span></li>
+        <li data-n="3"><b>Zakup</b><span>Ta'minotchi, bozorlik, qarz</span></li>
+        <li data-n="4"><b>Xodimlar</b><span>Smena, davomat, KPI</span></li>
+        <li data-n="5"><b>Telegram bot</b><span>Keldim/Ketdim, vazifalar, xabarlar</span></li>
+        <li data-n="6"><b>Sayt va QR menyu</b><span>Restoran sayti, TV menyu</span></li>
+        <li data-n="7"><b>Bron va zal</b><span>Stollar xaritasi, bron</span></li>
+        <li data-n="8"><b>Mijozlar va bonus</b><span>CRM, xabar tarqatish</span></li>
+        <li data-n="9"><b>Hisobotlar</b><span>Savdo, xarajat, foyda</span></li>
+        <li data-n="10"><b>Filiallar</b><span>Bitta panelda hammasi</span></li>
+        <li data-n="11"><b>AI Kotib</b><span>Ovoz bilan so'rang</span></li>
+      </ul>
+      <div class="net-canvas"><canvas id="netCanvas" aria-label="Bo'limlar tarmog'i" role="img"></canvas></div>
+      <div class="feed-box">
+        <p class="feed-h"><i></i>Jonli oqim</p>
+        <p class="feed-sub">Bo'limlar orasida ma'lumot almashinuvi — har satr real vaqtda.</p>
+        <ol class="live" id="live" aria-live="off"></ol>
+      </div>
     </div>
   </div>
 </section>
 
-<!-- ============ Bir kun (haqiqiy ketma-ketlik) ============ -->
-<section class="day" id="bir-kun">
+<!-- ============ Imkoniyatlar ============ -->
+<section class="feat-sec">
   <div class="wrap">
-    <h2 class="h2">Restoraningizning bir kuni {{ platform }} bilan</h2>
-    <p class="sub">Siz ishxonaga kelmasdan ham hammasi ko'z oldingizda.</p>
-    <ol class="timeline" id="timeline">
-      <li><time>08:30</time><h3>Ertalabki hisobot</h3><p>Telegram'ga keladi: kechagi savdo, kim kechikdi, omborda nima tugayapti, bugun nimadan boshlash kerak.</p></li>
-      <li><time>10:00</time><h3>Bozorlik</h3><p>Prognoz bayram va ob-havoni hisobga olib nima va qancha olishni aytadi. Xarajat o'sha zahoti yoziladi.</p></li>
-      <li><time>12:30</time><h3>Tushlik cho'qqisi</h3><p>Kassa, Telegram va saytdan buyurtmalar bitta oshxona ekraniga tushadi. Stollar xaritasida bo'sh joylar ko'rinadi.</p></li>
-      <li><time>15:00</time><h3>Nazorat</h3><p>Vazifalar: «Muzlatgichni tozalash — rasm bilan». Kechikkanlar o'zi ko'rinadi, eslatma boradi.</p></li>
-      <li><time>18:00</time><h3>Smena almashinuvi</h3><p>Kassir kassani sanab topshiradi, keyingisi qabul qiladi. Farq bo'lsa — darhol sizga xabar.</p></li>
-      <li><time>23:30</time><h3>Kun yakuni</h3><p>Z-hisobot, foyda, eng ko'p sotilgan taomlar. Ertaga ertalab hammasi yana Telegram'ingizda.</p></li>
-    </ol>
-  </div>
-</section>
-
-<!-- ============ Bo'limlar ko'rgazmasi ============ -->
-<section class="mods">
-  <div class="wrap">
-    <h2 class="h2">Hamma bo'lim — bitta tizimda, bir-biriga ulangan</h2>
-    <div class="mods-in">
-      <div class="tabs" role="tablist" aria-label="Bo'limlar">
-        <button role="tab" type="button" aria-selected="true" data-tab="0">🧾 Kassa va zal</button>
-        <button role="tab" type="button" aria-selected="false" data-tab="1">👨‍🍳 Oshxona ekrani</button>
-        <button role="tab" type="button" aria-selected="false" data-tab="2">📦 Taomnoma va ombor</button>
-        <button role="tab" type="button" aria-selected="false" data-tab="3">👥 Xodimlar</button>
-        <button role="tab" type="button" aria-selected="false" data-tab="4">✈️ Telegram va sayt</button>
-        <button role="tab" type="button" aria-selected="false" data-tab="5">📊 Hisobotlar</button>
-        <button role="tab" type="button" aria-selected="false" data-tab="6">✅ Vazifa va o'qitish</button>
-        <button role="tab" type="button" aria-selected="false" data-tab="7">🔐 Kirish huquqlari</button>
-      </div>
-      <div class="panes">
-        <article class="pane" data-pane="0">
-          <div class="pane-t"><h3>Kassa va zal</h3><ul><li>Buyurtma stol, olib ketish yoki yetkazish uchun</li><li>Smena, kassa topshirish va Z-hisobot</li><li>Kirim/chiqim: inkassatsiya, xarajat</li><li>Stollar xaritasi va bron</li></ul></div>
-          <div class="mock m-pos" aria-hidden="true"><div class="rcpt"><b>Stol 7</b><span>Lag'mon ×2<em>64 000</em></span><span>Choy ×1<em>8 000</em></span><span>Non ×2<em>14 000</em></span><hr><span class="tot">Jami<em>86 000</em></span></div><div class="tables"><i class="busy"></i><i></i><i class="busy"></i><i class="res"></i><i></i><i class="busy"></i></div></div>
-        </article>
-        <article class="pane" data-pane="1" hidden>
-          <div class="pane-t"><h3>Oshxona ekrani</h3><ul><li>Buyurtma oshxonaga darhol tushadi</li><li>Kutish vaqti ranglar bilan: yashil, sariq, qizil</li><li>«Tayyor» bir bosishda, ofitsiantga xabar</li><li>TV'da katta ekran rejimi</li></ul></div>
-          <div class="mock m-kds" aria-hidden="true"><div class="tk ok"><b>#41</b><span>Osh ×2</span><span>Salat</span><time>03:12</time></div><div class="tk mid"><b>#42</b><span>Lag'mon</span><span>Manti ×5</span><time>09:40</time></div><div class="tk late"><b>#39</b><span>Shashlik ×6</span><time>16:05</time></div></div>
-        </article>
-        <article class="pane" data-pane="2" hidden>
-          <div class="pane-t"><h3>Taomnoma va ombor</h3><ul><li>Taom, narx, rasm, filial narxlari, stop-list</li><li>Tex-karta: har taom qaysi mahsulotdan</li><li>Qoldiq, tannarx, food cost — avtomatik</li><li>Zakup, ta'minotchi va qarzlar</li></ul></div>
-          <div class="mock m-stock" aria-hidden="true"><span>Guruch<i style="--v:.18" class="low"></i></span><span>Go'sht<i style="--v:.46"></i></span><span>Yog'<i style="--v:.3" class="mid"></i></span><span>Piyoz<i style="--v:.72"></i></span><span>Un<i style="--v:.88"></i></span></div>
-        </article>
-        <article class="pane" data-pane="3" hidden>
-          <div class="pane-t"><h3>Xodimlar</h3><ul><li>Smena jadvali va davomat (Telegram orqali)</li><li>Kechikishlar va KPI</li><li>Vakansiya, ariza va ishga olish</li><li>Lavozimlar va standartlar</li></ul></div>
-          <div class="mock m-hr" aria-hidden="true"><div class="row h"><span></span><b>Du</b><b>Se</b><b>Ch</b><b>Pa</b><b>Ju</b></div><div class="row"><span>Aziz</span><i class="on"></i><i class="on"></i><i></i><i class="on"></i><i class="late"></i></div><div class="row"><span>Nodira</span><i></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div><div class="row"><span>Jasur</span><i class="on"></i><i class="late"></i><i class="on"></i><i></i><i class="on"></i></div></div>
-        </article>
-        <article class="pane" data-pane="4" hidden>
-          <div class="pane-t"><h3>Telegram bot va sayt</h3><ul><li>Restoranning o'z boti: xodimlar uchun menyu, davomat, vazifalar</li><li>Mini App va restoran sayti</li><li>TV menyu-bord</li><li>Bonus va mijozlarga xabar tarqatish</li></ul></div>
-          <div class="mock m-tg" aria-hidden="true"><div class="bub in">🎙 0:07</div><div class="bub out">📊 Kecha: <b>12,4 mln</b> so'm, 96 chek. O'tgan haftadan +12%.</div><div class="kb"><span>🤖 AI Kotib</span><span>📋 Vazifalarim</span><span>🕘 Keldim</span><span>🏁 Ketdim</span></div></div>
-        </article>
-        <article class="pane" data-pane="5" hidden>
-          <div class="pane-t"><h3>Hisobotlar</h3><ul><li>Savdo, xarajat, foyda — kun, hafta, oy</li><li>Filiallar taqqoslash</li><li>Eng ko'p va eng kam sotilgan taomlar</li><li>Jonli boshqaruv paneli</li></ul></div>
-          <div class="mock m-rep" aria-hidden="true"><svg viewBox="0 0 220 110"><path class="area" d="M0 90 L30 70 L60 78 L90 50 L120 58 L150 34 L180 40 L220 18 L220 110 L0 110Z"/><path class="ln" d="M0 90 L30 70 L60 78 L90 50 L120 58 L150 34 L180 40 L220 18"/></svg></div>
-        </article>
-        <article class="pane" data-pane="6" hidden>
-          <div class="pane-t"><h3>Vazifalar va o'qitish</h3><ul><li>Vazifa, muddat, rasm bilan isbot</li><li>Kechikkan vazifalar o'zi ko'rinadi</li><li>O'z videolaringiz va testlar</li><li>Sanitariya jurnallari</li></ul></div>
-          <div class="mock m-task" aria-hidden="true"><span class="done">Muzlatgichni tozalash<em>📷</em></span><span>Yangi xodimga o'qitish</span><span class="late">Gaz plitasini tekshirish<em>kechikdi</em></span></div>
-        </article>
-        <article class="pane" data-pane="7" hidden>
-          <div class="pane-t"><h3>Kirish huquqlari</h3><ul><li>Ega, bosh menejer, filial menejeri, kassir, oshpaz…</li><li>Har kim faqat o'z bo'limi va filialini ko'radi</li><li>Xodim o'zi ro'yxatdan o'tadi, menejer tasdiqlaydi</li><li>Kim nimani o'zgartirgani — tarixda</li></ul></div>
-          <div class="mock m-acc" aria-hidden="true"><span><b>Ega</b><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i></span><span><b>Menejer</b><i class="f"></i><i class="f"></i><i class="v"></i><i></i></span><span><b>Kassir</b><i class="f"></i><i></i><i></i><i></i></span></div>
-        </article>
-      </div>
+    <div class="sec-head"><h2 class="h2">Restoran uchun kerak bo'lgan hamma narsa</h2></div>
+    <div class="feat-grid">
+      <article class="feat"><i class="ic kassa"></i><h3>Kassa va smena</h3><p>Stol, olib ketish va yetkazish. Kassir kassani sanab topshiradi — farq bo'lsa sababi yoziladi, qabul qiluvchi Telegram'da tasdiqlaydi.</p></article>
+      <article class="feat"><i class="ic kds"></i><h3>Oshxona ekrani</h3><p>Buyurtma darhol oshxonaga tushadi. Kutish vaqti ranglar bilan, «Tayyor» bir bosishda.</p></article>
+      <article class="feat"><i class="ic stock"></i><h3>Ombor va tannarx</h3><p>Har sotilgan taom tex-karta bo'yicha ayiriladi. Qoldiq, food cost va tugayotgan mahsulot ogohlantirishi.</p></article>
+      <article class="feat"><i class="ic staff"></i><h3>Xodimlar</h3><p>Smena jadvali, Telegram'da «Keldim / Ketdim», kechikishlar, KPI va ishga olish.</p></article>
+      <article class="feat"><i class="ic tg"></i><h3>Telegram bot va sayt</h3><p>Restoranning o'z boti, Mini App, restoran sayti va TV menyu-bord.</p></article>
+      <article class="feat"><i class="ic rep"></i><h3>Hisobotlar</h3><p>Savdo, xarajat va foyda kun, hafta, oy bo'yicha. Filiallarni taqqoslash.</p></article>
+      <article class="feat"><i class="ic task"></i><h3>Vazifalar va o'qitish</h3><p>Vazifa, muddat va rasm bilan isbot. O'z videolaringiz va testlar.</p></article>
+      <article class="feat"><i class="ic lock"></i><h3>Kirish huquqlari</h3><p>Har kim faqat o'z bo'limi va filialini ko'radi. Kim nimani o'zgartirgani tarixda.</p></article>
+      <article class="feat"><i class="ic ai"></i><h3>AI Kotib</h3><p>Ovoz bilan so'rang — raqam bilan javob beradi, diagramma chizadi, ertalab hisobot yuboradi.</p></article>
     </div>
   </div>
 </section>
@@ -205,6 +216,22 @@
         <div class="msg ai a3"><b>🎯 Tavsiya:</b> guruch 2 kunga yetadi — bugun buyurtma bering.</div>
       </div>
     </div>
+  </div>
+</section>
+
+<!-- ============ Bir kun (haqiqiy ketma-ketlik) ============ -->
+<section class="day" id="bir-kun">
+  <div class="wrap">
+    <h2 class="h2">Restoraningizning bir kuni {{ platform }} bilan</h2>
+    <p class="sub">Siz ishxonaga kelmasdan ham hammasi ko'z oldingizda.</p>
+    <ol class="timeline" id="timeline">
+      <li><time>08:30</time><h3>Ertalabki hisobot</h3><p>Telegram'ga keladi: kechagi savdo, kim kechikdi, omborda nima tugayapti, bugun nimadan boshlash kerak.</p></li>
+      <li><time>10:00</time><h3>Bozorlik</h3><p>Prognoz bayram va ob-havoni hisobga olib nima va qancha olishni aytadi. Xarajat o'sha zahoti yoziladi.</p></li>
+      <li><time>12:30</time><h3>Tushlik cho'qqisi</h3><p>Kassa, Telegram va saytdan buyurtmalar bitta oshxona ekraniga tushadi. Stollar xaritasida bo'sh joylar ko'rinadi.</p></li>
+      <li><time>15:00</time><h3>Nazorat</h3><p>Vazifalar: «Muzlatgichni tozalash — rasm bilan». Kechikkanlar o'zi ko'rinadi, eslatma boradi.</p></li>
+      <li><time>18:00</time><h3>Smena almashinuvi</h3><p>Kassir kassani sanab topshiradi, keyingisi qabul qiladi. Farq bo'lsa — darhol sizga xabar.</p></li>
+      <li><time>23:30</time><h3>Kun yakuni</h3><p>Z-hisobot, foyda, eng ko'p sotilgan taomlar. Ertaga ertalab hammasi yana Telegram'ingizda.</p></li>
+    </ol>
   </div>
 </section>
 
@@ -340,24 +367,31 @@
 {% if offer.ai_chat %}
 <!-- ============ AI maslahatchi ============ -->
 <div class="aic" id="aic">
+  <div class="aic-hint" id="aicHint" hidden><button type="button" class="x" id="aicHintX" aria-label="Yopish">✕</button><b>Salom! 👋</b> Men AI maslahatchiman. Restoraningiz haqida so'rang — yozing, 🎙 gapiring yoki rasm yuboring.</div>
   <button class="aic-fab" type="button" id="aicFab" aria-expanded="false" aria-controls="aicBox" aria-label="AI maslahatchi bilan gaplashish">
-    <span class="fab-i" aria-hidden="true">💬</span><span class="fab-t">Savol bering</span>
+    <span class="orb" aria-hidden="true"><span class="orb-core"></span><svg viewBox="0 0 24 24"><path d="M12 2.5l1.9 5.6 5.6 1.9-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.9Z"/><path d="M19 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8Z"/></svg></span>
+    <span class="fab-t"><b>AI maslahatchi</b><small><i></i>onlayn · javob beradi</small></span>
   </button>
-  <div class="aic-hint" id="aicHint" hidden>Salom! Restoraningiz haqida so'rang — rasm ham yuborishingiz mumkin 📷</div>
   <section class="aic-box" id="aicBox" role="dialog" aria-label="AI maslahatchi" hidden>
-    <header><span class="av" aria-hidden="true">✨</span><div><b>{{ platform }} maslahatchi</b><small id="aicSt">AI · odatda bir necha soniyada javob beradi</small></div>
+    <header>
+      <span class="orb sm" aria-hidden="true"><span class="orb-core"></span><svg viewBox="0 0 24 24"><path d="M12 2.5l1.9 5.6 5.6 1.9-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.9Z"/></svg></span>
+      <div><b>{{ platform }} AI maslahatchi</b><small id="aicSt"><i></i>onlayn · matn, ovoz yoki rasm</small></div>
       <button class="icon-btn" type="button" id="aicClear" title="Yangi suhbat" aria-label="Yangi suhbat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4"/></svg></button>
-      <button class="icon-btn" type="button" id="aicClose" aria-label="Yopish"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></header>
+      <button class="icon-btn" type="button" id="aicClose" aria-label="Yopish"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </header>
     <div class="aic-list" id="aicList">
-      <div class="m ai">Salom! 👋 Men {{ platform }} bo'yicha maslahatchiman. Restoraningiz haqida qisqacha ayting — sizga nima foydali ekanini ko'rsataman. Menyu yoki zal rasmini ham yuborishingiz mumkin.</div>
+      <div class="m ai">Salom! 👋 Men {{ platform }} bo'yicha AI maslahatchiman. Restoraningiz haqida qisqacha ayting — sizga nima foydali ekanini ko'rsataman. Menyu yoki zal rasmini yuborishingiz, 🎙 ovozli xabar qoldirishingiz ham mumkin.</div>
       <div class="sug" id="aicSug"><button type="button">Narxi qancha va ichida nima bor?</button><button type="button">Kassir pulni yashirsa, qanday bilaman?</button><button type="button">AI Kotib nima qila oladi?</button><button type="button">3 ta filialim bor — mos keladimi?</button></div>
     </div>
     <div class="aic-prev" id="aicPrev" hidden><img alt="" id="aicImg"><button type="button" id="aicImgX" aria-label="Rasmni olib tashlash">✕</button></div>
     <form class="aic-in" id="aicForm">
       <label class="icon-btn attach" title="Rasm yuborish" aria-label="Rasm yuborish"><input type="file" accept="image/*" id="aicFile" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 11.5 12 20a5.5 5.5 0 0 1-7.8-7.8l8.5-8.5a3.7 3.7 0 0 1 5.2 5.2L9.4 17.4a1.8 1.8 0 0 1-2.6-2.6l7.8-7.8"/></svg></label>
+      <div class="recbar" id="recBar" hidden><span class="rdot"></span>Yozilmoqda… <b id="recT">0:00</b><button type="button" class="rx" id="recX" aria-label="Bekor qilish">✕</button></div>
       <textarea id="aicQ" rows="1" placeholder="Savolingizni yozing…" aria-label="Savol"></textarea>
+      <button class="icon-btn mic" type="button" id="aicMic" title="Ovozli xabar" aria-label="Ovozli xabar yozish"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg></button>
       <button class="send" type="submit" id="aicSend" aria-label="Yuborish"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg></button>
     </form>
+    <p class="aic-note">Suhbat xizmat sifati uchun saqlanadi. Telefoningizni faqat o'zingiz qoldirsangiz bog'lanamiz.</p>
   </section>
 </div>
 {% endif %}

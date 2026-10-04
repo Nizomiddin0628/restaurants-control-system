@@ -274,6 +274,7 @@ class SiteOffer(models.Model):
     phone = models.CharField(max_length=40, blank=True, default="")
     telegram = models.CharField(max_length=60, blank=True, default="", help_text="masalan: restopos_uz (@ siz)")
     ai_chat = models.BooleanField(default=True, help_text="Saytda AI maslahatchi yoqilgan")
+    ai_key = models.CharField(max_length=200, blank=True, default="", help_text="Gemini API kaliti (saytdagi AI uchun); bo'sh — .env yoki restoran kaliti")
     updated_at = models.DateTimeField(auto_now=True)
 
     DEFAULT_INCLUDES = ["Server va zaxira nusxa (har kuni)", "Domen va SSL (https)", "Barcha modullar va yangilanishlar",
@@ -309,3 +310,22 @@ class Lead(models.Model):
 
     def __str__(self) -> str:
         return f"{self.name or '—'} {self.phone}"
+
+
+class ChatSession(models.Model):
+    """Saytdagi AI maslahatchi bilan suhbat (mehmon) — sotuv jamoasi o'qib, bog'lanadi."""
+
+    sid = models.CharField(max_length=40, unique=True)
+    ip = models.CharField(max_length=64, blank=True)
+    ua = models.CharField(max_length=200, blank=True)
+    messages = models.JSONField(default=list, blank=True, help_text="[{role: me|ai, text, at}]")
+    count = models.PositiveIntegerField(default=0)
+    lead = models.ForeignKey(Lead, null=True, blank=True, on_delete=models.SET_NULL, related_name="chats")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True, db_index=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+
+    def __str__(self) -> str:
+        return f"{self.sid} ({self.count})"

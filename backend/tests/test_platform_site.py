@@ -95,3 +95,41 @@ def test_sales_ai_limits_and_off(client, hq, monkeypatch):  # noqa: F811
     hq.put("/api/v1/hq/offer", {"base_price": 100, "ai_price": 150, "ai_chat": False})
     assert post().status_code == 403
     assert 'id="aicFab"' not in client.get("/", **PUB).content.decode()
+
+
+@pytest.mark.django_db
+def test_sales_key_fallback_sessions_and_voice(client, hq, tenant, monkeypatch):  # noqa: F811
+    """Kalit: .env bo'lmasa — HQ kaliti, u ham bo'lmasa — restoranning AI Kotib kaliti. Suhbatlar HQ'da. Ovoz → matn."""
+    cache.clear()
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    from modules.ai import gemini
+    from website import sales_ai
+    with schema_context("public"):
+        from public.models import Tenant
+        t = Tenant.objects.get(pk=tenant.pk)
+        t.settings = {**(t.settings or {}), "modules": {**((t.settings or {}).get("modules") or {}), "ai": {"api_key": "tenant-key-123456789"}}}
+        t.save()
+        assert sales_ai.key_holder().settings["modules"]["ai"]["api_key"] == "tenant-key-123456789"
+    assert "restoran" in hq.get("/api/v1/hq/offer").json()["ai_key_source"]
+    r = hq.put("/api/v1/hq/offer", {"base_price": 100, "ai_price": 150, "ai_key": "hq-key-abcdefghijklmnop"})
+    assert r.json()["ai_key"].startswith("hq-k") and "abcdefghij" not in r.json()["ai_key"]
+    with schema_context("public"):
+        assert sales_ai.key_holder().settings["modules"]["ai"]["api_key"] == "hq-key-abcdefghijklmnop"
+    hq.put("/api/v1/hq/offer", {"base_price": 100, "ai_price": 150, "ai_key": r.json()["ai_key"]})          # niqoblangan qiymat — o'zgarmaydi
+    with schema_context("public"):
+        assert sales_ai.key_holder().settings["modules"]["ai"]["api_key"] == "hq-key-abcdefghijklmnop"
+
+    seen = []
+    monkeypatch.setattr(gemini, "generate", lambda tenant, contents, **kw: seen.append(tenant) or
+                        {"model": "m", "ms": 1, "data": {"candidates": [{"content": {"parts": [{"text": "Salom! Narx $100."}]}}]}})
+    r = client.post("/api/v1/sales/ask-stream", {"question": "Narxi?", "sid": "abc12345xyz"}, content_type="application/json", **PUB)
+    assert _stream(r)[-1]["ok"]
+    assert seen[0].settings["modules"]["ai"]["api_key"] == "hq-key-abcdefghijklmnop"
+    chats = hq.get("/api/v1/hq/chats").json()["items"]
+    assert chats[0]["count"] == 1 and chats[0]["first"] == "Narxi?" and chats[0]["messages"][1]["text"].startswith("Salom")
+
+    monkeypatch.setattr(gemini, "transcribe", lambda tenant, raw, mime: {"text": "kassa haqida aytib bering", "model": "m", "ms": 1, "tokens": 1})
+    audio = "data:audio/webm;base64," + base64.b64encode(b"\x1aE" * 600).decode()
+    r = client.post("/api/v1/sales/transcribe", {"audio": audio}, content_type="application/json", **PUB)
+    assert r.status_code == 200 and r.json()["text"] == "kassa haqida aytib bering"
+    assert client.post("/api/v1/sales/transcribe", {"audio": "data:audio/webm;base64,AAAA"}, content_type="application/json", **PUB).status_code == 400
