@@ -1,4 +1,4 @@
-// RestoPOS platforma sayti — silliq, nozik animatsiyalar (rAF, easing, inersiya), tema, AI maslahatchi (matn, rasm, ovoz).
+// RestoPOS platforma sayti — «Restoraningiz bilan gaplashing»: suhbat sahnasi, buyurtma yo'li, solishtirish, AI maslahatchi (matn, rasm, ovoz).
 (() => {
   const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)]
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -9,7 +9,6 @@
   const lerp = (a, b, k) => a + (b - a) * k, clamp = (v, a, b) => Math.min(b, Math.max(a, v))
   const fmt = (n) => Math.round(n).toLocaleString('ru-RU').replace(/[\s,]/g, ' ')
   const sleep = (ms) => new Promise(r => setTimeout(r, ms))
-  const css = (name) => getComputedStyle(root).getPropertyValue(name).trim()
   // silliq raqam: eski qiymatdan yangisiga easeOut bilan
   const tween = (el, to, { dur = 900, prefix = '', suffix = '', from } = {}) => {
     if (!el) return
@@ -32,10 +31,9 @@
   }
 
   // ---------- tema
-  const isDark = () => root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches
+  const isDark = () => root.dataset.theme !== 'light'
   const themeListeners = []
   $('#theme')?.addEventListener('click', () => { const t = isDark() ? 'light' : 'dark'; root.dataset.theme = t; store.set('rp.theme', t); themeListeners.forEach(f => f()) })
-  matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => themeListeners.forEach(f => f()))
 
   // ---------- yuqori panel va mobil menyu
   const top = $('#top')
@@ -46,306 +44,189 @@
   mnav?.addEventListener('click', (e) => { if (e.target.closest('a')) { mnav.hidden = true; mb.setAttribute('aria-expanded', 'false') } })
 
   // ---------- bo'lim sarlavhalari: bir marta, yumshoq paydo bo'lish
-  if (!reduce) $$('.sec-head, .feat, .plan, .inc-box, .ch').forEach((el, i) => {
+  if (!reduce) $$('.sec-head, .feat, .plan, .inc-box, .ch, .built-grid > div, .stations li, .checks li, .score').forEach((el, i) => {
     el.style.opacity = '0'; el.style.transform = 'translateY(16px)'; el.style.filter = 'blur(4px)'
     el.style.transition = 'opacity .9s cubic-bezier(.2,.8,.2,1), transform .9s cubic-bezier(.2,.8,.2,1), filter .9s'
-    el.style.transitionDelay = (el.matches('.feat, .plan, .ch') ? ([...el.parentElement.children].indexOf(el) % 3) * 90 : 0) + 'ms'
+    el.style.transitionDelay = (el.matches('.feat, .plan, .ch, .built-grid > div, .stations li, .checks li') ? ([...el.parentElement.children].indexOf(el) % 3) * 90 : 0) + 'ms'
     once(el, () => { el.style.opacity = ''; el.style.transform = ''; el.style.filter = ''; setTimeout(() => { el.style.transition = ''; el.style.transitionDelay = '' }, 1400) }, .15)
   })
 
-  // ---------- sarlavhadagi almashadigan so'z
-  const words = $$('#rot .rw')
-  if (words.length > 1 && !reduce) {
-    let w = 0
-    setInterval(() => {
-      if (document.hidden) return
-      const cur = words[w]; w = (w + 1) % words.length; const nxt = words[w]
-      cur.classList.remove('on'); cur.classList.add('out')
-      setTimeout(() => cur.classList.remove('out'), 600)
-      nxt.classList.add('on')
-    }, 2800)
-  }
   // raqamlar (hero)
   once($('.facts'), () => $$('.facts [data-count]').forEach((b, i) => setTimeout(() => tween(b, +b.dataset.count, { from: 0, dur: 1400, suffix: b.dataset.suffix || '' }), i * 120)))
+  $$('[data-scroll]').forEach(b => b.addEventListener('click', () => $(b.dataset.scroll)?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' })))
 
-  // ---------- HERO: inersiyali egilish + jonli savdo
-  const stage = $('#orbit'), device = $('#device')
-  if (stage && device) {
-    let tx = 0, ty = 0, cx = 0, cy = 0, run = false, raf = 0
-    const chips = $$('.chip, .fcard', stage).map((el, i) => ({ el, d: .35 + (i % 4) * .18 }))
-    stage.addEventListener('pointermove', (e) => { const r = stage.getBoundingClientRect(); tx = (e.clientX - r.left) / r.width - .5; ty = (e.clientY - r.top) / r.height - .5 })
-    stage.addEventListener('pointerleave', () => { tx = 0; ty = 0 })
-    const frame = () => {
-      cx = lerp(cx, tx, .06); cy = lerp(cy, ty, .06)
-      device.style.setProperty('--ry', (-10 + cx * 14).toFixed(2) + 'deg'); device.style.setProperty('--rx', (6 - cy * 10).toFixed(2) + 'deg')
-      chips.forEach(c => { c.el.style.translate = `${(cx * 26 * c.d).toFixed(1)}px ${(cy * 20 * c.d).toFixed(1)}px` })
-      if (run) raf = requestAnimationFrame(frame)
-    }
-    const dRev = $('#dRev'), dCnt = $('#dCnt'), dPro = $('#dPro'), fRev = $('#fRev'), toast = $('#fToast')
-    const dBars = $$('#dBars i'), fBars = $$('#fBars i')
-    let rev = 8420000, cnt = 64, pro = 2930000, frev = 12480000, n = 1043
-    const notes = [
-      ['kassa', 'Yangi sotuv', (s) => `Chek #${n} — ${fmt(s)} so'm`], ['stock', 'Ombor ogohlantirishi', () => 'Guruch — 2 kunlik qoldi'],
-      ['tg', 'Telegram buyurtma', (s) => `Olib ketish — ${fmt(s)} so'm`], ['staff', 'Xodim keldi', () => 'Nodira — 08:57, smena boshlandi'],
-      ['kds', 'Oshxona', () => 'Buyurtma #1041 tayyor'], ['ai', 'AI Kotib', () => 'Kecha savdo +12% — hisobot tayyor'],
-    ]
-    let ni = 0
-    const shiftBars = (bars) => {
-      const hs = bars.map(b => parseFloat(b.style.getPropertyValue('--h')))
-      hs.shift(); hs.push(clamp(.35 + Math.random() * .6, .3, .95))
-      bars.forEach((b, i) => b.style.setProperty('--h', hs[i].toFixed(2)))
-    }
-    const sale = () => {
-      const s = 30000 + Math.round(Math.random() * 15) * 8000
-      rev += s; cnt += 1; pro += Math.round(s * .34); frev += s; n += 1
-      tween(dRev, rev); tween(dCnt, cnt, { dur: 500 }); tween(dPro, pro); tween(fRev, frev, { dur: 1100 })
-      dRev.classList.remove('bump'); void dRev.offsetWidth; dRev.classList.add('bump')
-      shiftBars(dBars); shiftBars(fBars)
-      const [ic, t, f] = notes[ni++ % notes.length]
-      toast.classList.remove('swap'); void toast.offsetWidth; toast.classList.add('swap')
-      setTimeout(() => { toast.querySelector('.ic').className = 'ic ' + ic; toast.querySelector('b').textContent = t; toast.querySelector('small').textContent = f(s) }, 240)
-    }
-    let timer = 0
-    visible(stage, (v) => {
-      if (v && !reduce) { if (!run) { run = true; raf = requestAnimationFrame(frame) } if (!timer) timer = setInterval(() => !document.hidden && sale(), 3200) }
-      else { run = false; cancelAnimationFrame(raf); clearInterval(timer); timer = 0 }
-    }, .1)
+  // ko'rinmaganda to'xtaydigan kutish: sahna ekrandan chiqsa yoki tab yashirilsa — pauza
+  const gateFor = (el) => {
+    let vis = false, waiters = []
+    const open = () => vis && !document.hidden
+    const flush = () => { if (open()) { waiters.forEach(r => r()); waiters = [] } }
+    visible(el, (v) => { vis = v; flush() }, .15)
+    document.addEventListener('visibilitychange', flush)
+    return async (ms) => { if (ms) await sleep(ms); if (!open()) await new Promise(r => waiters.push(r)) }
   }
+  // kometa: SVG yo'l bo'ylab bosh + so'nib boruvchi dum
+  const NS = 'http://www.w3.org/2000/svg'
+  const comet = (p, dur = 950) => new Promise(res => {
+    if (reduce) { res(); return }
+    const tail = Math.min(120, p.L * .5)
+    p.line.style.transition = p.glow.style.transition = p.head.style.transition = ''
+    p.line.style.strokeDasharray = `${tail} ${p.L + tail}`; p.glow.style.strokeDasharray = `${tail * .7} ${p.L + tail}`
+    p.line.style.opacity = p.glow.style.opacity = p.head.style.opacity = '1'
+    const t0 = performance.now()
+    const step = (now) => {
+      const k = clamp((now - t0) / dur, 0, 1), at = easeInOut(k) * p.L
+      p.line.style.strokeDashoffset = String(tail - at); p.glow.style.strokeDashoffset = String(tail * .7 - at)
+      const pt = p.line.getPointAtLength(at); p.head.setAttribute('cx', pt.x); p.head.setAttribute('cy', pt.y)
+      if (k < 1) { requestAnimationFrame(step); return }
+      p.line.style.transition = 'stroke-dasharray .9s ease, opacity 1.4s ease'; p.line.style.strokeDasharray = `${p.L} 0`; p.line.style.strokeDashoffset = '0'; p.line.style.opacity = '.5'
+      p.glow.style.transition = 'opacity .9s ease'; p.glow.style.opacity = '0'; p.head.style.transition = 'opacity .5s'; p.head.style.opacity = '0'
+      res()
+    }
+    requestAnimationFrame(step)
+  })
 
-  // ---------- BITTA SOTUV: tomirlar bo'ylab oqim
-  const flow = $('#flow')
-  if (flow) {
-    const svg = $('#veins'), hub = $('#hub'), cards = $$('.mcard', flow), rBody = $('#rBody'), stamp = $('#stamp'), cashier = $('#rCashier')
-    const NS = 'http://www.w3.org/2000/svg'
-    const sales = [
-      { who: 'Dilnoza', items: [['Osh, choyxona', 2, 64000], ['Achchiq-chuchuk', 1, 12000], ['Non', 2, 8000]], disc: 0, stock: ['−0,4 kg', 'Guruch: 18,6 kg qoldi'], kds: ['#1044', '3 ta taom tayyorlanmoqda'], staff: 19, crm: ['Aziz K.', 840] },
-      { who: 'Jasur', items: [['Shashlik (qo\'y)', 6, 108000], ['Lag\'mon', 2, 56000], ['Kompot', 2, 16000]], disc: 9000, stock: ['−1,2 kg', 'Go\'sht: 23,4 kg qoldi'], kds: ['#1045', '10 ta sikh grilda'], staff: 27, crm: ['Malika R.', 1710] },
-      { who: 'Nodira', items: [['Manti', 10, 70000], ['Sho\'rva', 2, 44000], ['Choy', 1, 6000]], disc: 0, stock: ['−1,5 kg', 'Un: 41 kg qoldi'], kds: ['#1046', '2 ta taom tayyorlanmoqda'], staff: 22, crm: ['Bobur T.', 1200] },
-    ]
-    let si = 0, paths = [], running = false, cycle = null
+  // ---------- HERO: «Restoraningiz bilan gaplashing» — suhbat dvigateli
+  const talk = $('#talk'), pb = $('#phBody')
+  if (talk && pb) {
+    const svg = $('#talkLines'), phone = $('#heroPhone'), st = $('#phSt'), chips = $$('#srcs li')
+    const wait = gateFor(talk)
+    let lines = {}
     const layout = () => {
-      if (getComputedStyle(svg).display === 'none') return
-      const fr = flow.getBoundingClientRect(), hr = hub.getBoundingClientRect()
-      const x0 = hr.left + hr.width / 2 - fr.left, y0 = hr.top + hr.height / 2 - fr.top
-      svg.setAttribute('viewBox', `0 0 ${fr.width} ${fr.height}`); svg.innerHTML = ''
-      const defs = document.createElementNS(NS, 'defs'); svg.appendChild(defs)
-      // chekdan markazga
-      const rc = $('#receipt').getBoundingClientRect()
-      const feed = document.createElementNS(NS, 'path')
-      feed.setAttribute('d', `M${rc.right - fr.left - 4} ${y0} L${x0} ${y0}`); feed.setAttribute('class', 'base'); svg.appendChild(feed)
-      paths = cards.map((c, i) => {
-        const r = c.getBoundingClientRect(), x1 = r.left - fr.left + 2, y1 = r.top + r.height / 2 - fr.top
-        const k = Math.max(50, (x1 - x0) * .45)
-        const d = `M${x0} ${y0} C${x0 + k} ${y0}, ${x1 - k} ${y1}, ${x1} ${y1}`
-        const color = getComputedStyle(c).getPropertyValue('--c').trim() || css('--brand')
-        const g = document.createElementNS(NS, 'linearGradient'); g.id = 'vg' + i; g.setAttribute('gradientUnits', 'userSpaceOnUse')
-        g.setAttribute('x1', x0); g.setAttribute('y1', y0); g.setAttribute('x2', x1); g.setAttribute('y2', y1)
-        g.innerHTML = `<stop offset="0" stop-color="${css('--green')}"/><stop offset="1" stop-color="${color}"/>`; defs.appendChild(g)
-        const base = document.createElementNS(NS, 'path'); base.setAttribute('d', d); base.setAttribute('class', 'base'); svg.appendChild(base)
-        const glow = document.createElementNS(NS, 'path'); glow.setAttribute('d', d); glow.setAttribute('fill', 'none'); glow.setAttribute('stroke', `url(#vg${i})`)
-        glow.setAttribute('stroke-width', '7'); glow.setAttribute('stroke-linecap', 'round'); glow.style.opacity = '0'; glow.style.filter = 'blur(5px)'; svg.appendChild(glow)
-        const line = document.createElementNS(NS, 'path'); line.setAttribute('d', d); line.setAttribute('fill', 'none'); line.setAttribute('stroke', `url(#vg${i})`)
-        line.setAttribute('stroke-width', '2.6'); line.setAttribute('stroke-linecap', 'round'); line.style.opacity = '0'; svg.appendChild(line)
-        const head = document.createElementNS(NS, 'circle'); head.setAttribute('r', '4.5'); head.setAttribute('fill', color); head.style.opacity = '0'
-        head.style.filter = `drop-shadow(0 0 6px ${color})`; svg.appendChild(head)
-        const L = line.getTotalLength()
-        return { line, glow, head, L, color, lit: false }
+      lines = {}
+      if (!svg || getComputedStyle(svg).display === 'none') return
+      const tr = talk.getBoundingClientRect(), pr = phone.getBoundingClientRect()
+      svg.setAttribute('viewBox', `0 0 ${tr.width} ${tr.height}`); svg.innerHTML = ''
+      chips.forEach((li, i) => {
+        const r = li.getBoundingClientRect(), x0 = r.right - tr.left, y0 = r.top + r.height / 2 - tr.top
+        const x1 = pr.left - tr.left + 4, y1 = pr.top - tr.top + pr.height * (.42 + i * .07), k = Math.max(30, (x1 - x0) * .55)
+        const d = `M${x0} ${y0} C${x0 + k} ${y0}, ${x1 - k} ${y1}, ${x1} ${y1}`, c = getComputedStyle(li).getPropertyValue('--c').trim()
+        const mk = (cls, w) => { const e = document.createElementNS(NS, 'path'); e.setAttribute('d', d); e.setAttribute('fill', 'none'); if (cls) e.setAttribute('class', cls); else { e.setAttribute('stroke', c); e.setAttribute('stroke-width', w); e.setAttribute('stroke-linecap', 'round'); e.style.opacity = '0' } svg.appendChild(e); return e }
+        mk('base'); const glow = mk('', 7); glow.style.filter = 'blur(5px)'; const line = mk('', 2.2)
+        const head = document.createElementNS(NS, 'circle'); head.setAttribute('r', '4'); head.setAttribute('fill', c); head.style.opacity = '0'; head.style.filter = `drop-shadow(0 0 6px ${c})`; svg.appendChild(head)
+        lines[li.dataset.s] = { line, glow, head, L: line.getTotalLength() }
       })
     }
-    // kometa: boshi + so'nib boruvchi dum
-    const pulse = (p, dur = 1050) => new Promise(res => {
-      const tail = Math.min(140, p.L * .45)
-      p.line.style.strokeDasharray = `${tail} ${p.L + tail}`; p.glow.style.strokeDasharray = `${tail * .7} ${p.L + tail}`
-      p.line.style.opacity = p.glow.style.opacity = p.head.style.opacity = '1'
-      const t0 = performance.now()
-      const step = (now) => {
-        const k = clamp((now - t0) / dur, 0, 1), e = easeInOut(k), at = e * p.L
-        p.line.style.strokeDashoffset = String(tail - at); p.glow.style.strokeDashoffset = String(tail * .7 - at)
-        const pt = p.line.getPointAtLength(at); p.head.setAttribute('cx', pt.x); p.head.setAttribute('cy', pt.y)
-        if (k < 1) requestAnimationFrame(step)
-        else {   // yetib keldi — iz qoladi, bosh so'nadi
-          p.line.style.transition = 'stroke-dasharray .8s ease, opacity 1.2s ease'; p.line.style.strokeDasharray = `${p.L} 0`; p.line.style.strokeDashoffset = '0'; p.line.style.opacity = '.55'
-          p.glow.style.transition = 'opacity .8s ease'; p.glow.style.opacity = '0'; p.head.style.transition = 'opacity .5s'; p.head.style.opacity = '0'
-          setTimeout(() => { p.line.style.transition = p.glow.style.transition = p.head.style.transition = '' }, 1300)
-          res()
-        }
-      }
-      requestAnimationFrame(step)
-    })
-    const val = (k) => $(`[data-k="${k}"]`, flow)
-    const setCard = (i, s, total) => {
-      const c = cards[i]; c.classList.add('on')
-      if (i === 0) { val('stock').textContent = s.stock[0]; val('stockN').textContent = s.stock[1] }
-      if (i === 1) { tween(val('cash'), total, { prefix: '+', suffix: ' so\'m', from: 0, dur: 1100 }); val('cashN').textContent = total > 100000 ? 'Karta orqali' : 'Naqd pul' }
-      if (i === 2) { val('kds').textContent = s.kds[0]; val('kdsN').textContent = s.kds[1] }
-      if (i === 3) tween(val('rep'), Math.round(total * .36), { prefix: '+', suffix: ' so\'m', from: 0, dur: 1100 })
-      if (i === 4) { tween(val('staff'), s.staff, { suffix: ' chek', from: s.staff - 1, dur: 700 }); val('staffN').textContent = `${s.who} · bugungi savdo` }
-      if (i === 5) { tween(val('crm'), Math.round(total / 100), { prefix: '+', suffix: ' bonus', from: 0, dur: 1000 }); val('crmN').textContent = `${s.crm[0]} kartasiga yozildi` }
+    const fade = () => Object.values(lines).forEach(p => { p.line.style.transition = 'opacity 1.2s ease'; p.line.style.opacity = '0' })
+    const light = async (keys) => {
+      chips.forEach(li => li.classList.toggle('on', keys.includes(li.dataset.s)))
+      fade(); await Promise.all(keys.map((k, i) => lines[k] ? sleep(i * 160).then(() => comet(lines[k])) : null))
     }
-    const renderReceipt = (s) => {
-      const total = s.items.reduce((a, [, , p]) => a + p, 0) - s.disc
-      cashier.textContent = s.who
-      rBody.innerHTML = s.items.map(([n, q, p], i) => `<span style="animation-delay:${i * 120}ms">${n}${q > 1 ? ' ×' + q : ''}<em>${fmt(p)}</em></span>`).join('')
-        + (s.disc ? `<span class="disc" style="animation-delay:${s.items.length * 120}ms">Chegirma<em>−${fmt(s.disc)}</em></span>` : '')
-        + `<hr><span class="tot" style="animation-delay:${(s.items.length + 1) * 120}ms">Jami<em>${fmt(total)}</em></span>`
-      return total
+    // FLIP: yangi xabar qo'shilganda eskilar yumshoq yuqoriga suriladi
+    const flip = (fn) => {
+      const kids = [...pb.children], before = kids.map(k => k.getBoundingClientRect().top)
+      fn()
+      if (!reduce) kids.forEach((k, i) => { if (!k.isConnected) return; const dy = before[i] - k.getBoundingClientRect().top; if (Math.abs(dy) > .5) k.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 620, easing: 'cubic-bezier(.2,.8,.2,1)' }) })
+      const top = pb.getBoundingClientRect().top
+      ;[...pb.children].forEach(k => { if (k.getBoundingClientRect().bottom < top - 40) k.remove() })
     }
-    const play = async () => {
-      if (running) return
-      running = true
-      while (running) {
-        const s = sales[si++ % sales.length]
-        stamp.classList.remove('on'); cards.forEach(c => c.classList.remove('on'))
-        paths.forEach(p => { p.line.style.opacity = '0'; p.glow.style.opacity = '0' })
-        const total = renderReceipt(s)
-        await sleep(900); if (!running) break
-        stamp.classList.add('on'); hub.classList.remove('fire'); void hub.offsetWidth; hub.classList.add('fire')
-        await sleep(350)
-        if (paths.length && !reduce) {
-          await Promise.all(paths.map((p, i) => sleep(i * 170).then(() => running && pulse(p)).then(() => running && setCard(i, s, total))))
-        } else { cards.forEach((_, i) => setTimeout(() => setCard(i, s, total), i * 200)); await sleep(1400) }
-        await sleep(3200)
-      }
-    }
-    const relayout = () => { layout() }
-    let rt = 0
-    addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(relayout, 150) })
-    themeListeners.push(relayout)
-    document.fonts?.ready.then(relayout)
-    relayout()
-    visible(flow, (v) => { if (v) { relayout(); if (!running) { cycle = play() } } else running = false }, .25)
-    void cycle
-  }
-
-  // ---------- TARMOQ: bo'limlar tugunlari, zarrachalar va jonli oqim
-  const cv = $('#netCanvas')
-  if (cv) {
-    const ctx = cv.getContext('2d'), list = $$('#netList li'), live = $('#live')
-    const MODS = [
-      ['Kassa', '--green', ['Chek #1047 — 92 000 so\'m', 'Smena ochildi', 'Kassa topshirildi, farq yo\'q']],
-      ['Oshxona', '--orange', ['Buyurtma #1047 tushdi', '#1045 tayyor — 6:40 da', 'Stol 4: Osh ×2']],
-      ['Ombor', '--teal', ['Guruch −0,4 kg', 'Qoldiq yangilandi', 'Yog\' tugayapti — ogohlantirish']],
-      ['Zakup', '--amber', ['Bozorlik: 1 840 000 so\'m', 'Ta\'minotchiga buyurtma', 'Qarz to\'landi']],
-      ['Xodimlar', '--amber', ['Nodira keldi — 08:57', 'Jasur: 27 chek', 'Smena jadvali saqlandi']],
-      ['Telegram', '--sky', ['Vazifa yuborildi', '«Keldim» qabul qilindi', 'Kassa qabul tasdiqlandi']],
-      ['Sayt', '--sky', ['QR menyudan buyurtma', 'Stop-list yangilandi', 'Menyu e\'lon qilindi']],
-      ['Bron', '--pink', ['Stol 7 — 19:00 bron', 'Bron tasdiqlandi', 'Zalda 3 ta bo\'sh stol']],
-      ['Mijozlar', '--pink', ['+840 bonus yozildi', 'Yangi mijoz', 'Xabar tarqatildi']],
-      ['Hisobotlar', '--brand', ['Bugungi foyda qayta hisoblandi', 'Z-hisobot saqlandi', 'Food cost: 29%']],
-      ['Filiallar', '--brand', ['Chilonzor ma\'lumoti yangilandi', 'Sergeli: smena yopildi', 'Narxlar sinxronlandi']],
-      ['AI Kotib', '--brand-2', ['Ertalabki hisobot yuborildi', '«Kecha qancha savdo?» — javob berildi', 'Diagramma chizildi']],
+    const enter = (d) => { if (!reduce) d.animate([{ opacity: 0, transform: 'translateY(14px) scale(.97)' }, { opacity: 1, transform: 'none' }], { duration: 560, easing: 'cubic-bezier(.2,.8,.2,1)' }) }
+    const el = (cls, html) => { const d = document.createElement('div'); d.className = 'msg ' + cls; d.innerHTML = html; return d }
+    const say = (cls, html) => { const d = el(cls, html); flip(() => pb.appendChild(d)); enter(d); return d }
+    const status = (t) => { st.textContent = t ? 'yozmoqda…' : 'restoran boti'; st.classList.toggle('typing-st', !!t) }
+    const think = () => { status(true); return say('ai typing', '<span></span><span></span><span></span>') }
+    const answer = (t, html) => { const d = el('ai', html); flip(() => t.replaceWith(d)); enter(d); status(false); return d }
+    const grow = (d) => setTimeout(() => $('.mbars, .mhb', d)?.classList.add('in'), 120)
+    const voice = (sec) => say('me v', '<span class="play"></span><span class="wave" aria-hidden="true">' + '<i></i>'.repeat(16) + `</span><em>0:0${sec}</em>`)
+    const bars = '<div class="mbars">' + [.45, .6, .4, .75, .62, 1, .85].map((h, i) => `<i style="--h:${h};transition-delay:${i * 70}ms"${i === 5 ? ' class="hl"' : ''}></i>`).join('') + '</div><small>7 kunlik savdo · shanba eng yaxshi kun</small>'
+    const scenes = [
+      async () => {
+        voice(6); await wait(900); say('me tr', '🗣 «Kecha savdo qanday bo\'ldi?»'); await wait(500)
+        const t = think(); await light(['kassa', 'rep']); await wait(500)
+        answer(t, '<b>📊 Kecha: 12,4 mln so\'m</b> — 96 chek, o\'rtacha chek 129 000.<br>O\'tgan dushanbadan <b>+12%</b>. Eng ko\'p: Osh (64), Lag\'mon (41).'); await wait(1200)
+        grow(say('ai', bars)); await wait(1800)
+        const t2 = think(); await light(['stock']); await wait(400)
+        answer(t2, '<b>🎯 Tavsiya:</b> guruch 2 kunga yetadi — bugun buyurtma bering.')
+      },
+      async () => {
+        say('me', 'Omborda nima tugayapti?'); await wait(600)
+        const t = think(); await light(['stock']); await wait(500)
+        answer(t, '🔴 <b>Guruch</b> — 2 kunga yetadi<br>🟠 <b>Kungaboqar yog\'i</b> — 3 kunga<br>🟠 <b>Pomidor</b> — 3 kunga<br>🟢 Go\'sht va un — yetarli')
+      },
+      async () => {
+        voice(4); await wait(900); say('me tr', '🗣 «Mantini bugunga stop-listga qo\'y»'); await wait(500)
+        const t = think(); await light(['kds', 'kassa']); await wait(400)
+        const a = answer(t, '🛑 <b>Manti</b> stop-listga qo\'yiladi — bugun kassa va saytda ko\'rinmaydi.<br>Tasdiqlaysizmi?<div class="mbtns"><span>✅ Tasdiqlash</span><span>✖️ Bekor</span></div>')
+        await wait(1900); $('.mbtns span', a)?.classList.add('tap'); await wait(800)
+        answer(think(), '✅ Bajarildi — Manti stop-listda. Ertaga o\'zim eslataman.')
+      },
+      async () => {
+        say('me', 'Qaysi filial yaxshi ishlayapti?'); await wait(600)
+        const t = think(); await light(['rep', 'kassa']); await wait(400)
+        grow(answer(t, '<b>Shu oy savdo, mln so\'m:</b><div class="mhb"><span>Chilonzor<i style="--v:1"></i><em>412</em></span><span>Yunusobod<i style="--v:.86"></i><em>356</em></span><span>Sergeli<i style="--v:.58"></i><em>241</em></span></div>')); await wait(1700)
+        answer(think(), '💡 Sergeli\'da o\'rtacha chek boshqalardan <b>18%</b> past — kechki menyuni ko\'rib chiqish kerak.')
+      },
+      async () => {
+        voice(3); await wait(900); say('me tr', '🗣 «Bugun kim kechikdi?»'); await wait(500)
+        const t = think(); await light(['staff', 'task']); await wait(400)
+        answer(t, '⏰ <b>2 kishi kechikdi:</b><br>Jasur — 09:14 (+14 daq)<br>Malika — 09:06 (+6 daq)<br>Qolgan 11 kishi vaqtida keldi.')
+      },
     ]
-    let W = 0, H = 0, dpr = 1, nodes = [], edges = [], parts = [], active = 0, colors = {}, ink = '#000', muted = '#888', run = false, raf = 0, last = 0, auto = true
-    const readColors = () => { MODS.forEach(m => { colors[m[1]] = css(m[1]) }); ink = css('--ink'); muted = css('--muted') }
-    const build = () => {
-      const r = cv.getBoundingClientRect(); dpr = Math.min(2, devicePixelRatio || 1); W = r.width; H = r.height
-      cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-      const cx = W / 2, cy = H / 2, rx = W * .39, ry = H * .39
-      nodes = [{ x: cx, y: cy, bx: cx, by: cy, r: 24, c: '--brand', center: true, ph: 0 }]
-      MODS.forEach((m, i) => { const a = -Math.PI / 2 + i * (Math.PI * 2 / MODS.length); const x = cx + Math.cos(a) * rx, y = cy + Math.sin(a) * ry
-        nodes.push({ x, y, bx: x, by: y, r: 9, c: m[1], label: m[0], i, ph: Math.random() * 6.28 }) })
-      const seed = (k) => { const x = Math.sin(k * 99.13) * 43758.55; return x - Math.floor(x) }
-      for (let k = 0; k < 26; k++) { const a = seed(k) * 6.28, d = .18 + seed(k + 50) * .62; const x = cx + Math.cos(a) * rx * d, y = cy + Math.sin(a) * ry * d
-        nodes.push({ x, y, bx: x, by: y, r: 2.4, c: MODS[k % MODS.length][1], ph: seed(k + 9) * 6.28 }) }
-      edges = []
-      const mods = nodes.filter(n => n.label)
-      mods.forEach((n, i) => { edges.push([0, nodes.indexOf(n)]); edges.push([nodes.indexOf(n), nodes.indexOf(mods[(i + 1) % mods.length])]); edges.push([nodes.indexOf(n), nodes.indexOf(mods[(i + 4) % mods.length])]) })
-      nodes.forEach((n, i) => { if (n.label || n.center) return
-        const near = nodes.map((m, j) => [j, Math.hypot(m.bx - n.bx, m.by - n.by)]).filter(([j]) => j !== i).sort((a, b) => a[1] - b[1]).slice(0, 3)
-        near.forEach(([j]) => edges.push([i, j])) })
-      parts = []
-      readColors()
-    }
-    const spawn = (from = null) => {
-      const pool = from == null ? edges : edges.filter(e => e[0] === from || e[1] === from)
-      const e = pool[Math.floor(Math.random() * pool.length)]; if (!e) return
-      const rev = from != null ? e[1] === from : Math.random() < .5
-      parts.push({ a: rev ? e[1] : e[0], b: rev ? e[0] : e[1], t: 0, v: .35 + Math.random() * .45, trail: [], hot: from != null })
-    }
-    const draw = (now) => {
-      const dt = Math.min(50, now - (last || now)) / 1000; last = now
-      ctx.clearRect(0, 0, W, H)
-      const T = now / 1000
-      nodes.forEach(n => { n.x = n.bx + Math.sin(T * .6 + n.ph) * (n.label ? 3 : 5); n.y = n.by + Math.cos(T * .5 + n.ph) * (n.label ? 3 : 5) })
-      const act = nodes.find(n => n.i === active)
-      // qirralar
-      edges.forEach(([a, b]) => {
-        const A = nodes[a], B = nodes[b], hot = act && (A === act || B === act)
-        ctx.strokeStyle = hot ? colors[act.c] : (colors[A.c] || muted); ctx.globalAlpha = hot ? .55 : .13; ctx.lineWidth = hot ? 1.4 : 1
-        ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke()
-      })
-      // zarrachalar (dum bilan)
-      parts.forEach(p => {
-        p.t += dt * p.v
-        const A = nodes[p.a], B = nodes[p.b], e = easeInOut(clamp(p.t, 0, 1)), x = lerp(A.x, B.x, e), y = lerp(A.y, B.y, e)
-        p.trail.push([x, y]); if (p.trail.length > 14) p.trail.shift()
-        const col = colors[(p.hot && act ? act : A).c] || ink
-        for (let k = 1; k < p.trail.length; k++) {
-          ctx.globalAlpha = (k / p.trail.length) * (p.hot ? .9 : .55); ctx.strokeStyle = col; ctx.lineWidth = (k / p.trail.length) * (p.hot ? 3 : 2)
-          ctx.beginPath(); ctx.moveTo(p.trail[k - 1][0], p.trail[k - 1][1]); ctx.lineTo(p.trail[k][0], p.trail[k][1]); ctx.stroke()
-        }
-        ctx.globalAlpha = 1; ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = p.hot ? 12 : 6
-        ctx.beginPath(); ctx.arc(x, y, p.hot ? 2.8 : 2, 0, 6.28); ctx.fill(); ctx.shadowBlur = 0
-      })
-      parts = parts.filter(p => p.t < 1)
-      if (parts.length < 22 && Math.random() < .25) spawn()
-      // tugunlar
-      nodes.forEach(n => {
-        const col = colors[n.c] || ink
-        if (n.center) {
-          const g = ctx.createRadialGradient(n.x - 6, n.y - 8, 2, n.x, n.y, n.r + 2)
-          g.addColorStop(0, css('--orange')); g.addColorStop(.55, css('--pink')); g.addColorStop(1, css('--brand-2'))
-          ctx.globalAlpha = .18 + Math.sin(T * 1.6) * .06; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(n.x, n.y, n.r + 16 + Math.sin(T * 1.6) * 3, 0, 6.28); ctx.fill()
-          ctx.globalAlpha = 1; ctx.fillStyle = g; ctx.shadowColor = css('--pink'); ctx.shadowBlur = 24; ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, 6.28); ctx.fill(); ctx.shadowBlur = 0
-          ctx.fillStyle = '#fff'; ctx.font = '800 18px Onest, system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('R', n.x, n.y + 1)
-          return
-        }
-        if (!n.label) { ctx.globalAlpha = .5; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, 6.28); ctx.fill(); return }
-        const on = n === act, br = on ? 1 + Math.sin(T * 3) * .5 : 0
-        if (on) { ctx.globalAlpha = .16; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(n.x, n.y, 22 + br * 4, 0, 6.28); ctx.fill(); ctx.globalAlpha = .3; ctx.beginPath(); ctx.arc(n.x, n.y, 14 + br * 2, 0, 6.28); ctx.fill() }
-        ctx.globalAlpha = 1; ctx.fillStyle = css('--surface'); ctx.strokeStyle = col; ctx.lineWidth = on ? 3 : 2
-        ctx.beginPath(); ctx.arc(n.x, n.y, on ? 11 : 9, 0, 6.28); ctx.fill(); ctx.stroke()
-        ctx.fillStyle = col; ctx.beginPath(); ctx.arc(n.x, n.y, on ? 4.5 : 3.5, 0, 6.28); ctx.fill()
-        ctx.font = `${on ? 800 : 600} ${W < 500 ? 10 : 12}px Onest, system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'top'
-        ctx.fillStyle = on ? col : muted; ctx.globalAlpha = on ? 1 : .9; ctx.fillText(n.label, n.x, n.y + 16); ctx.globalAlpha = 1
-      })
-      if (run) raf = requestAnimationFrame(draw)
-    }
-    // jonli oqim satri — balandligi silliq ochiladi
-    const pushLive = (i) => {
-      const m = MODS[i], li = document.createElement('li'), d = new Date()
-      li.style.setProperty('--c', css(m[1]))
-      li.innerHTML = `<time>${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}</time><b></b><span></span>`
-      li.querySelector('b').textContent = m[0]; li.querySelector('span').textContent = m[2][Math.floor(Math.random() * m[2].length)]
-      live.prepend(li)
-      if (!reduce) { const h = li.scrollHeight; li.animate([{ height: '0px', opacity: 0, paddingTop: '0px', paddingBottom: '0px' }, { height: h + 'px', opacity: 1, paddingTop: '10px', paddingBottom: '10px' }], { duration: 520, easing: 'cubic-bezier(.2,.8,.2,1)' }) }
-      while (live.children.length > 8) live.lastElementChild.remove()
-    }
-    const setActive = (i, user = false) => {
-      active = i; list.forEach(li => li.classList.toggle('on', +li.dataset.n === i))
-      if (user) { auto = false; clearTimeout(setActive.t); setActive.t = setTimeout(() => { auto = true }, 9000) }
-      const idx = nodes.findIndex(n => n.i === i); for (let k = 0; k < 4; k++) setTimeout(() => spawn(idx), k * 120)
-      pushLive(i)
-    }
-    list.forEach(li => li.addEventListener('click', () => setActive(+li.dataset.n, true)))
-    let cyc = 0
-    const tick = () => { if (auto && run) setActive((active + 1) % MODS.length) }
-    themeListeners.push(readColors)
-    let rt2 = 0
-    addEventListener('resize', () => { clearTimeout(rt2); rt2 = setTimeout(build, 150) })
-    build(); for (let k = 0; k < 4; k++) pushLive(k * 3 % MODS.length); setActive(0)
-    visible(cv, (v) => {
-      if (v && !reduce) { if (!run) { run = true; last = 0; raf = requestAnimationFrame(draw) } if (!cyc) cyc = setInterval(tick, 2600) }
-      else { run = false; cancelAnimationFrame(raf); clearInterval(cyc); cyc = 0; if (reduce) { run = false; requestAnimationFrame(draw) } }
-    }, .1)
+    let rt = 0
+    addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(layout, 150) })
+    themeListeners.push(layout)
+    document.fonts?.ready.then(layout)
+    layout()
+    ;(async () => {
+      if (reduce) { await scenes[0](); return }
+      await wait(600)
+      for (let i = 0; ; i = (i + 1) % scenes.length) {
+        await scenes[i](); await wait(2600)
+        chips.forEach(li => li.classList.remove('on')); fade(); await wait(700)
+      }
+    })()
   }
 
-  // ---------- diagrammalar, vaqt chizig'i, AI telefoni — bir marta
+  // ---------- BUYURTMANING YO'LI: chipta bekatlar bo'ylab
+  const track = $('#track')
+  if (track) {
+    const sts = $$('.stations li', track), chip = $('#ticketChip'), fill = $('#railFill'), rail = $('.rail', track), tmr = $('.tmr', track)
+    const wait = gateFor(track)
+    const mmss = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`
+    const runTimer = (to, dur) => { if (!tmr) return; const t0 = performance.now(); const f = (now) => { const k = clamp((now - t0) / dur, 0, 1); tmr.textContent = mmss(to * easeOut(k)); if (k < 1) requestAnimationFrame(f) }; requestAnimationFrame(f) }
+    const go = (i) => {
+      sts.forEach((li, k) => { li.classList.toggle('on', k === i); li.classList.toggle('done', k < i) })
+      if (getComputedStyle(rail).display === 'none') return
+      const tr = track.getBoundingClientRect(), r = sts[i].getBoundingClientRect(), x = r.left + r.width / 2 - tr.left, y = rail.offsetTop + 1
+      fill.style.width = x + 'px'
+      chip.style.opacity = '1'; chip.style.transform = `translate(${(x - chip.offsetWidth / 2).toFixed(1)}px, ${(y - chip.offsetHeight / 2).toFixed(1)}px)`
+    }
+    const reset = () => { sts.forEach(li => li.classList.remove('on', 'done')); fill.style.width = '0'; chip.style.opacity = '0'; if (tmr) tmr.textContent = '00:00' }
+    addEventListener('resize', () => { const i = sts.findIndex(li => li.classList.contains('on')); if (i >= 0) { chip.style.transition = 'none'; fill.style.transition = 'none'; go(i); requestAnimationFrame(() => { chip.style.transition = fill.style.transition = '' }) } })
+    ;(async () => {
+      if (reduce) { sts.forEach(li => li.classList.add('done')); if (tmr) tmr.textContent = '06:40'; return }
+      for (;;) {
+        await wait(400)
+        for (let i = 0; i < sts.length; i++) { go(i); if (i === 1) runTimer(+tmr?.dataset.t || 400, 1900); await wait(i === 1 ? 2300 : 1800) }
+        await wait(2400); reset(); await wait(1300)
+      }
+    })()
+  }
+
+  // ---------- xodimlar boti — bir marta ketma-ket
+  const sp = $('#staffPhone')
+  if (sp) {
+    const btn = $('#sbBtn')
+    const tap = () => { btn?.classList.add('tap'); setTimeout(() => { if (btn) { btn.classList.add('done'); btn.textContent = '✅ Qabul qilindi · 18:04' } }, 650) }
+    if (reduce) tap()
+    else { sp.classList.add('armed'); once(sp, () => { sp.classList.add('play'); setTimeout(tap, 6400) }, .35) }
+  }
+
+  // ---------- solishtirish
+  const checks = $$('#checks input'), score = $('.score')
+  if (checks.length && score) {
+    const you = $('#scYou'), bar = $('#scBarYou'), msg = $('#scMsg'), name = score.dataset.platform || 'Biz'
+    const text = (n) => n === 0 ? 'Belgilashni boshlang — farq shu yerda ko\'rinadi.'
+      : n < 5 ? `Ko'p ish hali qo'lda yoki alohida dasturlarda. ${name}da bularning hammasi bitta tizimda.`
+        : n < 9 ? `Yaxshi! Qolgan ${10 - n} tasi uchun alohida dastur yoki qo'l mehnati kerak bo'lyapti — ${name}da hammasi bor.`
+          : `Zo'r dastur! Endi narxni solishtiring: ${name}da server, domen va yangilanishlar narx ichida.`
+    const upd = () => { const n = checks.filter(c => c.checked).length; tween(you, n, { dur: 500 }); bar.style.width = n * 10 + '%'; msg.textContent = text(n) }
+    checks.forEach(c => c.addEventListener('change', upd))
+  }
+
+  // ---------- diagrammalar, vaqt chizig'i — bir marta
   once($('#charts'), () => $('#charts').classList.add('in'), .25)
   const tl = $('#timeline')
   if (tl && !reduce && innerWidth > 1080) { tl.classList.add('armed'); once(tl, () => tl.classList.add('in'), .4) }
-  const phone = $('#phone')
-  if (phone && !reduce) { phone.classList.add('armed'); once(phone, () => phone.classList.add('play'), .35) }
 
   // ---------- kirish oynasi
   const dlg = $('#loginDlg')

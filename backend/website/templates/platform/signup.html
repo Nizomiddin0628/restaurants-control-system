@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Bepul boshlash — {{ platform }}</title>
-<script>(function(){try{var t=localStorage.getItem('rp.theme');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t}catch(e){}})()</script>
+<script>(function(){var t='dark';try{var s=localStorage.getItem('rp.theme');if(s==='dark'||s==='light')t=s}catch(e){}document.documentElement.dataset.theme=t})()</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Unbounded:wght@500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Unbounded:wght@600;700;800&display=swap">
 <link rel="stylesheet" href="{% static 'platform/platform.css' %}">
 <style>
 .su { min-height: 100dvh; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 520px); gap: clamp(28px, 5vw, 80px); align-items: center; padding-block: 40px; }
-.su-copy h1 { font: 800 clamp(32px, 4vw, 52px)/1.05 var(--display); letter-spacing: -.03em; margin: 22px 0 16px; max-width: 14ch; }
+.su-copy h1 { font: 700 clamp(28px, 3.4vw, 46px)/1.1 var(--display); letter-spacing: -.03em; margin: 22px 0 16px; max-width: 14ch; }
 .su-copy p { color: var(--ink-2); max-width: 46ch; }
 .su-copy ul { list-style: none; padding: 0; margin: 22px 0 0; display: grid; gap: 10px; }
 .su-copy li { padding-left: 26px; position: relative; } .su-copy li::before { content: ""; position: absolute; left: 2px; top: 7px; width: 14px; height: 8px; border-left: 2.5px solid var(--herb); border-bottom: 2.5px solid var(--herb); transform: rotate(-45deg); }

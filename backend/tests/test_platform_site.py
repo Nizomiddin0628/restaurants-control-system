@@ -35,13 +35,14 @@ def test_offer_edit_in_hq_and_landing(client, hq):  # noqa: F811
     assert r.status_code == 200
     html = r.content.decode()
     assert "100" in html and "150" in html and "30 kun bepul" in html
+    assert "Restoraningiz bilan" in html and 'id="solishtirish"' in html and "ko'chirish — bepul" in html   # v44: o'z uslubimiz
     assert hq.get("/api/v1/hq/offer").json()["base_price"] == 100
     r = hq.put("/api/v1/hq/offer", {"currency": "$", "base_price": 120, "ai_price": 180, "trial_days": 14, "free_setup": False,
                                      "includes": ["Server", " ", "Domen"], "telegram": "@restopos_uz", "price_note": "oyiga"})
     assert r.status_code == 200, r.content
     assert r.json()["includes"] == ["Server", "Domen"] and r.json()["telegram"] == "restopos_uz"
     html = client.get("/", **PUB).content.decode()
-    assert "180" in html and "14 kun bepul" in html and "Aksiya:" not in html and "t.me/restopos_uz" in html
+    assert "180" in html and "14 kun bepul" in html and "Aksiya:" not in html and "ko'chirish — bepul" not in html and "t.me/restopos_uz" in html
     assert "14 kun bepul" in client.get("/signup/", **PUB).content.decode()
     assert hq.put("/api/v1/hq/offer", {"base_price": 0, "ai_price": 10}).status_code == 400
 
